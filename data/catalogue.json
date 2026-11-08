@@ -1,6 +1,7 @@
 {
- "note": "EXAMPLE catalogue - replace with Robert's real songs",
+ "note": "First 5 songs (real: true) are Robert's real songs. The rest are EXAMPLE songs to be replaced.",
  "genres": [
+  "Robert's Originals",
   "Hip Hop",
   "Jazz",
   "Blues",
@@ -13,6 +14,244 @@
   "Cinematic"
  ],
  "songs": [
+  {
+   "id": "rm-0001",
+   "title": "Off the Clock",
+   "artist": "Robert Monther",
+   "genre": "Robert's Originals",
+   "mood": "Laid-back",
+   "bpm": 83,
+   "key": "B minor",
+   "duration": 138,
+   "audio": "media/audio/song-01-off-the-clock.mp3",
+   "art": "media/covers/song-01-art.jpg",
+   "video": "media/shorts/song-01.mp4",
+   "poster": "media/covers/song-01-poster.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Part 2",
+     "start": 40
+    },
+    {
+     "name": "Part 3",
+     "start": 72
+    },
+    {
+     "name": "Outro",
+     "start": 104
+    }
+   ],
+   "sectionsEstimated": true,
+   "bestPart": 72,
+   "explicit": false,
+   "published": "2026-11-04",
+   "hue": 0,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "example": false,
+   "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+  },
+  {
+   "id": "rm-0002",
+   "title": "The Skeleton Key",
+   "artist": "Robert Monther",
+   "genre": "Robert's Originals",
+   "mood": "Driving",
+   "bpm": 152,
+   "key": "D minor",
+   "duration": 224,
+   "audio": "media/audio/song-02-the-skeleton-key.mp3",
+   "art": "media/covers/song-02-art.jpg",
+   "video": "media/shorts/song-02.mp4",
+   "poster": "media/covers/song-02-poster.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Part 2",
+     "start": 40
+    },
+    {
+     "name": "Part 3",
+     "start": 88
+    },
+    {
+     "name": "Part 4",
+     "start": 136
+    },
+    {
+     "name": "Part 5",
+     "start": 160
+    },
+    {
+     "name": "Outro",
+     "start": 200
+    }
+   ],
+   "sectionsEstimated": true,
+   "bestPart": 88,
+   "explicit": false,
+   "published": "2026-11-05",
+   "hue": 1,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "example": false,
+   "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+  },
+  {
+   "id": "rm-0003",
+   "title": "Those Billions",
+   "artist": "Robert Monther",
+   "genre": "Robert's Originals",
+   "mood": "Confident",
+   "bpm": 117,
+   "key": "A minor",
+   "duration": 200,
+   "audio": "media/audio/song-03-those-billions.mp3",
+   "art": "media/covers/song-03-art.jpg",
+   "video": "media/shorts/song-03.mp4",
+   "poster": "media/covers/song-03-poster.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Part 2",
+     "start": 40
+    },
+    {
+     "name": "Part 3",
+     "start": 72
+    },
+    {
+     "name": "Part 4",
+     "start": 112
+    },
+    {
+     "name": "Part 5",
+     "start": 136
+    },
+    {
+     "name": "Outro",
+     "start": 160
+    }
+   ],
+   "sectionsEstimated": true,
+   "bestPart": 72,
+   "explicit": false,
+   "published": "2026-11-06",
+   "hue": 2,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "example": false,
+   "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+  },
+  {
+   "id": "rm-0004",
+   "title": "Count to Three",
+   "artist": "Robert Monther",
+   "genre": "Robert's Originals",
+   "mood": "Groovy",
+   "bpm": 96,
+   "key": "A minor",
+   "duration": 139,
+   "audio": "media/audio/song-04-count-to-three.mp3",
+   "art": "media/covers/song-04-art.jpg",
+   "video": "media/shorts/song-04.mp4",
+   "poster": "media/covers/song-04-poster.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Part 2",
+     "start": 32
+    },
+    {
+     "name": "Part 3",
+     "start": 56
+    },
+    {
+     "name": "Part 4",
+     "start": 80
+    },
+    {
+     "name": "Outro",
+     "start": 104
+    }
+   ],
+   "sectionsEstimated": true,
+   "bestPart": 56,
+   "explicit": false,
+   "published": "2026-11-07",
+   "hue": 0,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "example": false,
+   "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+  },
+  {
+   "id": "rm-0005",
+   "title": "If We Burn",
+   "artist": "Robert Monther",
+   "genre": "Robert's Originals",
+   "mood": "Brooding",
+   "bpm": 78,
+   "key": "G minor",
+   "duration": 190,
+   "audio": "media/audio/song-05-if-we-burn.mp3",
+   "art": "media/covers/song-05-art.jpg",
+   "video": "media/shorts/song-05.mp4",
+   "poster": "media/covers/song-05-poster.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Part 2",
+     "start": 40
+    },
+    {
+     "name": "Part 3",
+     "start": 64
+    },
+    {
+     "name": "Part 4",
+     "start": 112
+    },
+    {
+     "name": "Part 5",
+     "start": 136
+    },
+    {
+     "name": "Outro",
+     "start": 160
+    }
+   ],
+   "sectionsEstimated": true,
+   "bestPart": 64,
+   "explicit": false,
+   "published": "2026-11-08",
+   "hue": 1,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "example": false,
+   "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+  },
   {
    "id": "vl-0001",
    "title": "Quiet Tide",

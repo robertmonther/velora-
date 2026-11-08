@@ -58,3 +58,13 @@ See `docs/ADDING-SONGS.md`.
 - Final name and domain
 
 Full technical specification: `docs/Velora-Technical-Spec.pdf` is kept outside the repo; ask for it or see the chat.
+
+## Robert's real songs (added 8 Nov 2026)
+
+The first five catalogue entries (`real: true`, ids `rm-0001`…`rm-0005`) are Robert's real songs:
+Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
+
+- Files live in `media/audio/` (MP3), `media/covers/` (`*-art.jpg` cover, `*-poster.jpg` video poster) and `media/shorts/` (vertical MP4 videos).
+- They appear first in the home page, the library (genre "Robert's Originals"), Velora Radio (played in order first, then mixed with the rotation) and the Shorts/Videos section (click to watch).
+- BPM, key, mood and section times are automatic estimates (`sectionsEstimated: true`). Edit them in `data/catalogue.json`, then regenerate `data/catalogue.js` (it is `window.VELORA_DATA=` + the same JSON).
+- **Hosting:** on localhost, media loads from the local folder. On the hosted site, `app.js` loads audio, covers and videos from this GitHub repo through the jsDelivr CDN (`https://cdn.jsdelivr.net/gh/robertmonther/velora-@main/`), so the Vercel deployment only needs `index.html`, `styles.css`, `app.js`, `data/catalogue.js` and `vercel.json`. Change `MEDIA_BASE` in `app.js` if media moves elsewhere (it requires the repo to stay public).
