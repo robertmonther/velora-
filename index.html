@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Velora — Robert's song library</title>
+<meta name="description" content="Velora: the full-song library of Robert's music. Listen to whole songs, rent a track for your content, buy usage rights, or subscribe to the whole library.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="demo-banner" role="note">Prototype preview. Songs, prices and links are example data. Checkout is a demo and charges nothing.</div>
+<header class="topbar">
+  <a class="brand" href="#/" aria-label="Velora home"><span class="logo-dot"></span>Velora</a>
+  <nav aria-label="Main">
+    <a href="#/">Home</a><a href="#/library">Library</a><a href="#/radio">Radio</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
+  </nav>
+  <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" placeholder="Search songs, genres, moods"></div>
+</header>
+<main id="main" tabindex="-1"></main>
+<footer class="footer">
+  <div>
+    <strong>Velora</strong> (working name). Lyrics, concepts and song design by Robert. Music made with Suno (AI-assisted).
+  </div>
+  <div class="channels" aria-label="Channels">
+    <a href="#" data-todo>Spotify</a><a href="#" data-todo>Apple Music</a><a href="#" data-todo>YouTube Radio</a><a href="#" data-todo>Instagram</a><a href="#" data-todo>TikTok</a><a href="#" data-todo>X</a>
+  </div>
+  <div class="muted small">Channel links are placeholders until Robert adds the real addresses.</div>
+</footer>
+
+<div class="player" id="player" aria-label="Player">
+  <div class="p-left">
+    <div class="p-cover" id="pCover"></div>
+    <div><div class="p-title" id="pTitle">Pick a song</div><div class="p-meta muted" id="pMeta">Whole songs, never snippets</div></div>
+  </div>
+  <div class="p-center">
+    <div class="p-controls">
+      <button class="icon" id="pPrev" aria-label="Previous">⏮</button>
+      <button class="icon play" id="pPlay" aria-label="Play">▶</button>
+      <button class="icon" id="pNext" aria-label="Next">⏭</button>
+      <button class="chip" id="pBest">Jump to best part</button>
+    </div>
+    <div class="p-timeline">
+      <span id="pCur" class="time">0:00</span>
+      <div class="track" id="pTrack" role="slider" tabindex="0" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="wave" id="pWave"></div>
+        <div class="fill" id="pFill"></div>
+        <div class="sections" id="pSections"></div>
+      </div>
+      <span id="pDur" class="time">0:00</span>
+    </div>
+  </div>
+  <div class="p-right"><button class="btn primary" id="pLicense">License this song</button></div>
+</div>
+
+<div class="modal-back" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <button class="icon close" id="mClose" aria-label="Close">✕</button>
+    <div id="mBody"></div>
+  </div>
+</div>
+<audio id="audio" preload="metadata"></audio>
+<script src="data/catalogue.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
