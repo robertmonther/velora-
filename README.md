@@ -95,4 +95,4 @@ Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
 - Categories: Soft Sensual (BAREFOOT, Obey Me); Pop (Live Footage of Me Ruining This, a new category); Explicit Sensual, 18+ (USED, Your Eyes Still Own Me, She's Better).
 - Section names follow the lyrics; their times, the BPM and the key are automatic estimates. `created` holds the Suno creation date read from each file.
 - No covers yet: the player shows the title on a coloured card until the Suno covers are added.
-- **18+ check:** explicit songs ask "Are you 18 or older?" once before playing (remembered on the device) and stay out of Stream, Play all, the radio and suggestions until then.
+- **Explicit songs:** an "E" badge next to the artist (like Spotify) and "Explicit lyrics" in the song facts. No age question: they play like every other song (Robert's decision, 9 Nov 2026).

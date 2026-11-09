@@ -18,14 +18,14 @@ const RADIO = [
  {from:14,to:18,name:"Afternoon Energy",genres:["Hip Hop","Trend (Arena)"],mood:"Confident"},
  {from:18,to:22,name:"Golden Evening",genres:["Blues","Cinematic"],mood:"Melancholic"},
  {from:22,to:26,name:"After Dark",genres:["Soft Sensual","Soul"],mood:"Romantic"},
- {from:2,to:6,name:"Late Night (18+)",genres:["Explicit Sensual","Lo-fi"],mood:"Late night"}
+ {from:2,to:6,name:"Late Night",genres:["Explicit Sensual","Lo-fi"],mood:"Late night"}
 ];
 const fmt = t => { t=Math.max(0,Math.floor(t||0)); return Math.floor(t/60)+":"+String(t%60).padStart(2,"0"); };
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
 const icon = (name, cls="") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const coverStyle = s => { if(s.art) return `background:#141418 url('${url(s.art)}') center/cover no-repeat`; const p=PAL[s.hue||0]; const a=GENRE_ANGLE[s.genre]||0; return `background:radial-gradient(circle at ${30+(a%60)}% ${25+(a%40)}%, ${p[0]} 0%, transparent 60%),linear-gradient(${a}deg, ${p[1]}, #141418 80%), ${p[0]}`; };
-const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.explicit?'<span class="tag">18+</span>':""}${s.real?'<span class="tag new">Robert original</span>':""}<span>${esc(s.title)}</span></div>`;
+const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.real?'<span class="tag new">Robert original</span>':""}<span>${esc(s.title)}</span></div>`;
 const byId = id => S.find(s=>s.id===id);
 const artistOf = s => s.artist || "Robert Mo";
 const hasLyrics = s => !!(s.lyrics && !/coming soon|placeholder/i.test(s.lyrics));
@@ -34,20 +34,8 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
-// 18+ songs: ask once before playing explicit lyrics, and keep them out of automatic lists until then.
-let adult = !!store.get("velora_18", false);
-const okFor = s => !s.explicit || adult;
-const clean = list => adult ? list.slice() : list.filter(s=>!s.explicit);
-function askAge(then){
-  const m=$("#modal"), b=$("#mBody");
-  b.innerHTML=`<h2 id="mTitle">18+ song</h2><p>This song has explicit adult lyrics. Are you 18 or older?</p>
-  <div class="row" style="margin-top:16px"><button class="btn primary" id="ageYes" type="button">Yes, I'm 18+</button><button class="btn ghost" id="ageNo" type="button">No, go back</button></div>
-  <p class="muted small" style="margin-top:12px">Your answer is remembered on this device.</p>`;
-  m.hidden=false; m.querySelector(".modal").scrollTop=0;
-  $("#ageYes").onclick=()=>{ adult=true; store.set("velora_18",true); closeM(); then(); };
-  $("#ageNo").onclick=closeM;
-  setTimeout(()=>{ try{ $("#ageYes").focus(); }catch(e){} },30);
-}
+// Explicit songs carry an "E" badge, like Spotify, and play like every other song (Robert's decision, 9 Nov).
+const eb = s => s.explicit ? '<span class="e-badge" title="Explicit lyrics" aria-label="Explicit">E</span>' : "";
 
 // ---------- Colour from the cover (Spotify-style background) ----------
 function hexToHsl(hex){
@@ -89,7 +77,6 @@ let queue = S.slice(), qi = -1, current = null, mode = "library", source = "Robe
 let npOpen = false, videoOn = false, lastSec = -1, lastPos = 0, lastFocus = null, pendingHash = null;
 
 function load(song, autoplay=true, at=0){
-  if(!okFor(song)){ askAge(()=>load(song,autoplay,at)); return; }
   current = song; qi = queue.indexOf(song); if(qi<0){ queue=[song]; qi=0; }
   audio.src = url(song.audio);
   audio.addEventListener("loadedmetadata", function f(){ audio.removeEventListener("loadedmetadata",f); if(at) audio.currentTime = at; }, {once:true});
@@ -98,8 +85,7 @@ function load(song, autoplay=true, at=0){
   paintMini(song); renderNP(song); applyTheme(song); setMediaSession(song); paintBars(); setPlayIcons();
 }
 function playFrom(list, song, label, at=0, after=null){
-  if(!okFor(song)){ askAge(()=>playFrom(list,song,label,at,after)); return; }
-  mode="library"; queue=clean(list); if(!queue.includes(song)) queue.unshift(song); source=label; load(song,true,at);
+  mode="library"; queue=list.slice(); if(!queue.includes(song)) queue.unshift(song); source=label; load(song,true,at);
   if(after) after();
 }
 function togglePlay(){ if(!current){ startStream(); return; } if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); }
@@ -113,16 +99,16 @@ function next(){
 }
 function prev(){ if(!current) return; if(audio.currentTime>3 || qi<=0){ audio.currentTime=0; return; } load(queue[qi-1]); }
 function bestPart(){ if(current){ audio.currentTime=current.bestPart||0; audio.play().catch(()=>{}); } }
-function startStream(){ if(!current){ const list=clean(REAL).length?clean(REAL):clean(S); playFrom(list, list[0], REAL.length?"Robert's songs":"Velora"); } openNP(); }
+function startStream(){ if(!current){ const list=REAL.length?REAL:S; playFrom(list, list[0], REAL.length?"Robert's songs":"Velora"); } openNP(); }
 function suggestions(s,n=8){
   const score = x => (x.real?3:0)+(x.genre===s.genre?2:0)+(x.mood===s.mood?1:0);
-  return S.filter(x=>x!==s && okFor(x)).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
+  return S.filter(x=>x!==s).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
 }
 
 function paintMini(s){
   $("#miniCover").setAttribute("style", coverStyle(s));
   $("#miniTitle").textContent = s.title;
-  $("#miniSub").textContent = artistOf(s) + (mode==="radio" ? " · Velora Radio" : "");
+  $("#miniSub").innerHTML = eb(s) + esc(artistOf(s)) + (mode==="radio" ? " · Velora Radio" : "");
   paintTicks($("#miniBar"), s);
 }
 function paintTicks(bar, s){ const d=s.duration||1; bar.querySelector(".bar-ticks").innerHTML = s.sections.filter(x=>x.start>0).map(x=>`<i style="left:${x.start/d*100}%"></i>`).join(""); }
@@ -165,7 +151,7 @@ function renderNP(s){
   $("#npFrom").textContent = mode==="radio" ? "Velora Radio" : source;
   const art=$("#npArt"); art.setAttribute("style",coverStyle(s)); art.setAttribute("aria-label","Cover of "+s.title);
   art.innerHTML = s.art ? "" : `<span class="np-art-title">${esc(s.title)}</span>`; // songs without a cover yet show their title
-  $("#npTitle").textContent=s.title; $("#npArtist").textContent=artistOf(s);
+  $("#npTitle").textContent=s.title; $("#npArtist").innerHTML=eb(s)+esc(artistOf(s));
   paintTicks($("#npBar"), s);
   const d=s.duration;
   $("#npSections").innerHTML = s.sections.map((x,j)=>{ const end=(s.sections[j+1]||{start:d}).start, best=x.start===s.bestPart;
@@ -193,7 +179,7 @@ function licenseCard(s){
 }
 function aboutCard(s){
   return `<div class="np-card"><div class="card-h"><span>About the song</span></div>
-    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${s.bpm||"–"}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit (18+)":"Clean"}</div></div>
+    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${s.bpm||"–"}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
     <p class="small" style="margin:0 0 12px">${esc(artistOf(s))}. Lyrics, concept and song design by Robert; music made with Suno (AI-assisted).</p>
     <a class="btn ghost sm" href="#/song/${s.id}" data-close-np>Open the song page</a></div>`;
 }
@@ -202,7 +188,7 @@ function nextCard(s){
   return `<div class="np-card">${up?`<div class="card-h"><span>Up next</span></div><div class="rows">${srow(up,"queue")}</div>`:""}
     <div class="card-h"${up?' style="margin-top:14px"':""}><span>More like this</span></div><div class="rows">${suggestions(s).map(x=>srow(x,"sug")).join("")}</div></div>`;
 }
-const srow = (x,kind) => `<button type="button" class="srow" data-${kind}="${x.id}"><span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>${icon("play","srow-i")}</button>`;
+const srow = (x,kind) => `<button type="button" class="srow" data-${kind}="${x.id}"><span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${eb(x)}${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>${icon("play","srow-i")}</button>`;
 $("#npCards").addEventListener("click",e=>{
   if(e.target.closest("#npVideoBtn")){ startVideo(); return; }
   const more=e.target.closest("#npLyrMore"); if(more){ $("#npLyr").textContent=current.lyrics; more.remove(); return; }
@@ -278,10 +264,10 @@ let radioMood = null;
 let radioRealIdx = 0;
 function radioPick(){
   // Robert's real songs play in order, then alternate with the example rotation.
-  const R=clean(REAL);
+  const R=REAL;
   if(R.length && !radioMood && (radioRealIdx < R.length || Math.random()<0.6)){ const s=R[radioRealIdx % R.length]; radioRealIdx++; return s; }
-  const slot=slotNow(); let pool=clean(S).filter(s=> radioMood ? s.mood===radioMood : (slot.genres.includes(s.genre)||s.real)); if(!pool.length) pool=clean(S);
-  pool=pool.filter(s=>s!==current); if(!pool.length) pool=clean(S);
+  const slot=slotNow(); let pool=S.filter(s=> radioMood ? s.mood===radioMood : (slot.genres.includes(s.genre)||s.real)); if(!pool.length) pool=S;
+  pool=pool.filter(s=>s!==current); if(!pool.length) pool=S;
   return pool[Math.floor(Math.random()*pool.length)];
 }
 function startRadio(){ mode="radio"; source="Velora Radio"; queue=S.slice(); if(!radioMood) radioRealIdx=0; load(radioPick()); }
@@ -327,7 +313,7 @@ document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; if(!$("#mo
 
 // ---------- Views ----------
 const card = s => `<article class="card">${cover(s)}<button class="playbtn" data-play="${s.id}" aria-label="Play ${esc(s.title)}">${icon("play")}</button>
- <h3><a href="#/song/${s.id}">${esc(s.title)}</a></h3><div class="meta">${esc(s.genre)} · ${esc(s.mood)} · ${fmt(s.duration)}</div>
+ <h3><a href="#/song/${s.id}">${esc(s.title)}</a></h3><div class="meta">${eb(s)}${esc(s.genre)} · ${esc(s.mood)} · ${fmt(s.duration)}</div>
  <div class="actions"><button class="btn ghost" data-play="${s.id}">Play</button><button class="btn primary" data-lic="${s.id}">License</button></div></article>`;
 
 function home(){
@@ -400,8 +386,8 @@ function song(id){
   const s=byId(id); if(!s){ main.innerHTML="<h1>Song not found</h1>"; return; }
   const d=s.duration;
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
-   <div class="muted small">${esc(s.genre)} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1><div class="muted">${esc(artistOf(s))}</div>
-   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${s.bpm}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Released</b>${s.published}</div><div class="fact"><b>Content</b>${s.explicit?"Explicit (18+)":"Clean"}</div></div>
+   <div class="muted small">${esc(s.genre)} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1><div class="muted">${eb(s)}${esc(artistOf(s))}</div>
+   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${s.bpm}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Released</b>${s.published}</div><div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
    <div class="row"><button class="btn primary" data-play="${s.id}" data-np>${icon("play")}Play full song</button><button class="btn red" data-lic="${s.id}">Rent ${PRICES.rent.price}</button><button class="btn blue" data-lic="${s.id}" data-pre="buy">Buy rights ${PRICES.buy.price}</button>${s.video?`<button class="btn ghost" data-video="${s.id}">Watch video</button>`:""}</div>${s.analysisNote?`<p class="muted small">${esc(s.analysisNote)}</p>`:""}
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Click to jump there.${s.sectionsEstimated?" Parts are estimated from the song's energy.":""}</p>
     <div class="schedule">${s.sections.map((x,j)=>`<button class="slot" style="border:0;color:inherit;cursor:pointer;font:inherit" data-play="${s.id}" data-at="${x.start}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((s.sections[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>

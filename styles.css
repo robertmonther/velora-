@@ -245,3 +245,5 @@ h2{font-size:24px}
  .np-facts{grid-template-columns:repeat(2,1fr)}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* "E" badge for explicit lyrics, like Spotify */
+.e-badge{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:3px;background:rgba(255,255,255,.62);color:#121214;font:700 10px/1 var(--font);margin-right:6px;vertical-align:1px}
