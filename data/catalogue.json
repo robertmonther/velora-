@@ -1196,7 +1196,7 @@
    "tags": [],
    "art": "media/covers/song-06-art.jpg",
    "lyricsNote": "Written down from the recording. Robert will check every word.",
-   "color": "#ead7c8"
+   "color": "#e8ccb8"
   },
   {
    "id": "rm-0007",
@@ -1714,7 +1714,7 @@
    "tags": [],
    "art": "media/covers/song-08-art.jpg",
    "lyricsNote": "Written down from the recording. Robert will check every word.",
-   "color": "#6e141c"
+   "color": "#4f0d13"
   },
   {
    "id": "rm-0009",
@@ -2002,7 +2002,7 @@
    ],
    "art": "media/covers/song-09-art.jpg",
    "lyricsNote": "Written down from the recording. Robert will check every word.",
-   "color": "#2d1830"
+   "color": "#4d0c17"
   },
   {
    "id": "rm-0010",
@@ -2327,7 +2327,7 @@
    "tags": [],
    "art": "media/covers/song-10-art.jpg",
    "lyricsNote": "Written down from the recording. Robert will check every word.",
-   "color": "#6c121b"
+   "color": "#4c1219"
   },
   {
    "id": "rm-0011",
@@ -2568,7 +2568,7 @@
    "tags": [],
    "art": "media/covers/song-11-art.jpg",
    "lyricsNote": "Written down from the recording. Robert will check every word.",
-   "color": "#f0ad75"
+   "color": "#311b14"
   }
  ]
 }
