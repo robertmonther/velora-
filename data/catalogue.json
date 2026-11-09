@@ -11,7 +11,8 @@
   "Trend (Arena)",
   "Soul",
   "Lo-fi",
-  "Cinematic"
+  "Cinematic",
+  "Pop"
  ],
  "songs": [
   {
@@ -256,6 +257,352 @@
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#b6d2e5"
+  },
+  {
+   "id": "rm-0006",
+   "title": "BAREFOOT",
+   "artist": "Robert Monther",
+   "genre": "Soft Sensual",
+   "mood": "Dreamy",
+   "bpm": 72,
+   "key": "Bb major",
+   "duration": 231,
+   "audio": "media/audio/song-06-barefoot.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 15
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 59
+    },
+    {
+     "name": "Chorus",
+     "start": 73
+    },
+    {
+     "name": "Verse 2",
+     "start": 107
+    },
+    {
+     "name": "Pre-Chorus 2",
+     "start": 133
+    },
+    {
+     "name": "Chorus 2",
+     "start": 146
+    },
+    {
+     "name": "Bridge",
+     "start": 186
+    },
+    {
+     "name": "Outro",
+     "start": 199
+    }
+   ],
+   "bestPart": 73,
+   "explicit": false,
+   "published": "2026-05-31",
+   "created": "2026-05-31",
+   "hue": 2,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
+  },
+  {
+   "id": "rm-0007",
+   "title": "Live Footage of Me Ruining This",
+   "artist": "Robert Monther",
+   "genre": "Pop",
+   "mood": "Melancholic",
+   "bpm": 76,
+   "key": "G minor",
+   "duration": 228,
+   "audio": "media/audio/song-07-live-footage-of-me-ruining-this.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 16
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 30
+    },
+    {
+     "name": "Chorus",
+     "start": 55
+    },
+    {
+     "name": "Verse 2",
+     "start": 80
+    },
+    {
+     "name": "Pre-Chorus 2",
+     "start": 99
+    },
+    {
+     "name": "Chorus 2",
+     "start": 112
+    },
+    {
+     "name": "Bridge",
+     "start": 137
+    },
+    {
+     "name": "Final Chorus",
+     "start": 184
+    },
+    {
+     "name": "Outro",
+     "start": 205
+    }
+   ],
+   "bestPart": 55,
+   "explicit": false,
+   "published": "2026-05-31",
+   "created": "2026-05-31",
+   "hue": 0,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
+  },
+  {
+   "id": "rm-0008",
+   "title": "USED",
+   "artist": "Robert Monther",
+   "genre": "Explicit Sensual",
+   "mood": "Late night",
+   "bpm": 78,
+   "key": "Bb minor",
+   "duration": 171,
+   "audio": "media/audio/song-08-used.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 18
+    },
+    {
+     "name": "Chorus",
+     "start": 42
+    },
+    {
+     "name": "Verse 2",
+     "start": 80
+    },
+    {
+     "name": "Chorus 2",
+     "start": 106
+    },
+    {
+     "name": "Outro",
+     "start": 150
+    }
+   ],
+   "bestPart": 42,
+   "explicit": true,
+   "published": "2026-06-12",
+   "created": "2026-06-12",
+   "hue": 1,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
+  },
+  {
+   "id": "rm-0009",
+   "title": "Your Eyes Still Own Me",
+   "artist": "Robert Monther",
+   "genre": "Explicit Sensual",
+   "mood": "Romantic",
+   "bpm": 76,
+   "key": "C major",
+   "duration": 227,
+   "audio": "media/audio/song-09-your-eyes-still-own-me.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 23
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 60
+    },
+    {
+     "name": "Chorus",
+     "start": 68
+    },
+    {
+     "name": "Verse 2",
+     "start": 103
+    },
+    {
+     "name": "Pre-Chorus 2",
+     "start": 130
+    },
+    {
+     "name": "Chorus 2",
+     "start": 145
+    },
+    {
+     "name": "Final Chorus",
+     "start": 166
+    },
+    {
+     "name": "Outro",
+     "start": 194
+    }
+   ],
+   "bestPart": 68,
+   "explicit": true,
+   "published": "2026-06-12",
+   "created": "2026-06-12",
+   "hue": 2,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
+  },
+  {
+   "id": "rm-0010",
+   "title": "Obey Me",
+   "artist": "Robert Monther",
+   "genre": "Soft Sensual",
+   "mood": "Confident",
+   "bpm": 108,
+   "duration": 200,
+   "audio": "media/audio/song-10-obey-me.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 19
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 39
+    },
+    {
+     "name": "Chorus",
+     "start": 47
+    },
+    {
+     "name": "Verse 2",
+     "start": 74
+    },
+    {
+     "name": "Pre-Chorus 2",
+     "start": 83
+    },
+    {
+     "name": "Chorus 2",
+     "start": 92
+    },
+    {
+     "name": "Bridge",
+     "start": 121
+    },
+    {
+     "name": "Final Chorus",
+     "start": 138
+    },
+    {
+     "name": "Outro",
+     "start": 169
+    }
+   ],
+   "bestPart": 92,
+   "explicit": false,
+   "published": "2026-06-12",
+   "created": "2026-06-12",
+   "hue": 1,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
+  },
+  {
+   "id": "rm-0011",
+   "title": "She's Better",
+   "artist": "Robert Monther",
+   "genre": "Explicit Sensual",
+   "mood": "Tense",
+   "bpm": 76,
+   "duration": 242,
+   "audio": "media/audio/song-11-shes-better.mp3",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 15
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 40
+    },
+    {
+     "name": "Chorus",
+     "start": 55
+    },
+    {
+     "name": "Verse 2",
+     "start": 85
+    },
+    {
+     "name": "Pre-Chorus 2",
+     "start": 111
+    },
+    {
+     "name": "Chorus 2",
+     "start": 125
+    },
+    {
+     "name": "Bridge",
+     "start": 160
+    },
+    {
+     "name": "Final Chorus",
+     "start": 183
+    },
+    {
+     "name": "Outro",
+     "start": 219
+    }
+   ],
+   "bestPart": 55,
+   "explicit": true,
+   "published": "2026-06-12",
+   "created": "2026-06-12",
+   "hue": 0,
+   "lyrics": "Lyrics coming soon.",
+   "real": true,
+   "provenance": "Made with Suno; the original song file records its creation date",
+   "analysisNote": "Section names follow the lyrics; their times, the BPM and the key were found automatically and can be a second or two off. Robert can correct them in data/catalogue.json."
   },
   {
    "id": "vl-0001",

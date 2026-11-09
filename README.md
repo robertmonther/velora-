@@ -86,3 +86,13 @@ Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
 - They appear first in the home page, the library (genre "Robert's Originals"), Velora Radio (played in order first, then mixed with the rotation) and the Shorts/Videos section (click to watch).
 - BPM, key, mood and section times are automatic estimates (`sectionsEstimated: true`). Edit them in `data/catalogue.json`, then regenerate `data/catalogue.js` (it is `window.VELORA_DATA=` + the same JSON).
 - **Hosting:** on localhost, media loads from the local folder. On the hosted site, `app.js` loads audio, covers and videos from this GitHub repo through the jsDelivr CDN (`https://cdn.jsdelivr.net/gh/robertmonther/velora-@main/`), so the Vercel deployment only needs `index.html`, `styles.css`, `app.js`, `data/catalogue.js` and `vercel.json`. Change `MEDIA_BASE` in `app.js` if media moves elsewhere (it requires the repo to stay public).
+
+### Six more songs (added 9 Nov 2026 by Claude)
+
+`rm-0006` to `rm-0011`: BAREFOOT, Live Footage of Me Ruining This, USED, Your Eyes Still Own Me, Obey Me, She's Better.
+
+- Converted from Robert's Suno WAV files to web MP3s (about 120 kbps) with title, artist and copyright inside each file. The WAVs stay with Robert as the clean files for buyers.
+- Categories: Soft Sensual (BAREFOOT, Obey Me); Pop (Live Footage of Me Ruining This, a new category); Explicit Sensual, 18+ (USED, Your Eyes Still Own Me, She's Better).
+- Section names follow the lyrics; their times, the BPM and the key are automatic estimates. `created` holds the Suno creation date read from each file.
+- No covers yet: the player shows the title on a coloured card until the Suno covers are added.
+- **18+ check:** explicit songs ask "Are you 18 or older?" once before playing (remembered on the device) and stay out of Stream, Play all, the radio and suggestions until then.

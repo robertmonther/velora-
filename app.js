@@ -34,6 +34,20 @@ const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
+// 18+ songs: ask once before playing explicit lyrics, and keep them out of automatic lists until then.
+let adult = !!store.get("velora_18", false);
+const okFor = s => !s.explicit || adult;
+const clean = list => adult ? list.slice() : list.filter(s=>!s.explicit);
+function askAge(then){
+  const m=$("#modal"), b=$("#mBody");
+  b.innerHTML=`<h2 id="mTitle">18+ song</h2><p>This song has explicit adult lyrics. Are you 18 or older?</p>
+  <div class="row" style="margin-top:16px"><button class="btn primary" id="ageYes" type="button">Yes, I'm 18+</button><button class="btn ghost" id="ageNo" type="button">No, go back</button></div>
+  <p class="muted small" style="margin-top:12px">Your answer is remembered on this device.</p>`;
+  m.hidden=false; m.querySelector(".modal").scrollTop=0;
+  $("#ageYes").onclick=()=>{ adult=true; store.set("velora_18",true); closeM(); then(); };
+  $("#ageNo").onclick=closeM;
+  setTimeout(()=>{ try{ $("#ageYes").focus(); }catch(e){} },30);
+}
 
 // ---------- Colour from the cover (Spotify-style background) ----------
 function hexToHsl(hex){
@@ -75,6 +89,7 @@ let queue = S.slice(), qi = -1, current = null, mode = "library", source = "Robe
 let npOpen = false, videoOn = false, lastSec = -1, lastPos = 0, lastFocus = null, pendingHash = null;
 
 function load(song, autoplay=true, at=0){
+  if(!okFor(song)){ askAge(()=>load(song,autoplay,at)); return; }
   current = song; qi = queue.indexOf(song); if(qi<0){ queue=[song]; qi=0; }
   audio.src = url(song.audio);
   audio.addEventListener("loadedmetadata", function f(){ audio.removeEventListener("loadedmetadata",f); if(at) audio.currentTime = at; }, {once:true});
@@ -82,7 +97,11 @@ function load(song, autoplay=true, at=0){
   $("#mini").hidden = false; document.body.classList.add("has-mini");
   paintMini(song); renderNP(song); applyTheme(song); setMediaSession(song); paintBars(); setPlayIcons();
 }
-function playFrom(list, song, label, at=0){ mode="library"; queue=list.slice(); source=label; load(song,true,at); }
+function playFrom(list, song, label, at=0, after=null){
+  if(!okFor(song)){ askAge(()=>playFrom(list,song,label,at,after)); return; }
+  mode="library"; queue=clean(list); if(!queue.includes(song)) queue.unshift(song); source=label; load(song,true,at);
+  if(after) after();
+}
 function togglePlay(){ if(!current){ startStream(); return; } if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); }
 function next(){
   if(!current) return;
@@ -94,10 +113,10 @@ function next(){
 }
 function prev(){ if(!current) return; if(audio.currentTime>3 || qi<=0){ audio.currentTime=0; return; } load(queue[qi-1]); }
 function bestPart(){ if(current){ audio.currentTime=current.bestPart||0; audio.play().catch(()=>{}); } }
-function startStream(){ if(!current){ const list=REAL.length?REAL:S; playFrom(list, list[0], REAL.length?"Robert's songs":"Velora"); } openNP(); }
+function startStream(){ if(!current){ const list=clean(REAL).length?clean(REAL):clean(S); playFrom(list, list[0], REAL.length?"Robert's songs":"Velora"); } openNP(); }
 function suggestions(s,n=8){
   const score = x => (x.real?3:0)+(x.genre===s.genre?2:0)+(x.mood===s.mood?1:0);
-  return S.filter(x=>x!==s).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
+  return S.filter(x=>x!==s && okFor(x)).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
 }
 
 function paintMini(s){
@@ -145,6 +164,7 @@ $("#npSections").addEventListener("click",e=>{ const b=e.target.closest(".sec");
 function renderNP(s){
   $("#npFrom").textContent = mode==="radio" ? "Velora Radio" : source;
   const art=$("#npArt"); art.setAttribute("style",coverStyle(s)); art.setAttribute("aria-label","Cover of "+s.title);
+  art.innerHTML = s.art ? "" : `<span class="np-art-title">${esc(s.title)}</span>`; // songs without a cover yet show their title
   $("#npTitle").textContent=s.title; $("#npArtist").textContent=artistOf(s);
   paintTicks($("#npBar"), s);
   const d=s.duration;
@@ -258,9 +278,10 @@ let radioMood = null;
 let radioRealIdx = 0;
 function radioPick(){
   // Robert's real songs play in order, then alternate with the example rotation.
-  if(REAL.length && !radioMood && (radioRealIdx < REAL.length || Math.random()<0.6)){ const s=REAL[radioRealIdx % REAL.length]; radioRealIdx++; return s; }
-  const slot=slotNow(); let pool=S.filter(s=> radioMood ? s.mood===radioMood : (slot.genres.includes(s.genre)||s.real)); if(!pool.length) pool=S;
-  pool=pool.filter(s=>s!==current); if(!pool.length) pool=S;
+  const R=clean(REAL);
+  if(R.length && !radioMood && (radioRealIdx < R.length || Math.random()<0.6)){ const s=R[radioRealIdx % R.length]; radioRealIdx++; return s; }
+  const slot=slotNow(); let pool=clean(S).filter(s=> radioMood ? s.mood===radioMood : (slot.genres.includes(s.genre)||s.real)); if(!pool.length) pool=clean(S);
+  pool=pool.filter(s=>s!==current); if(!pool.length) pool=clean(S);
   return pool[Math.floor(Math.random()*pool.length)];
 }
 function startRadio(){ mode="radio"; source="Velora Radio"; queue=S.slice(); if(!radioMood) radioRealIdx=0; load(radioPick()); }
@@ -384,7 +405,7 @@ function song(id){
    <div class="row"><button class="btn primary" data-play="${s.id}" data-np>${icon("play")}Play full song</button><button class="btn red" data-lic="${s.id}">Rent ${PRICES.rent.price}</button><button class="btn blue" data-lic="${s.id}" data-pre="buy">Buy rights ${PRICES.buy.price}</button>${s.video?`<button class="btn ghost" data-video="${s.id}">Watch video</button>`:""}</div>${s.analysisNote?`<p class="muted small">${esc(s.analysisNote)}</p>`:""}
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Click to jump there.${s.sectionsEstimated?" Parts are estimated from the song's energy.":""}</p>
     <div class="schedule">${s.sections.map((x,j)=>`<button class="slot" style="border:0;color:inherit;cursor:pointer;font:inherit" data-play="${s.id}" data-at="${x.start}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((s.sections[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>
-   <div class="panel prov"><div class="seal">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.real?esc(s.provenance)+" · added":"Created by Robert Mo with Suno · first published"} <b>${new Date(s.published).toLocaleDateString("en-GB",{dateStyle:"long"})}</b> · catalogue ID ${s.id}</div><div class="muted small">Each license gets a dated certificate you can verify on the Verify page.${s.real?"":" Example data."}</div></div></div>
+   <div class="panel prov"><div class="seal">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.real?(s.created?"Made with Suno · created":esc(s.provenance)+" · added"):"Created by Robert Mo with Suno · first published"} <b>${new Date(s.created||s.published).toLocaleDateString("en-GB",{dateStyle:"long"})}</b> · catalogue ID ${s.id}</div><div class="muted small">Each license gets a dated certificate you can verify on the Verify page.${s.real?"":" Example data."}</div></div></div>
    <div class="panel"><h3>Lyrics</h3><div class="lyrics">${esc(s.lyrics)}</div></div>
   </div></div>
   <div class="section-head"><h2>More ${esc(s.genre)}</h2></div><div class="grid">${S.filter(x=>x.genre===s.genre&&x.id!==s.id).slice(0,5).map(card).join("")}</div>`;
@@ -406,7 +427,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-stream]")){ e.preventDefault(); startStream(); return; }
   const cn=e.target.closest("[data-close-np]"); if(cn){ e.preventDefault(); closeNP(false, cn.getAttribute("href")); return; }
   const v=e.target.closest("[data-video]"); if(v){ e.preventDefault(); openVideo(byId(v.dataset.video)); return; }
-  const p=e.target.closest("[data-play]"); if(p){ e.preventDefault(); const s=byId(p.dataset.play); const list=s.real?REAL:S.filter(x=>x.genre===s.genre); playFrom(list, s, s.real?"Robert's songs":s.genre, +(p.dataset.at||0)); if(p.hasAttribute("data-np")) openNP(); return; }
+  const p=e.target.closest("[data-play]"); if(p){ e.preventDefault(); const s=byId(p.dataset.play); const list=s.real?REAL:S.filter(x=>x.genre===s.genre); playFrom(list, s, s.real?"Robert's songs":s.genre, +(p.dataset.at||0), p.hasAttribute("data-np")?openNP:null); return; }
   const l=e.target.closest("[data-lic]"); if(l){ e.preventDefault(); openLicense(byId(l.dataset.lic), l.dataset.pre||"rent"); return; }
   if(e.target.closest("[data-sub]")){ e.preventDefault(); openLicense(current||S[0],"rent"); setTimeout(()=>{const r=document.querySelector('input[value=sub]'); if(r) r.checked=true;},0); return; }
   if(e.target.closest("[data-todo]")){ e.preventDefault(); }
