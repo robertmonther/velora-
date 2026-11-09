@@ -59,6 +59,9 @@ Example only, in `PRICES` at the top of `app.js`. Robert sets the real ones.
 2. When you finish, add a dated line to the Change log on the Notion page "Velora: song library site" saying what you changed.
 3. Every version stays in GitHub. The branch `before-claude-player` keeps the site exactly as it was before the 9 Nov player work, so going back is one step.
 4. The Vercel preview is deployed from the CLI, not from GitHub: after pushing, redeploy it so the preview link shows the new version.
+5. New or changed media (songs, covers, videos): push them first, then set `MEDIA_REV` at the top of `app.js` to that commit's full ID (`git rev-parse HEAD`) and push again. A jsDelivr `@main` link can stay cached for hours, so without this new covers or songs don't show.
+6. After changing `app.js`, `styles.css` or `data/catalogue.js`, raise the `?v=` number on their lines in `index.html`, so phones don't keep an old copy.
+7. To test a version for sure, use the link with the commit ID: `https://raw.githack.com/robertmonther/velora-/<commit ID>/index.html` (the `main` link can show an older version for a while).
 
 ## Run locally
 ```bash
@@ -86,7 +89,7 @@ Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
 - Files live in `media/audio/` (MP3), `media/covers/` (`*-art.jpg` cover, `*-poster.jpg` video poster) and `media/shorts/` (vertical MP4 videos).
 - They appear first in the home page, the library (genre "Robert's Originals"), Velora Radio (played in order first, then mixed with the rotation) and the Shorts/Videos section (click to watch).
 - BPM, key, mood and section times are automatic estimates (`sectionsEstimated: true`). Edit them in `data/catalogue.json`, then regenerate `data/catalogue.js` (it is `window.VELORA_DATA=` + the same JSON).
-- **Hosting:** on localhost, media loads from the local folder. On the hosted site, `app.js` loads audio, covers and videos from this GitHub repo through the jsDelivr CDN (`https://cdn.jsdelivr.net/gh/robertmonther/velora-@main/`), so the Vercel deployment only needs `index.html`, `styles.css`, `app.js`, `data/catalogue.js` and `vercel.json`. Change `MEDIA_BASE` in `app.js` if media moves elsewhere (it requires the repo to stay public).
+- **Hosting:** on localhost, media loads from the local folder. On the hosted site, `app.js` loads audio, covers and videos from this GitHub repo through the jsDelivr CDN (`https://cdn.jsdelivr.net/gh/robertmonther/velora-@<MEDIA_REV>/`, pinned to a commit), so the Vercel deployment only needs `index.html`, `styles.css`, `app.js`, `data/catalogue.js` and `vercel.json`. Change `MEDIA_BASE` in `app.js` if media moves elsewhere (it requires the repo to stay public).
 
 ### Six more songs (added 9 Nov 2026 by Claude)
 

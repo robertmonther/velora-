@@ -3,8 +3,11 @@
 const D = window.VELORA_DATA, S = D.songs, CATS = D.categories || [];
 // Media (audio, covers, videos) is served from the GitHub repo through the jsDelivr CDN when hosted,
 // and from the local folder when the site runs on localhost.
+// MEDIA_REV pins the media to one commit: a "@main" link can stay cached for hours, so new covers or songs
+// would not show. After pushing new or changed media, set MEDIA_REV to that commit's full ID (git rev-parse HEAD).
+const MEDIA_REV = "30cb0cc17af713be9f25aa3f330b2fb8283f4caa";
 const LOCAL = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
-const MEDIA_BASE = LOCAL ? "" : "https://cdn.jsdelivr.net/gh/robertmonther/velora-@main/";
+const MEDIA_BASE = LOCAL ? "" : "https://cdn.jsdelivr.net/gh/robertmonther/velora-@" + MEDIA_REV + "/";
 const url = p => /^https?:/.test(p) ? p : MEDIA_BASE + p;
 const $ = s => document.querySelector(s), main = $("#main"), audio = $("#audio");
 // Robert is the rights holder (lyrics and song design); he is not shown as a singer anywhere.
