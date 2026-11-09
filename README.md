@@ -2,7 +2,7 @@
 
 Robert's full-song music library website: Artlist-style library, a Suno-style full-song player with section map, a homepage radio, three ways to pay (rent, buy usage rights, Premium), dated license certificates, and a YouTube Shorts section.
 
-**Status:** working prototype. Songs, prices, channel links and videos are **example data**. Checkout is a demo and charges nothing.
+**Status:** working prototype with Robert's 11 real songs only (the example songs were removed on 9 Nov 2026). Prices and channel links are **example data**. Checkout is a demo and charges nothing.
 
 **Live preview:** https://velora-preview-robertmonther.vercel.app (Vercel project `velora-preview`)
 
@@ -17,21 +17,22 @@ A plain static site with no build step and no framework, so anyone can open and 
 | `app.js` | All logic: hash router, views, player, radio, checkout demo, certificates, verify |
 | `data/catalogue.js` | The song catalogue (`window.VELORA_DATA`) the site reads |
 | `data/catalogue.json` | Same catalogue as JSON, for tools and imports |
-| `audio/` | Placeholder demo audio (demo-1..6.mp3, included); real songs go here |
-| `scripts/` | Generators for the example catalogue and the placeholder demo audio |
+| `media/` | Robert's songs: `audio/` (web MP3s), `covers/` (square covers, video posters), `shorts/` (vertical videos) |
+| `scripts/cover_colors.py` | Takes each song's colour from its cover for the player background |
 
 ### Pages (hash routes)
-- `#/` Home: hero, Velora Radio card with today's schedule and mood tuning, genres, new songs, Shorts, pricing tiers
-- `#/library` Library with genre and mood filters, search, pagination (20 per page)
-- `#/song/<id>` Song page: facts, Play, Rent and Buy buttons, song map with section start/end times, provenance record with date, lyrics
-- `#/radio` Radio schedule
-- `#/videos` YouTube Shorts grid (placeholders)
+- `#/` Home, laid out like Spotify: category pills, Today's pick, Recommended for today, Recommended Stations (one per category), Recents, More like…, one row per category, videos, Velora Radio, pricing
+- `#/search` Search (also `#/library`): "Browse all" category tiles and every song; typing searches titles, categories, moods and lyrics in English **and Arabic** (حسي، رومانسي، ثوري…)
+- `#/genre/<id>` Category page: play, shuffle, the category's radio, numbered song list
+- `#/song/<id>` Song page: facts, Play, Rent and Buy buttons, lyrics (tap a line to play from there), song map with section start/end times, provenance record with date
+- `#/radio` Radio schedule and stations
+- `#/videos` The song videos
 - `#/pricing` Three tiers and exclusivity FAQ
 - `#/verify?id=VL-...` Verify a license ID (demo: stored in the browser's localStorage)
 
 ### Key behaviours
 - **Player (Spotify-style, added 9 Nov 2026):** see the section below.
-- **Radio:** one station across genres. Time slots in `RADIO` in `app.js` (06-10 Morning Warmth, 10-14 Daylight Focus, 14-18 Afternoon Energy, 18-22 Golden Evening, 22-02 After Dark, 02-06 Late Night 18+). Mood chips override the slot.
+- **Radio:** one station that follows the time of day. Slots in `RADIO` in `app.js` (06-10 Morning Light, 10-14 Rise Up, 14-18 Afternoon Fire, 18-22 Golden Evening, 22-02 After Dark, 02-06 Late Night), each playing songs from listed categories. Every category also has its own station.
 - **Listen to pay in two clicks:** "License" on any card or the player opens the modal with Rent preselected; "Pay (demo)" issues the certificate.
 - **Exclusivity rule (Robert's decision):** buying usage rights is non-exclusive and the song stays in the catalogue; it is removed for new buyers only if the buyer asks (Exclusive, on request).
 - **Certificates:** license ID, song, type, issue date/time, song creation date, SHA-256 fingerprint.
@@ -42,12 +43,13 @@ Example only, in `PRICES` at the top of `app.js`. Robert sets the real ones.
 
 ## Spotify-style player (added 9 Nov 2026 by Claude)
 
-- **Phones:** a compact top bar (logo and a search icon) and a bottom tab bar like Spotify: Home, Stream, Radio, Library, Premium. Videos and Verify a license are in the footer.
+- **Phones:** a compact top bar (logo and a search icon) and a bottom tab bar like Spotify: Home, Search, Stream, Radio, Premium. Videos and Verify a license are in the footer.
 - **Mini player:** hidden until a song plays, then a slim bar above the tab bar (cover, title, License, play/pause, thin progress line). Tap it to open Now Playing. On desktop it is a bottom bar with previous/play/next, a progress bar with the song's section marks, Jump to best part and License.
-- **Now Playing (full screen):** the background takes its colour from the song's cover (the `color` field, or sampled from the cover in the browser). Big cover, title, License button, progress bar with section marks, shuffle/previous/play/next/best part, section chips (tap to jump), then cards: the song's video (plays muted and follows the audio, so the song never plays twice) or its lyrics, Rent/Buy, About the song, Up next and More like this. Tap the down arrow, press Escape or use the phone's back button to close it.
+- **Now Playing (full screen):** the background takes its colour from the song's cover (the `color` field, or sampled from the cover in the browser). Big cover, title, License button, progress bar with section marks, shuffle/previous/play/next/best part, section chips (tap to jump), then cards: synced lyrics (the line being sung lights up, tap a line to jump there, Show all for the full text), the song's video (plays muted and follows the audio, so the song never plays twice), Rent/Buy, About the song, Up next and More like this. Tap the down arrow, press Escape or use the phone's back button to close it.
 - **Stream** (tab and top-bar link) opens Now Playing; if nothing is playing it starts Robert's songs. `#/stream` does the same.
 - **Autoplay:** when a list ends, similar songs keep playing.
-- **Lock screen:** title, artist, cover and controls show on the phone's lock screen (Media Session API).
+- **Lock screen:** title, "Velora · category", cover and controls show on the phone's lock screen (Media Session API).
+- **No singer name:** where Spotify shows the artist, Velora shows the song's category. Robert appears only as the rights holder (certificates, credits).
 - **Downloads made harder:** no download button anywhere; the save menu is blocked on covers and videos; videos hide their download option. Real protection needs the media moved out of this public repo (open item on the Notion page).
 - Icons are SVG (no emoji). Browser storage is wrapped in try/catch so the demo never breaks when storage is blocked.
 
@@ -60,7 +62,6 @@ Example only, in `PRICES` at the top of `app.js`. Robert sets the real ones.
 
 ## Run locally
 ```bash
-bash scripts/generate-demo-audio.sh   # creates audio/demo-1..6.mp3 (needs ffmpeg)
 python3 -m http.server 4173           # open http://localhost:4173
 ```
 
@@ -71,7 +72,7 @@ Static files only. On Vercel: framework "Other", no build command, output = repo
 See `docs/ADDING-SONGS.md`.
 
 ## Not done yet (needs Robert)
-- Real songs, covers, lyrics, prices, channel links and YouTube Shorts
+- The rest of Robert's 1,000+ songs, his checked lyrics, prices, channel links and YouTube Shorts
 - Real payments (Stripe or similar) and real accounts/database (Supabase is connected but unused)
 - Final name and domain
 
@@ -96,3 +97,10 @@ Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
 - Section names follow the lyrics; their times, the BPM and the key are automatic estimates. `created` holds the Suno creation date read from each file.
 - No covers yet: the player shows the title on a coloured card until the Suno covers are added.
 - **Explicit songs:** an "E" badge next to the artist (like Spotify) and "Explicit lyrics" in the song facts. No age question: they play like every other song (Robert's decision, 9 Nov 2026).
+
+### Real songs only, categories, lyrics and covers (9 Nov 2026, Claude)
+
+- **Example songs removed:** the 60 example songs (`vl-…`, "Robert Mo"), their test-tone audio and the two generator scripts are gone. Only Robert's 11 songs remain.
+- **Categories** live in `data/catalogue.json` → `categories` (name, Arabic name, colour, search words). A song has one main category (`genre`) and optional extra ones (`tags`, e.g. `["Romantic"]`). Only categories with songs are shown. Now: Soft Sensual (حسي ناعم), Explicit Sensual (حسي صريح), Romantic (رومانسي), Pop (بوب), Protest Anthems (أغاني ثورية, the first five songs).
+- **Lyrics:** `lyrics` is a list of `[seconds, "line"]`, written down from each recording and timed to the audio. Robert still has to check the words (`lyricsNote` says so on the site). Song parts (`sections`) now follow the lyrics for all 11 songs.
+- **Covers:** the six new songs got designed covers (`media/covers/song-06-art.jpg` … `song-11-art.jpg`), drawn as SVG and saved as JPEG; free, no AI credits used. Replace them any time with Robert's own covers and run `scripts/cover_colors.py --write`.

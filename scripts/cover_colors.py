@@ -54,9 +54,9 @@ def main():
             s["color"] = colour
             changed += 1
     if write and changed:
-        JSON_PATH.write_text(json.dumps(data, indent=1) + ("\n" if raw.endswith("\n") else ""))
+        JSON_PATH.write_text(json.dumps(data, indent=1, ensure_ascii=False) + ("\n" if raw.endswith("\n") else ""))
         body = {k: v for k, v in data.items() if k != "note"}
-        JS_PATH.write_text("window.VELORA_DATA=" + json.dumps(body) + ";\n")
+        JS_PATH.write_text("window.VELORA_DATA=" + json.dumps(body, ensure_ascii=False, separators=(",", ":")) + ";\n")
         print(f"Saved {changed} colour(s) and regenerated data/catalogue.js")
 
 

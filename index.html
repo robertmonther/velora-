@@ -30,14 +30,14 @@
 </svg>
 
 <a class="skip" href="#main">Skip to content</a>
-<div class="demo-banner" role="note">Prototype preview. Songs, prices and links are example data. Checkout is a demo and charges nothing.</div>
+<div class="demo-banner" role="note">Prototype preview. Prices and channel links are examples. Checkout is a demo and charges nothing.</div>
 <header class="topbar">
   <a class="brand" href="#/" aria-label="Velora home"><span class="logo-dot"></span>Velora</a>
   <nav class="topnav" aria-label="Main">
-    <a href="#/">Home</a><button type="button" class="navlink" data-stream>Stream</button><a href="#/radio">Radio</a><a href="#/library">Library</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
+    <a href="#/">Home</a><a href="#/search">Browse</a><button type="button" class="navlink" data-stream>Stream</button><a href="#/radio">Radio</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
   </nav>
-  <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" placeholder="Search songs, genres, moods"></div>
-  <a class="icon-btn search-btn" href="#/library?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
+  <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" autocomplete="off" placeholder="Search songs, categories · ابحث"></div>
+  <a class="icon-btn search-btn" href="#/search?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
 </header>
 <main id="main" tabindex="-1"></main>
 <footer class="footer">
@@ -81,9 +81,9 @@
 <!-- Bottom tab bar on phones, like Spotify -->
 <nav class="tabbar" aria-label="Main">
   <a href="#/" data-tab="/"><svg><use href="#i-home"/></svg><span>Home</span></a>
+  <a href="#/search" data-tab="/search"><svg><use href="#i-search"/></svg><span>Search</span></a>
   <button type="button" data-stream data-tab="stream"><svg><use href="#i-stream"/></svg><span>Stream</span></button>
   <a href="#/radio" data-tab="/radio"><svg><use href="#i-radio"/></svg><span>Radio</span></a>
-  <a href="#/library" data-tab="/library"><svg><use href="#i-library"/></svg><span>Library</span></a>
   <a href="#/pricing" data-tab="/pricing"><svg><use href="#i-premium"/></svg><span>Premium</span></a>
 </nav>
 

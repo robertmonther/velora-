@@ -1,34 +1,45 @@
 (function(){
 "use strict";
-const D = window.VELORA_DATA, S = D.songs, G = D.genres;
+const D = window.VELORA_DATA, S = D.songs, CATS = D.categories || [];
 // Media (audio, covers, videos) is served from the GitHub repo through the jsDelivr CDN when hosted,
 // and from the local folder when the site runs on localhost.
 const LOCAL = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
 const MEDIA_BASE = LOCAL ? "" : "https://cdn.jsdelivr.net/gh/robertmonther/velora-@main/";
 const url = p => /^https?:/.test(p) ? p : MEDIA_BASE + p;
-const REAL = S.filter(s=>s.real);
 const $ = s => document.querySelector(s), main = $("#main"), audio = $("#audio");
+// Robert is the rights holder (lyrics and song design); he is not shown as a singer anywhere.
+const CREATOR = "Robert Monther";
 const PAL = [["#5b7a99","#2a3646"],["#b0524a","#3b1f1d"],["#e0a9b0","#5a3a40"]];
-const GENRE_ANGLE = Object.fromEntries(G.map((g,i)=>[g, i*33]));
+const MOOD_AR = {Defiant:"متحدّي",Epic:"ملحمي",Hopeful:"متفائل",Uplifting:"حماسي",Dramatic:"درامي",Dreamy:"حالم",Melancholic:"حزين",Sexy:"مثير",Romantic:"رومانسي",Seductive:"مغري",Dark:"قاتم"};
 // EXAMPLE prices - Robert decides the real ones
 const PRICES = {rent:{label:"Rent a track",price:"€9",per:"30 days, one channel"}, buy:{label:"Buy usage rights",price:"€49",per:"one-time, lifetime use"}, excl:{label:"Exclusive rights",price:"Ask Robert",per:"negotiated"}, sub:{label:"Premium",price:"€14",per:"per month, whole library"}};
+// Velora Radio follows the time of day; each slot plays songs from these categories.
 const RADIO = [
- {from:6,to:10,name:"Morning Warmth",genres:["Soul","Jazz"],mood:"Warm"},
- {from:10,to:14,name:"Daylight Focus",genres:["Lo-fi","House"],mood:"Playful"},
- {from:14,to:18,name:"Afternoon Energy",genres:["Hip Hop","Trend (Arena)"],mood:"Confident"},
- {from:18,to:22,name:"Golden Evening",genres:["Blues","Cinematic"],mood:"Melancholic"},
- {from:22,to:26,name:"After Dark",genres:["Soft Sensual","Soul"],mood:"Romantic"},
- {from:2,to:6,name:"Late Night",genres:["Explicit Sensual","Lo-fi"],mood:"Late night"}
+ {from:6,to:10,name:"Morning Light",cats:["Pop","Romantic","Soft Sensual"]},
+ {from:10,to:14,name:"Rise Up",cats:["Protest Anthems"]},
+ {from:14,to:18,name:"Afternoon Fire",cats:["Protest Anthems","Pop"]},
+ {from:18,to:22,name:"Golden Evening",cats:["Romantic","Soft Sensual","Pop"]},
+ {from:22,to:26,name:"After Dark",cats:["Soft Sensual","Explicit Sensual"]},
+ {from:2,to:6,name:"Late Night",cats:["Explicit Sensual"]}
 ];
 const fmt = t => { t=Math.max(0,Math.floor(t||0)); return Math.floor(t/60)+":"+String(t%60).padStart(2,"0"); };
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
 const icon = (name, cls="") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-const coverStyle = s => { if(s.art) return `background:#141418 url('${url(s.art)}') center/cover no-repeat`; const p=PAL[s.hue||0]; const a=GENRE_ANGLE[s.genre]||0; return `background:radial-gradient(circle at ${30+(a%60)}% ${25+(a%40)}%, ${p[0]} 0%, transparent 60%),linear-gradient(${a}deg, ${p[1]}, #141418 80%), ${p[0]}`; };
-const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.real?'<span class="tag new">Robert original</span>':""}<span>${esc(s.title)}</span></div>`;
 const byId = id => S.find(s=>s.id===id);
-const artistOf = s => s.artist || "Robert Mo";
-const hasLyrics = s => !!(s.lyrics && !/coming soon|placeholder/i.test(s.lyrics));
+
+// ---------- Categories ----------
+const catByName = n => CATS.find(c=>c.name===n);
+const catById = id => CATS.find(c=>c.id===id);
+const inCat = (s,c) => s.genre===c.name || (s.tags||[]).includes(c.name);
+const songsIn = c => S.filter(s=>inCat(s,c));
+const catsOf = s => CATS.filter(c=>inCat(s,c));
+const USED = CATS.filter(c=>songsIn(c).length); // only categories that have songs
+const catLink = c => `#/genre/${c.id}`;
+
+const coverStyle = s => { if(s.art) return `background:#141418 url('${url(s.art)}') center/cover no-repeat`; const c=catByName(s.genre); const p=PAL[s.hue||0]; return `background:radial-gradient(circle at 30% 25%, ${c?c.color:p[0]} 0%, transparent 62%),linear-gradient(160deg, ${p[1]}, #141418 80%)`; };
+const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.art?"":`<span>${esc(s.title)}</span>`}</div>`;
+const hasLyrics = s => Array.isArray(s.lyrics) && s.lyrics.length>0;
 // Browser storage can be missing or blocked: never let it break the page.
 const store = {
   get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
@@ -36,6 +47,45 @@ const store = {
 };
 // Explicit songs carry an "E" badge, like Spotify, and play like every other song (Robert's decision, 9 Nov).
 const eb = s => s.explicit ? '<span class="e-badge" title="Explicit lyrics" aria-label="Explicit">E</span>' : "";
+// The line under a song title shows its category (where Spotify shows the artist).
+const subOf = s => esc(s.genre);
+
+// Same "random" order for the whole day, a new one tomorrow.
+function dayShuffle(list, salt=""){
+  let h=2166136261; for(const ch of new Date().toISOString().slice(0,10)+salt){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); }
+  const rnd=()=>{ h+=0x6D2B79F5; let t=h; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; };
+  const a=list.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a;
+}
+const shuffled = list => { const a=list.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const recents = () => store.get("velora_recent",[]).map(byId).filter(Boolean);
+
+// ---------- Search (English and Arabic) ----------
+function norm(s){
+  return String(s||"").toLowerCase().replace(/[ً-ٰٟـ]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي")
+    .replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
+}
+const STOP = new Set(["song","songs","music","track","tracks","the","a","of","اغاني","اغنيه","اغنيات","اغان","موسيقي","موسيقى","ال"].map(norm));
+const IDX = S.map(s=>({s, title:norm(s.title),
+  meta:norm([s.genre,...(s.tags||[]),s.mood,MOOD_AR[s.mood]||"",...catsOf(s).map(c=>c.ar+" "+c.words),s.explicit?"explicit E صريح":""].join(" ")),
+  lyr:norm(hasLyrics(s)?s.lyrics.map(l=>l[1]).join(" "):"")}));
+function search(q){
+  const toks = norm(q).split(" ").filter(t=>t && !STOP.has(t));
+  if(!toks.length) return {songs:[], cats:[], lyricHit:new Set()};
+  const hits=[], lyricHit=new Set();
+  for(const e of IDX){
+    let score=0, viaLyr=false, ok=true;
+    for(const t of toks){
+      if(e.title.includes(t)) score+=5;
+      else if(e.meta.includes(t)) score+=3;
+      else if(t.length>=3 && e.lyr.includes(t)){ score+=1; viaLyr=true; }
+      else { ok=false; break; }
+    }
+    if(ok){ hits.push([e.s,score]); if(viaLyr) lyricHit.add(e.s.id); }
+  }
+  hits.sort((a,b)=>b[1]-a[1]);
+  const cats = USED.filter(c=>{ const hay=norm(c.name+" "+c.ar+" "+c.words); return toks.every(t=>hay.includes(t)); });
+  return {songs:hits.map(h=>h[0]), cats, lyricHit};
+}
 
 // ---------- Colour from the cover (Spotify-style background) ----------
 function hexToHsl(hex){
@@ -74,7 +124,8 @@ function sampleColor(src){
 
 // ---------- Player ----------
 let queue = S.slice(), qi = -1, current = null, mode = "library", source = "Robert's songs", shuffle = false;
-let npOpen = false, videoOn = false, lastSec = -1, lastPos = 0, lastFocus = null, pendingHash = null;
+let npOpen = false, videoOn = false, lastSec = -1, lastLyr = -2, lastPos = 0, lastFocus = null, pendingHash = null;
+let radioSlot = null;
 
 function load(song, autoplay=true, at=0){
   current = song; qi = queue.indexOf(song); if(qi<0){ queue=[song]; qi=0; }
@@ -82,6 +133,7 @@ function load(song, autoplay=true, at=0){
   audio.addEventListener("loadedmetadata", function f(){ audio.removeEventListener("loadedmetadata",f); if(at) audio.currentTime = at; }, {once:true});
   if(autoplay) audio.play().catch(()=>setPlayIcons());
   $("#mini").hidden = false; document.body.classList.add("has-mini");
+  const rec=store.get("velora_recent",[]).filter(id=>id!==song.id); rec.unshift(song.id); store.set("velora_recent",rec.slice(0,12));
   paintMini(song); renderNP(song); applyTheme(song); setMediaSession(song); paintBars(); setPlayIcons();
 }
 function playFrom(list, song, label, at=0, after=null){
@@ -99,16 +151,21 @@ function next(){
 }
 function prev(){ if(!current) return; if(audio.currentTime>3 || qi<=0){ audio.currentTime=0; return; } load(queue[qi-1]); }
 function bestPart(){ if(current){ audio.currentTime=current.bestPart||0; audio.play().catch(()=>{}); } }
-function startStream(){ if(!current){ const list=REAL.length?REAL:S; playFrom(list, list[0], REAL.length?"Robert's songs":"Velora"); } openNP(); }
+function startStream(){ if(!current){ const list=dayShuffle(S,"stream"); playFrom(list, list[0], "All of Robert's songs"); } openNP(); }
 function suggestions(s,n=8){
-  const score = x => (x.real?3:0)+(x.genre===s.genre?2:0)+(x.mood===s.mood?1:0);
+  const mine=catsOf(s);
+  const score = x => mine.filter(c=>inCat(x,c)).length*2 + (x.genre===s.genre?2:0) + (x.mood===s.mood?1:0) + (!!x.explicit===!!s.explicit?0.5:0);
   return S.filter(x=>x!==s).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
+}
+function startStation(c){
+  const list=shuffled(songsIn(c)); if(!list.length) return;
+  playFrom(list, list[0], c.name+" Radio", 0, openNP);
 }
 
 function paintMini(s){
   $("#miniCover").setAttribute("style", coverStyle(s));
   $("#miniTitle").textContent = s.title;
-  $("#miniSub").innerHTML = eb(s) + esc(artistOf(s)) + (mode==="radio" ? " · Velora Radio" : "");
+  $("#miniSub").innerHTML = eb(s) + subOf(s) + (mode==="radio" ? " · Velora Radio" : "");
   paintTicks($("#miniBar"), s);
 }
 function paintTicks(bar, s){ const d=s.duration||1; bar.querySelector(".bar-ticks").innerHTML = s.sections.filter(x=>x.start>0).map(x=>`<i style="left:${x.start/d*100}%"></i>`).join(""); }
@@ -130,10 +187,10 @@ function setPlayIcons(){ const playing=!audio.paused; for(const id of ["#miniPla
 
 audio.addEventListener("play",()=>{ setPlayIcons(); syncVideo(true); });
 audio.addEventListener("pause",()=>{ setPlayIcons(); syncVideo(true); });
-audio.addEventListener("seeked",()=>syncVideo(true));
+audio.addEventListener("seeked",()=>{ syncVideo(true); markLyric(true); });
 audio.addEventListener("ended",next);
 audio.addEventListener("loadedmetadata",()=>{ paintBars(); setPosition(); });
-audio.addEventListener("timeupdate",()=>{ paintBars(); syncVideo(false); markSection(); const now=Date.now(); if(now-lastPos>4000){ lastPos=now; setPosition(); } });
+audio.addEventListener("timeupdate",()=>{ paintBars(); syncVideo(false); markSection(); markLyric(); const now=Date.now(); if(now-lastPos>4000){ lastPos=now; setPosition(); } });
 
 $("#miniOpen").onclick=openNP;
 $("#miniPlay").onclick=togglePlay; $("#npPlay").onclick=togglePlay;
@@ -150,27 +207,35 @@ $("#npSections").addEventListener("click",e=>{ const b=e.target.closest(".sec");
 function renderNP(s){
   $("#npFrom").textContent = mode==="radio" ? "Velora Radio" : source;
   const art=$("#npArt"); art.setAttribute("style",coverStyle(s)); art.setAttribute("aria-label","Cover of "+s.title);
-  art.innerHTML = s.art ? "" : `<span class="np-art-title">${esc(s.title)}</span>`; // songs without a cover yet show their title
-  $("#npTitle").textContent=s.title; $("#npArtist").innerHTML=eb(s)+esc(artistOf(s));
+  art.innerHTML = s.art ? "" : `<span class="np-art-title">${esc(s.title)}</span>`;
+  $("#npTitle").textContent=s.title; $("#npArtist").innerHTML=eb(s)+`<a href="${catLink(catByName(s.genre)||{id:""})}" data-close-np>${subOf(s)}</a>`;
   paintTicks($("#npBar"), s);
   const d=s.duration;
   $("#npSections").innerHTML = s.sections.map((x,j)=>{ const end=(s.sections[j+1]||{start:d}).start, best=x.start===s.bestPart;
     return `<button type="button" class="sec${best?" best":""}" data-t="${x.start}" aria-label="${esc(x.name)}, ${fmt(x.start)} to ${fmt(end)}${best?", best part":""}">${best?icon("spark"):""}${esc(x.name)} <small>${fmt(x.start)}</small></button>`; }).join("");
-  $("#npCards").innerHTML = mediaCards(s) + licenseCard(s) + aboutCard(s) + nextCard(s);
-  lastSec=-1; markSection(true);
+  $("#npCards").innerHTML = lyricsCard(s) + videoCard(s) + licenseCard(s) + aboutCard(s) + nextCard(s);
+  lastSec=-1; lastLyr=-2; markSection(true); markLyric(true);
   if(videoOn && s.video) startVideo();
 }
-function mediaCards(s){
-  let h="";
-  if(s.video){ const poster=url(s.poster||s.art);
-    h+=`<div class="np-card media"><div class="card-h">${icon("video")}<span>Video</span></div>
-      <div class="np-video" style="background-image:url('${poster}')"><video id="npVideo" muted playsinline preload="none" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" poster="${poster}"></video>
-      <button type="button" class="np-video-btn" id="npVideoBtn">${icon("play")}<span>Play the video with the song</span></button></div>
-      <p class="muted small" style="margin:0;text-align:center">The video follows the song you're hearing.</p></div>`; }
-  if(hasLyrics(s)){ const lines=s.lyrics.split("\n");
-    h+=`<div class="np-card lyrics"><div class="card-h"><span>Lyrics</span></div><div class="lyr" id="npLyr">${esc(lines.slice(0,6).join("\n"))}</div>${lines.length>6?`<button type="button" class="btn light sm" id="npLyrMore">Show lyrics</button>`:""}</div>`; }
-  else h+=`<div class="np-card${s.video?"":" lyrics"}"><div class="card-h"><span>Lyrics</span></div><p class="muted" style="margin:0">Lyrics by Robert, coming soon.</p></div>`;
-  return h;
+// Lyric lines with a small gap where a new part of the song starts.
+function lyricLines(s, tag="p", attrs=()=>""){
+  const starts=s.sections.map(x=>x.start); let prevT=-1;
+  return s.lyrics.map(([t,l],i)=>{ const gap=i>0 && starts.some(st=>st>prevT && st<=t+0.5); prevT=t;
+    return `<${tag} class="ll${gap?" gap":""}" data-t="${t}" ${attrs(t,i)}>${esc(l)}</${tag}>`; }).join("");
+}
+function lyricsCard(s){
+  if(!hasLyrics(s)) return `<div class="np-card lyrics"><div class="card-h"><span>Lyrics</span></div><p class="muted" style="margin:0">Lyrics by Robert, coming soon.</p></div>`;
+  return `<div class="np-card lyrics"><div class="card-h"><span>Lyrics</span><button type="button" class="lyr-more" id="lyrMore">Show all</button></div>
+    <div class="lyr-box" id="lyrBox">${lyricLines(s)}</div>
+    ${s.lyricsNote?`<p class="lyr-note">${esc(s.lyricsNote)} Tap a line to play from there.</p>`:""}</div>`;
+}
+function videoCard(s){
+  if(!s.video) return "";
+  const poster=url(s.poster||s.art);
+  return `<div class="np-card media"><div class="card-h">${icon("video")}<span>Video</span></div>
+    <div class="np-video" style="background-image:url('${poster}')"><video id="npVideo" muted playsinline preload="none" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" poster="${poster}"></video>
+    <button type="button" class="np-video-btn" id="npVideoBtn">${icon("play")}<span>Play the video with the song</span></button></div>
+    <p class="muted small" style="margin:0;text-align:center">The video follows the song you're hearing.</p></div>`;
 }
 function licenseCard(s){
   return `<div class="np-card"><div class="card-h">${icon("tag")}<span>Use this song in your videos</span></div>
@@ -178,20 +243,23 @@ function licenseCard(s){
     <p class="muted small" style="margin:0">Example prices. Every license comes with a dated certificate.</p></div>`;
 }
 function aboutCard(s){
+  const cats=catsOf(s);
   return `<div class="np-card"><div class="card-h"><span>About the song</span></div>
-    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${s.bpm||"–"}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
-    <p class="small" style="margin:0 0 12px">${esc(artistOf(s))}. Lyrics, concept and song design by Robert; music made with Suno (AI-assisted).</p>
+    <div class="facts np-facts"><div class="fact"><b>Category</b>${esc(s.genre)}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${s.bpm||"–"}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
+    ${cats.length>1?`<div class="chips" style="margin:0 0 12px">${cats.map(c=>`<a class="chip" href="${catLink(c)}" data-close-np>${esc(c.name)}</a>`).join("")}</div>`:""}
+    <p class="small" style="margin:0 0 12px">Lyrics, concept and song design by Robert; music made with Suno (AI-assisted).</p>
     <a class="btn ghost sm" href="#/song/${s.id}" data-close-np>Open the song page</a></div>`;
 }
 function nextCard(s){
   const up = mode==="radio" ? null : queue[qi+1];
-  return `<div class="np-card">${up?`<div class="card-h"><span>Up next</span></div><div class="rows">${srow(up,"queue")}</div>`:""}
-    <div class="card-h"${up?' style="margin-top:14px"':""}><span>More like this</span></div><div class="rows">${suggestions(s).map(x=>srow(x,"sug")).join("")}</div></div>`;
+  return `<div class="np-card">${up?`<div class="card-h"><span>Up next</span></div><div class="rows">${srowNP(up,"queue")}</div>`:""}
+    <div class="card-h"${up?' style="margin-top:14px"':""}><span>More like this</span></div><div class="rows">${suggestions(s).map(x=>srowNP(x,"sug")).join("")}</div></div>`;
 }
-const srow = (x,kind) => `<button type="button" class="srow" data-${kind}="${x.id}"><span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${eb(x)}${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>${icon("play","srow-i")}</button>`;
+const srowNP = (x,kind) => `<button type="button" class="srow" data-${kind}="${x.id}"><span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${eb(x)}${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>${icon("play","srow-i")}</button>`;
 $("#npCards").addEventListener("click",e=>{
   if(e.target.closest("#npVideoBtn")){ startVideo(); return; }
-  const more=e.target.closest("#npLyrMore"); if(more){ $("#npLyr").textContent=current.lyrics; more.remove(); return; }
+  const more=e.target.closest("#lyrMore"); if(more){ const box=$("#lyrBox"), full=box.classList.toggle("full"); more.textContent=full?"Show less":"Show all"; markLyric(true); return; }
+  const ll=e.target.closest("#lyrBox .ll"); if(ll && current){ audio.currentTime=+ll.dataset.t; audio.play().catch(()=>{}); markLyric(true); return; }
   const sg=e.target.closest("[data-sug]"); if(sg){ const x=byId(sg.dataset.sug), from=current; playFrom([x,...suggestions(x,8)], x, "More like "+from.title); $("#npScroll").scrollTo({top:0,behavior:"smooth"}); return; }
   const qu=e.target.closest("[data-queue]"); if(qu){ load(byId(qu.dataset.queue)); $("#npScroll").scrollTo({top:0,behavior:"smooth"}); }
 });
@@ -200,6 +268,16 @@ function markSection(force){
   const t=audio.currentTime||0; let idx=0; current.sections.forEach((x,i)=>{ if(t>=x.start) idx=i; });
   if(idx===lastSec && !force) return; lastSec=idx;
   document.querySelectorAll("#npSections .sec").forEach((b,i)=>b.classList.toggle("on",i===idx));
+}
+// Synced lyrics: the line being sung lights up and the card follows it, like Spotify.
+function markLyric(force){
+  if(!current || !hasLyrics(current) || (!npOpen && !force)) return;
+  const L=current.lyrics, t=(audio.currentTime||0)+0.25; let i=-1, lo=0, hi=L.length-1;
+  while(lo<=hi){ const m=(lo+hi)>>1; if(L[m][0]<=t){ i=m; lo=m+1; } else hi=m-1; }
+  if(i===lastLyr && !force) return; lastLyr=i;
+  const box=$("#lyrBox"); if(!box) return;
+  const ps=box.children; for(let k=0;k<ps.length;k++){ ps[k].classList.toggle("on",k===i); ps[k].classList.toggle("past",k<i); }
+  if(!box.classList.contains("full")){ const el=ps[Math.max(0,i)]; if(el) box.scrollTo({top:Math.max(0, el.offsetTop - box.clientHeight*0.3), behavior: force?"auto":"smooth"}); }
 }
 // The video plays muted and follows the audio, so the song never plays twice.
 function startVideo(){
@@ -224,7 +302,7 @@ function openNP(){
   document.body.classList.add("np-open"); setInert(true);
   try{ history.pushState({velNP:1},""); }catch(e){}
   setTimeout(()=>{ try{ $("#npClose").focus({preventScroll:true}); }catch(e){} },40);
-  markSection(true); syncVideo(true);
+  markSection(true); markLyric(true); syncVideo(true);
 }
 function closeNP(fromPop, thenHash){
   if(!npOpen) return;
@@ -242,7 +320,7 @@ window.addEventListener("popstate",()=>{ if(npOpen) closeNP(true); if(pendingHas
 // Lock-screen and headphone controls on phones (like any music app)
 function setMediaSession(s){
   if(!("mediaSession" in navigator)) return;
-  try{ navigator.mediaSession.metadata = new MediaMetadata({ title:s.title, artist:artistOf(s), album:"Velora", artwork: s.art ? [{src:url(s.art), sizes:"600x600", type:"image/jpeg"}] : [] }); }catch(e){}
+  try{ navigator.mediaSession.metadata = new MediaMetadata({ title:s.title, artist:"Velora · "+s.genre, album:"Velora", artwork: s.art ? [{src:url(s.art), sizes:"600x600", type:"image/jpeg"}] : [] }); }catch(e){}
 }
 function setPosition(){
   if(!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
@@ -256,21 +334,21 @@ if("mediaSession" in navigator){
   H("seekto",d=>{ if(d && d.seekTime!=null) audio.currentTime=d.seekTime; });
 }
 // No download button anywhere; also block the "save" menu on covers and videos.
-document.addEventListener("contextmenu",e=>{ if(e.target.closest("video,audio,.cover,.np-art,.mini-cover,.srow-cover,.vid,.np-video")) e.preventDefault(); });
+document.addEventListener("contextmenu",e=>{ if(e.target.closest("video,audio,.cover,.np-art,.mini-cover,.srow-cover,.tile-cover,.vid,.np-video,.st-circles")) e.preventDefault(); });
 
 // ---------- Radio ----------
 function slotNow(h=new Date().getHours()){ const hh = h<2? h+24 : h; return RADIO.find(r=> hh>=r.from && hh<r.to) || RADIO[0]; }
-let radioMood = null;
-let radioRealIdx = 0;
+let radioRecent=[];
 function radioPick(){
-  // Robert's real songs play in order, then alternate with the example rotation.
-  const R=REAL;
-  if(R.length && !radioMood && (radioRealIdx < R.length || Math.random()<0.6)){ const s=R[radioRealIdx % R.length]; radioRealIdx++; return s; }
-  const slot=slotNow(); let pool=S.filter(s=> radioMood ? s.mood===radioMood : (slot.genres.includes(s.genre)||s.real)); if(!pool.length) pool=S;
-  pool=pool.filter(s=>s!==current); if(!pool.length) pool=S;
-  return pool[Math.floor(Math.random()*pool.length)];
+  const slot=radioSlot||slotNow();
+  let pool=S.filter(s=>slot.cats.some(n=>{ const c=catByName(n); return c && inCat(s,c); }));
+  if(!pool.length) pool=S;
+  let fresh=pool.filter(s=>s!==current && !radioRecent.includes(s.id)); if(!fresh.length) fresh=pool.filter(s=>s!==current); if(!fresh.length) fresh=pool;
+  const s=fresh[Math.floor(Math.random()*fresh.length)];
+  radioRecent=[s.id,...radioRecent].slice(0,Math.max(1,Math.floor(pool.length/2)));
+  return s;
 }
-function startRadio(){ mode="radio"; source="Velora Radio"; queue=S.slice(); if(!radioMood) radioRealIdx=0; load(radioPick()); }
+function startRadio(slot){ mode="radio"; source="Velora Radio"; radioSlot=slot||null; queue=S.slice(); load(radioPick()); }
 
 // ---------- License / checkout (demo) ----------
 function openLicense(song, preset="rent"){
@@ -296,14 +374,15 @@ function openLicense(song, preset="rent"){
 async function hash(str){ try{ const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)); return [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(e){ let h=0; for(const c of str) h=(h*31+c.charCodeAt(0))>>>0; return h.toString(16).padStart(8,"0").repeat(8);} }
 async function showCert(song,t){
   const now=new Date(); const iso=now.toISOString(); const lic="VL-"+now.getFullYear()+"-"+Math.random().toString(36).slice(2,8).toUpperCase();
-  const fp=await hash(song.id+song.title+song.published);
-  const rec={lic,song:song.id,title:song.title,type:PRICES[t].label,issued:iso,songDate:song.published,fp};
+  const made=song.created||song.published;
+  const fp=await hash(song.id+song.title+made);
+  const rec={lic,song:song.id,title:song.title,type:PRICES[t].label,issued:iso,songDate:made,fp};
   const all=store.get("velora_licenses",[]); all.push(rec); store.set("velora_licenses",all);
   $("#mBody").innerHTML = `<h2 id="mTitle">You're licensed (demo)</h2>
   <div class="cert"><h3>Velora License Certificate</h3><div class="small">Example certificate. Not a real license.</div>
   <dl><dt>License ID</dt><dd><b>${lic}</b></dd><dt>Song</dt><dd>${esc(song.title)} (${song.id})</dd><dt>Type</dt><dd>${PRICES[t].label}</dd>
-  <dt>Issued</dt><dd>${now.toLocaleString("en-GB",{dateStyle:"long",timeStyle:"short"})}</dd><dt>Song created</dt><dd>${new Date(song.published).toLocaleDateString("en-GB",{dateStyle:"long"})}</dd>
-  <dt>Creator</dt><dd>${esc(artistOf(song))} · Suno-assisted</dd><dt>Fingerprint</dt><dd style="word-break:break-all;font-family:monospace;font-size:12px">${fp.slice(0,32)}…</dd></dl></div>
+  <dt>Issued</dt><dd>${now.toLocaleString("en-GB",{dateStyle:"long",timeStyle:"short"})}</dd><dt>Song created</dt><dd>${new Date(made).toLocaleDateString("en-GB",{dateStyle:"long"})}</dd>
+  <dt>Rights holder</dt><dd>${esc(CREATOR)} (lyrics and song design) · music made with Suno</dd><dt>Fingerprint</dt><dd style="word-break:break-all;font-family:monospace;font-size:12px">${fp.slice(0,32)}…</dd></dl></div>
   <div class="row" style="margin-top:14px"><a class="btn primary" href="#/verify?id=${lic}" id="mVerify">Verify this license</a><button class="btn" id="mDone">Close</button></div>`;
   $("#mDone").onclick=closeM; $("#mVerify").onclick=e=>{ e.preventDefault(); closeM(); const h="#/verify?id="+lic; if(npOpen) closeNP(false, h); else location.hash=h; };
 }
@@ -311,99 +390,114 @@ function closeM(){ const v=document.querySelector("#mBody video"); if(v) v.pause
 $("#mClose").onclick=closeM; $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeM(); });
 document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; if(!$("#modal").hidden) closeM(); else if(npOpen) closeNP(false); });
 
-// ---------- Views ----------
-const card = s => `<article class="card">${cover(s)}<button class="playbtn" data-play="${s.id}" aria-label="Play ${esc(s.title)}">${icon("play")}</button>
- <h3><a href="#/song/${s.id}">${esc(s.title)}</a></h3><div class="meta">${eb(s)}${esc(s.genre)} · ${esc(s.mood)} · ${fmt(s.duration)}</div>
- <div class="actions"><button class="btn ghost" data-play="${s.id}">Play</button><button class="btn primary" data-lic="${s.id}">License</button></div></article>`;
+// ---------- Building blocks for the pages ----------
+// Every row of songs registers its list, so tapping a song plays that row in order.
+let ROWS = {}, rowN = 0;
+const reg = (list,label) => { const k="r"+(++rowN); ROWS[k]={list,label}; return k; };
+const tile = (s,k) => `<button type="button" class="tile" data-song="${s.id}" data-list="${k}"><span class="tile-cover" style="${coverStyle(s)}"></span><span class="tile-t">${eb(s)}${esc(s.title)}</span><span class="tile-s">${subOf(s)}</span></button>`;
+const hrow = (list,label) => { const k=reg(list,label); return `<div class="hrow">${list.map(s=>tile(s,k)).join("")}</div>`; };
+const srow = (s,k,n) => `<button type="button" class="srow lrow" data-song="${s.id}" data-list="${k}">${n?`<span class="srow-n">${n}</span>`:""}<span class="srow-cover" style="${coverStyle(s)}"></span><span class="srow-t"><b>${esc(s.title)}</b><small>${eb(s)}${esc(s.genre)} · ${esc(s.mood)} · ${fmt(s.duration)}</small></span>${icon("play","srow-i")}</button>`;
+const rows = (list,label,numbered=false) => { const k=reg(list,label); return `<div class="rows">${list.map((s,i)=>srow(s,k,numbered?i+1:0)).join("")}</div>`; };
+const circles = list => { const a=list.slice(0,3); while(a.length<3 && list.length) a.push(list[a.length%list.length]); return `<span class="st-circles">${a.map(s=>`<i style="${coverStyle(s)}"></i>`).join("")}</span>`; };
+const station = c => { const list=songsIn(c); return `<div class="st-wrap"><button type="button" class="station" data-station="${c.id}" style="--st:${c.color}" aria-label="Play ${esc(c.name)} Radio"><span class="st-top">RADIO</span>${circles(list)}<span class="st-name">${esc(c.name)}</span></button><div class="st-sub">${list.map(s=>esc(s.title)).join(", ")}</div></div>`; };
+const head = (title, sub="", link="") => `<div class="row-head"><div><h2>${title}</h2>${sub?`<div class="muted small">${sub}</div>`:""}</div>${link}</div>`;
+const pills = active => `<nav class="pillrow" aria-label="Categories"><a class="pill${active?"":" on"}" href="#/">All</a>${USED.map(c=>`<a class="pill${active===c.id?" on":""}" href="${catLink(c)}">${esc(c.name)}</a>`).join("")}</nav>`;
 
 function home(){
-  const slot=slotNow(); const sample=REAL[0]||S.filter(s=>slot.genres.includes(s.genre)).slice(0,1)[0]||S[0];
-  const moods=[...new Set(S.map(s=>s.mood))];
+  const today=dayShuffle(S), pick=today.find(s=>!s.explicit)||today[0], rec=recents(), base=rec[0]||today[1]||pick, slot=slotNow();
   main.innerHTML = `
-  <section class="hero">
-   <div class="hero-main"><div class="onair" style="color:var(--cream)">Robert's music only</div>
-    <h1>Whole songs.<br>Ready for your story.</h1>
-    <p>Listen to every song from start to finish, see its sections, and license it for your videos in two clicks.</p>
-    <div class="row"><a class="btn primary" href="#/library">Browse the library</a><button class="btn blue" id="hRadio">${icon("play")}Start Velora Radio</button><a class="btn ghost" href="#/pricing">See pricing</a></div></div>
-   <aside class="radio-card" aria-label="Velora Radio">
-    <div class="onair">Velora Radio · on air</div>
-    <div class="now">${cover(sample)}<div><b>${esc(slot.name)}</b><div class="muted small">${slot.genres.join(" + ")} · ${slot.mood}</div><button class="btn primary" style="margin-top:8px" id="rPlay">${icon("play")}Listen live</button></div></div>
-    <div><div class="muted small" style="margin-bottom:6px">Today's schedule</div><div class="schedule">${RADIO.map(r=>`<div class="slot ${r===slot?"live":""}"><span>${String(r.from%24).padStart(2,"0")}:00–${String(r.to%24).padStart(2,"0")}:00</span><span>${esc(r.name)}</span></div>`).join("")}</div></div>
-    <div><div class="muted small" style="margin-bottom:6px">Or tune by mood</div><div class="chips" style="margin:0">${moods.slice(0,6).map(m=>`<button class="chip" data-rmood="${esc(m)}">${esc(m)}</button>`).join("")}</div></div>
-   </aside>
+  ${pills(null)}
+  <section class="feat">
+    <button type="button" class="feat-cover" data-song="${pick.id}" data-list="${reg(today,"Today's pick")}" style="${coverStyle(pick)}" aria-label="Play ${esc(pick.title)}"></button>
+    <div class="feat-t"><div class="muted small">Today's pick</div><h2>${esc(pick.title)}</h2><div class="muted">${eb(pick)}${subOf(pick)} · ${esc(pick.mood)}</div>
+      <div class="feat-actions"><button type="button" class="icon-btn" data-lic="${pick.id}" aria-label="License ${esc(pick.title)}">${icon("tag")}</button><button type="button" class="round-play" data-song="${pick.id}" data-list="${reg(today,"Today's pick")}" aria-label="Play ${esc(pick.title)}">${icon("play")}</button></div></div>
   </section>
-  ${REAL.length?`<div class="section-head"><div><h2>Robert's songs</h2><div class="muted small">${REAL.length} real songs, playable in full. Also first on Velora Radio.</div></div><button class="btn primary" id="hAll">${icon("play")}Play all</button></div>
-  <div class="grid">${REAL.map(card).join("")}</div>`:""}
-  <div class="section-head"><div><h2>Genres</h2><div class="muted small">${G.length} genres · ${REAL.length} real songs and ${S.length-REAL.length} example songs (the full library will hold Robert's 1000+ songs)</div></div><a href="#/library" class="btn ghost">Open library</a></div>
-  <div class="chips">${G.map(g=>`<a class="chip" href="#/library?genre=${encodeURIComponent(g)}">${esc(g)}</a>`).join("")}</div>
-  <div class="section-head"><h2>More in the catalogue</h2><div class="muted small">Example songs</div></div>
-  <div class="grid">${S.filter(s=>!s.real).slice().sort((a,b)=>b.published.localeCompare(a.published)).slice(0,10).map(card).join("")}</div>
-  <div class="section-head"><div><h2>Shorts</h2><div class="muted small">Robert's song videos</div></div><a href="#/videos" class="btn ghost">All videos</a></div>
-  <div class="videos">${videoTiles(6)}</div>
-  <div class="section-head"><h2>Three ways to use the music</h2></div>
-  ${tiersHTML()}`;
-  $("#hRadio").onclick=startRadio; $("#rPlay").onclick=startRadio; const ha=$("#hAll"); if(ha) ha.onclick=()=>playFrom(REAL, REAL[0], "Robert's songs");
-  main.querySelectorAll("[data-rmood]").forEach(b=>b.onclick=()=>{ radioMood=b.dataset.rmood; main.querySelectorAll("[data-rmood]").forEach(x=>x.classList.toggle("on",x===b)); startRadio(); });
+  <section>${head("Recommended for today")}${hrow(today,"Recommended for today")}</section>
+  <section>${head("Recommended Stations")}<div class="hrow st-row">${USED.map(station).join("")}</div></section>
+  ${rec.length?`<section>${head("Recents","",`<a class="showall" href="#/search">Show all</a>`)}${hrow(rec,"Recents")}</section>`:""}
+  <section><div class="morelike"><span class="ml-cover" style="${coverStyle(base)}"></span><div><div class="muted small">More like</div><h2>${esc(base.title)}</h2></div></div>${hrow(suggestions(base,8),"More like "+base.title)}</section>
+  ${USED.map(c=>`<section>${head(esc(c.name),`<span lang="ar" dir="rtl">${esc(c.ar)}</span> · ${songsIn(c).length} song${songsIn(c).length===1?"":"s"}`,`<a class="showall" href="${catLink(c)}">Show all</a>`)}${hrow(songsIn(c),c.name)}</section>`).join("")}
+  ${S.some(s=>s.video)?`<section>${head("Videos from the songs","",`<a class="showall" href="#/videos">Show all</a>`)}<div class="hrow vrow">${videoTiles()}</div></section>`:""}
+  <section class="radio-banner"><div><div class="onair">Velora Radio · on air</div><h2>${esc(slot.name)}</h2><div class="muted small">${slot.cats.join(" + ")} · non-stop, follows the time of day</div></div><button type="button" class="btn primary" id="hRadio">${icon("play")}Listen live</button></section>
+  <section>${head("Three ways to use the music")}${tiersHTML()}</section>`;
+  $("#hRadio").onclick=()=>{ startRadio(); };
 }
-function videoTiles(n){
-  const real=REAL.filter(s=>s.video).map(s=>`<a class="vid" href="#" data-video="${s.id}" style="background:#141418 url('${url(s.poster||s.art)}') center/cover no-repeat" aria-label="Watch ${esc(s.title)}"><span class="yt">▶ Video</span><div class="ov"><b>${esc(s.title)}</b><div class="small muted">Robert Monther</div></div></a>`);
-  const ex=S.filter(s=>!s.real).slice(0,Math.max(0,n-real.length)).map((s,i)=>`<a class="vid" href="#" data-todo style="${coverStyle(s)}"><span class="yt">YouTube Short</span><div class="ov"><b>${esc(s.title)}</b><div class="small muted">Example video ${i+1}</div></div></a>`);
-  return real.concat(ex).join("");
+function videoTiles(){
+  return S.filter(s=>s.video).map(s=>`<a class="vid" href="#" data-video="${s.id}" style="background:#141418 url('${url(s.poster||s.art)}') center/cover no-repeat" aria-label="Watch ${esc(s.title)}"><span class="yt">▶ Video</span><div class="ov"><b>${esc(s.title)}</b><div class="small muted">${subOf(s)}</div></div></a>`).join("");
 }
 function openVideo(s){ audio.pause(); const m=$("#modal"), b=$("#mBody"); b.innerHTML=`<h2 id="mTitle">${esc(s.title)}</h2><video src="${url(s.video)}" poster="${url(s.poster||s.art)}" controls autoplay playsinline disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video><div class="row" style="margin-top:12px"><button class="btn primary" data-lic="${s.id}">License this song</button><a class="btn ghost" href="#/song/${s.id}" id="mSong">Song page</a></div>`; m.hidden=false; $("#mSong").onclick=closeM; }
 function tiersHTML(){ return `<div class="tiers">
-  <div class="tier"><h3>Rent a track</h3><div class="price">${PRICES.rent.price}</div><div class="muted small">${PRICES.rent.per}</div><ul><li>One song, one channel</li><li>Perfect for a single video or campaign</li><li>Dated certificate</li></ul><a class="btn" href="#/library">Pick a song</a></div>
-  <div class="tier feat"><h3>Buy usage rights</h3><div class="price">${PRICES.buy.price}</div><div class="muted small">${PRICES.buy.per}</div><ul><li>Use it forever, non-exclusive</li><li>The song stays in the catalogue</li><li>Exclusive available on request</li><li>Dated certificate</li></ul><a class="btn primary" href="#/library">Pick a song</a></div>
-  <div class="tier"><h3>Premium</h3><div class="price">${PRICES.sub.price}</div><div class="muted small">${PRICES.sub.per}</div><ul><li>Rent any song while subscribed</li><li>Every genre, every new release</li><li>Cancel anytime</li></ul><button class="btn blue" data-sub>Start Premium (demo)</button></div>
+  <div class="tier"><h3>Rent a track</h3><div class="price">${PRICES.rent.price}</div><div class="muted small">${PRICES.rent.per}</div><ul><li>One song, one channel</li><li>Perfect for a single video or campaign</li><li>Dated certificate</li></ul><a class="btn" href="#/search">Pick a song</a></div>
+  <div class="tier feat-tier"><h3>Buy usage rights</h3><div class="price">${PRICES.buy.price}</div><div class="muted small">${PRICES.buy.per}</div><ul><li>Use it forever, non-exclusive</li><li>The song stays in the catalogue</li><li>Exclusive available on request</li><li>Dated certificate</li></ul><a class="btn primary" href="#/search">Pick a song</a></div>
+  <div class="tier"><h3>Premium</h3><div class="price">${PRICES.sub.price}</div><div class="muted small">${PRICES.sub.per}</div><ul><li>Rent any song while subscribed</li><li>Every category, every new release</li><li>Cancel anytime</li></ul><button class="btn blue" data-sub>Start Premium (demo)</button></div>
  </div><p class="muted small">Example prices. Robert sets the real ones.</p>`; }
 
-let libState={genre:null,mood:null,q:"",page:1};
-function library(params){
-  if(params.get("genre")) libState.genre=params.get("genre");
-  const moods=[...new Set(S.map(s=>s.mood))].sort();
-  main.innerHTML=`<h1>Library</h1><p class="muted">Every song by Robert, in full. Filter by genre and mood, play, and license.</p>
-  <div class="libsearch"><label for="libq" class="sr">Search songs</label><input id="libq" type="search" placeholder="Search songs, genres, moods" value="${esc(libState.q)}"></div>
-  <div class="muted small" style="margin:6px 0">Genre</div><div class="chips">${["All",...G].map(g=>`<button class="chip ${((g==="All"&&!libState.genre)||g===libState.genre)?"on":""}" data-g="${esc(g)}">${esc(g)}</button>`).join("")}</div>
-  <div class="muted small" style="margin-bottom:6px">Mood</div><div class="chips">${["All",...moods].map(m=>`<button class="chip ${((m==="All"&&!libState.mood)||m===libState.mood)?"on":""}" data-m="${esc(m)}">${esc(m)}</button>`).join("")}</div>
-  <div id="libResults"></div>`;
-  main.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{libState.genre=b.dataset.g==="All"?null:b.dataset.g;libState.page=1;history.replaceState(history.state,"","#/library");library(new URLSearchParams());});
-  main.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{libState.mood=b.dataset.m==="All"?null:b.dataset.m;libState.page=1;library(new URLSearchParams());});
-  const lq=$("#libq"); lq.addEventListener("input",e=>{ libState.q=e.target.value; libState.page=1; $("#q").value=libState.q; drawLib(); });
-  drawLib();
+// Search: the categories ("Browse all") and every song; typing filters, in English or Arabic.
+let searchQ = "";
+function searchView(params){
+  if(params.get("q")!==null) searchQ=params.get("q");
+  main.innerHTML=`<h1 class="pagetitle">Search</h1>
+  <div class="sbox">${icon("search")}<label for="libq" class="sr">Search songs</label><input id="libq" type="search" autocomplete="off" placeholder="Songs, categories, moods, lyrics · ابحث بالعربي" value="${esc(searchQ)}"></div>
+  <div id="sres"></div>`;
+  const lq=$("#libq"); lq.addEventListener("input",e=>{ searchQ=e.target.value; $("#q").value=searchQ; drawSearch(); });
+  drawSearch();
   if(params.get("focus")==="search") setTimeout(()=>{ try{ lq.focus(); }catch(e){} },60);
 }
-function drawLib(){
-  const q=libState.q.toLowerCase();
-  const list=S.filter(s=>(!libState.genre||s.genre===libState.genre)&&(!libState.mood||s.mood===libState.mood)&&(!q||(s.title+" "+s.genre+" "+s.mood).toLowerCase().includes(q)));
-  const per=20, pages=Math.max(1,Math.ceil(list.length/per)); libState.page=Math.min(libState.page,pages);
-  const box=$("#libResults"); if(!box) return;
-  box.innerHTML=`<div class="muted small" style="margin-bottom:10px">${list.length} song${list.length===1?"":"s"}</div>
-  <div class="grid">${list.slice((libState.page-1)*per,libState.page*per).map(card).join("")||'<p class="muted">No songs match.</p>'}</div>
-  <div class="pager">${pages>1?Array.from({length:pages},(_,i)=>`<button class="chip ${i+1===libState.page?"on":""}" data-p="${i+1}">${i+1}</button>`).join(""):""}</div>`;
-  box.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{libState.page=+b.dataset.p;drawLib();window.scrollTo(0,0);});
+function drawSearch(){
+  const box=$("#sres"); if(!box) return;
+  if(!norm(searchQ)){
+    box.innerHTML=`<h2 class="sh">Browse all</h2>
+    <div class="browse">${USED.map(c=>{ const s=songsIn(c)[0]; return `<a class="btile" href="${catLink(c)}" style="--st:${c.color}"><b>${esc(c.name)}</b><span lang="ar" dir="rtl">${esc(c.ar)}</span><small>${songsIn(c).length} song${songsIn(c).length===1?"":"s"}</small>${s?`<i style="${coverStyle(s)}"></i>`:""}</a>`; }).join("")}</div>
+    <h2 class="sh">All songs <span class="muted small">${S.length}</span></h2>${rows(S,"All of Robert's songs")}`;
+    return;
+  }
+  const r=search(searchQ);
+  box.innerHTML = (r.cats.length?`<div class="chips" style="margin-top:4px">${r.cats.map(c=>`<a class="chip cat-chip" href="${catLink(c)}" style="--st:${c.color}">${esc(c.name)} <span lang="ar" dir="rtl">${esc(c.ar)}</span> · ${songsIn(c).length}</a>`).join("")}</div>`:"")
+    + (r.songs.length?`<div class="muted small" style="margin:6px 0 8px">${r.songs.length} song${r.songs.length===1?"":"s"}${r.lyricHit.size?" · some found in the lyrics":""}</div>${rows(r.songs,"Search: "+searchQ)}`
+    : `<p class="muted">No songs match “${esc(searchQ)}”. Try a category like Sensual, Romantic, Pop, Protest, or in Arabic: حسي، رومانسي، ثوري.</p>`);
+}
+function genreView(id){
+  const c=catById(id); if(!c){ main.innerHTML="<h1>Category not found</h1>"; return; }
+  const list=songsIn(c), total=list.reduce((a,s)=>a+(s.duration||0),0);
+  main.innerHTML=`${pills(c.id)}
+  <section class="ghead" style="--st:${c.color}"><div class="muted small">Category</div><h1>${esc(c.name)}</h1><div class="ghead-ar" lang="ar" dir="rtl">${esc(c.ar)}</div>
+   <div class="muted small">${list.length} song${list.length===1?"":"s"} · ${Math.round(total/60)} min${list.some(s=>s.explicit)?" · some songs have explicit lyrics":""}</div>
+   <div class="ghead-actions"><button type="button" class="round-play" id="gPlay" aria-label="Play ${esc(c.name)}">${icon("play")}</button><button type="button" class="icon-btn" id="gShuffle" aria-label="Shuffle ${esc(c.name)}">${icon("shuffle")}</button><button type="button" class="btn ghost sm" data-station="${c.id}">${icon("radio")}${esc(c.name)} Radio</button></div></section>
+  ${rows(list,c.name,true)}
+  <section>${head("Other categories")}<div class="browse">${USED.filter(x=>x!==c).map(x=>`<a class="btile" href="${catLink(x)}" style="--st:${x.color}"><b>${esc(x.name)}</b><span lang="ar" dir="rtl">${esc(x.ar)}</span><small>${songsIn(x).length} song${songsIn(x).length===1?"":"s"}</small><i style="${coverStyle(songsIn(x)[0])}"></i></a>`).join("")}</div></section>`;
+  $("#gPlay").onclick=()=>playFrom(list, list[0], c.name, 0, openNP);
+  $("#gShuffle").onclick=()=>{ const l=shuffled(list); playFrom(l, l[0], c.name+" · shuffle", 0, openNP); };
 }
 function song(id){
   const s=byId(id); if(!s){ main.innerHTML="<h1>Song not found</h1>"; return; }
-  const d=s.duration;
+  const d=s.duration, c=catByName(s.genre), more=S.filter(x=>x!==s && catsOf(s).some(k=>inCat(x,k)));
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
-   <div class="muted small">${esc(s.genre)} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1><div class="muted">${eb(s)}${esc(artistOf(s))}</div>
-   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${s.bpm}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Released</b>${s.published}</div><div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
-   <div class="row"><button class="btn primary" data-play="${s.id}" data-np>${icon("play")}Play full song</button><button class="btn red" data-lic="${s.id}">Rent ${PRICES.rent.price}</button><button class="btn blue" data-lic="${s.id}" data-pre="buy">Buy rights ${PRICES.buy.price}</button>${s.video?`<button class="btn ghost" data-video="${s.id}">Watch video</button>`:""}</div>${s.analysisNote?`<p class="muted small">${esc(s.analysisNote)}</p>`:""}
-   <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Click to jump there.${s.sectionsEstimated?" Parts are estimated from the song's energy.":""}</p>
-    <div class="schedule">${s.sections.map((x,j)=>`<button class="slot" style="border:0;color:inherit;cursor:pointer;font:inherit" data-play="${s.id}" data-at="${x.start}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((s.sections[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>
-   <div class="panel prov"><div class="seal">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.real?(s.created?"Made with Suno · created":esc(s.provenance)+" · added"):"Created by Robert Mo with Suno · first published"} <b>${new Date(s.created||s.published).toLocaleDateString("en-GB",{dateStyle:"long"})}</b> · catalogue ID ${s.id}</div><div class="muted small">Each license gets a dated certificate you can verify on the Verify page.${s.real?"":" Example data."}</div></div></div>
-   <div class="panel"><h3>Lyrics</h3><div class="lyrics">${esc(s.lyrics)}</div></div>
+   <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1>${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
+   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${s.bpm}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Released"}</b>${s.created||s.published}</div></div>
+   <div class="row"><button class="btn primary" data-play="${s.id}" data-np>${icon("play")}Play full song</button><button class="btn red" data-lic="${s.id}">Rent ${PRICES.rent.price}</button><button class="btn blue" data-lic="${s.id}" data-pre="buy">Buy rights ${PRICES.buy.price}</button>${s.video?`<button class="btn ghost" data-video="${s.id}">Watch video</button>`:""}</div>
+   <div class="panel"><h3>Lyrics</h3>${hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${s.id}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics by Robert, coming soon.</p>`}</div>
+   <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Tap to jump there.</p>
+    <div class="schedule">${s.sections.map((x,j)=>`<button class="slot" style="border:0;color:inherit;cursor:pointer;font:inherit" data-play="${s.id}" data-at="${x.start}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((s.sections[j+1]||{start:d}).start)}</span></button>`).join("")}</div>${s.analysisNote?`<p class="muted small" style="margin-bottom:0">${esc(s.analysisNote)}</p>`:""}</div>
+   <div class="panel prov"><div class="seal">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.created?"Made with Suno · created":esc(s.provenance||"Made with Suno")+" · added"} <b>${new Date(s.created||s.published).toLocaleDateString("en-GB",{dateStyle:"long"})}</b> · catalogue ID ${s.id}</div><div class="muted small">Lyrics and song design by Robert. Each license gets a dated certificate you can verify on the Verify page.</div></div></div>
   </div></div>
-  <div class="section-head"><h2>More ${esc(s.genre)}</h2></div><div class="grid">${S.filter(x=>x.genre===s.genre&&x.id!==s.id).slice(0,5).map(card).join("")}</div>`;
+  ${more.length?`<section>${head("More like this",c?`<a href="${catLink(c)}">${esc(c.name)}</a>`:"")}${hrow(more,"More like "+s.title)}</section>`:""}`;
 }
-function radioView(){ main.innerHTML=`<h1>Velora Radio</h1><p class="muted">One station for every genre. It follows the time of day, or you can tune it to a mood.</p><div class="schedule" style="max-width:640px">${RADIO.map(r=>`<div class="slot ${r===slotNow()?"live":""}"><span>${String(r.from%24).padStart(2,"0")}:00–${String(r.to%24).padStart(2,"0")}:00 · <b>${esc(r.name)}</b></span><span class="muted">${r.genres.join(" + ")}</span></div>`).join("")}</div><div class="row" style="margin-top:18px"><button class="btn primary" id="rv">${icon("play")}Listen live</button></div>`; $("#rv").onclick=startRadio; }
-function videosView(){ main.innerHTML=`<h1>Shorts</h1><p class="muted">Short-form videos from Robert's YouTube channel. Robert's song videos first; the other tiles are examples until the real channel is linked.</p><div class="videos">${videoTiles(12)}</div>`; }
+function radioView(){
+  const now=slotNow();
+  main.innerHTML=`<h1>Velora Radio</h1><p class="muted">Non-stop, like the YouTube radio. It follows the time of day, or pick a station.</p>
+  <div class="schedule" style="max-width:640px">${RADIO.map((r,i)=>`<button type="button" class="slot ${r===now?"live":""}" data-slot="${i}" style="border:0;color:inherit;cursor:pointer;font:inherit;text-align:left"><span>${String(r.from%24).padStart(2,"0")}:00–${String(r.to%24).padStart(2,"0")}:00 · <b>${esc(r.name)}</b></span><span class="muted">${r.cats.join(" + ")}</span></button>`).join("")}</div>
+  <div class="row" style="margin-top:18px"><button class="btn primary" id="rv">${icon("play")}Listen live</button></div>
+  <section>${head("Stations")}<div class="hrow st-row">${USED.map(station).join("")}</div></section>`;
+  $("#rv").onclick=()=>startRadio();
+  main.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>startRadio(RADIO[+b.dataset.slot]));
+}
+function videosView(){ main.innerHTML=`<h1>Videos</h1><p class="muted">Short videos of Robert's songs. Tap one to watch.</p><div class="videos">${videoTiles()}</div>`; }
 function pricing(){ main.innerHTML=`<h1>Pricing</h1><p class="muted">Three simple ways to use Robert's music.</p>${tiersHTML()}
- <div class="section-head"><h2>Questions</h2></div><div class="faq">
+ <div class="row-head"><h2>Questions</h2></div><div class="faq">
  <details open><summary>If I buy a song, is it only mine?</summary><p>No, buying usage rights is non-exclusive. The song stays in the Velora catalogue and others can license it too. If you need it to be yours alone, request Exclusive rights and the song will be removed for new buyers only when you ask.</p></details>
  <details><summary>What does renting cover?</summary><p>Use in your videos and posts on one channel while the rental is active. Example terms.</p></details>
  <details><summary>How do I prove I have a license?</summary><p>Every license comes with a dated certificate and an ID you can check on the Verify page.</p></details>
- <details><summary>Who makes the music?</summary><p>Robert writes the lyrics, concepts and song design, and produces the music with Suno.</p></details></div>`; }
+ <details><summary>Who makes the music?</summary><p>Robert writes the lyrics, concepts and song design, and produces the music with Suno (AI-assisted).</p></details></div>`; }
 function verify(params){ const id=params.get("id")||""; main.innerHTML=`<h1>Verify a license</h1><p class="muted">Enter a license ID to see its record and date.</p><form id="vf" class="row" style="max-width:560px"><div class="field" style="flex:1;margin:0"><label for="vid" class="sr">License ID</label><input id="vid" placeholder="VL-2026-XXXXXX" value="${esc(id)}"></div><button class="btn primary">Verify</button></form><div id="vr" style="margin-top:18px;max-width:640px"></div>`;
  const run=()=>{ const v=$("#vid").value.trim().toUpperCase(); const rec=store.get("velora_licenses",[]).find(r=>r.lic===v); $("#vr").innerHTML= !v?"": rec?`<div class="cert"><h3>Valid license (demo)</h3><dl><dt>License ID</dt><dd>${esc(rec.lic)}</dd><dt>Song</dt><dd>${esc(rec.title)} (${esc(rec.song)})</dd><dt>Type</dt><dd>${esc(rec.type)}</dd><dt>Issued</dt><dd>${new Date(rec.issued).toLocaleString("en-GB",{dateStyle:"long",timeStyle:"short"})}</dd><dt>Song created</dt><dd>${esc(rec.songDate)}</dd></dl></div>`:`<div class="note">No license found with that ID. In this demo, licenses are only stored in this browser.</div>`; };
  $("#vf").onsubmit=e=>{e.preventDefault();run();}; if(id) run(); }
@@ -413,20 +507,28 @@ document.addEventListener("click",e=>{
   if(e.target.closest("[data-stream]")){ e.preventDefault(); startStream(); return; }
   const cn=e.target.closest("[data-close-np]"); if(cn){ e.preventDefault(); closeNP(false, cn.getAttribute("href")); return; }
   const v=e.target.closest("[data-video]"); if(v){ e.preventDefault(); openVideo(byId(v.dataset.video)); return; }
-  const p=e.target.closest("[data-play]"); if(p){ e.preventDefault(); const s=byId(p.dataset.play); const list=s.real?REAL:S.filter(x=>x.genre===s.genre); playFrom(list, s, s.real?"Robert's songs":s.genre, +(p.dataset.at||0), p.hasAttribute("data-np")?openNP:null); return; }
+  const st=e.target.closest("[data-station]"); if(st){ e.preventDefault(); startStation(catById(st.dataset.station)); return; }
   const l=e.target.closest("[data-lic]"); if(l){ e.preventDefault(); openLicense(byId(l.dataset.lic), l.dataset.pre||"rent"); return; }
+  // Tap a song anywhere: it plays and its full screen opens (cover, lyrics, video, license).
+  const t=e.target.closest("[data-song]"); if(t){ e.preventDefault(); const s=byId(t.dataset.song), row=ROWS[t.dataset.list]||{list:[s],label:s.genre};
+    if(current===s && !audio.paused){ openNP(); return; } playFrom(row.list, s, row.label, 0, openNP); return; }
+  const p=e.target.closest("[data-play]"); if(p){ e.preventDefault(); const s=byId(p.dataset.play), at=+(p.dataset.at||0), open=p.hasAttribute("data-np")?openNP:null;
+    if(current===s){ audio.currentTime=at; audio.play().catch(()=>{}); if(open) open(); return; }
+    playFrom([s,...suggestions(s,8)], s, s.genre, at, open); return; }
   if(e.target.closest("[data-sub]")){ e.preventDefault(); openLicense(current||S[0],"rent"); setTimeout(()=>{const r=document.querySelector('input[value=sub]'); if(r) r.checked=true;},0); return; }
   if(e.target.closest("[data-todo]")){ e.preventDefault(); }
 });
-$("#q").addEventListener("input",e=>{ libState.q=e.target.value; libState.page=1; if(!location.hash.startsWith("#/library")) location.hash="#/library"; else { const lq=$("#libq"); if(lq) lq.value=libState.q; drawLib(); } });
+$("#q").addEventListener("input",e=>{ searchQ=e.target.value; if(!/^#\/(search|library)/.test(location.hash)) location.hash="#/search"; else { const lq=$("#libq"); if(lq) lq.value=searchQ; drawSearch(); } });
 
 function route(){
   const h=location.hash.slice(1)||"/"; const [path,qs]=h.split("?"); const params=new URLSearchParams(qs||"");
   if(npOpen) closeNP(true);
-  const navPath = path.startsWith("/song") ? "/library" : path;
+  ROWS={}; rowN=0;
+  const navPath = path.startsWith("/song") || path.startsWith("/genre") || path==="/library" ? "/search" : path;
   document.querySelectorAll(".topnav a").forEach(a=>a.classList.toggle("active", a.getAttribute("href")==="#"+navPath));
   document.querySelectorAll(".tabbar [data-tab]").forEach(a=>a.classList.toggle("active", a.dataset.tab===navPath));
-  if(path==="/") home(); else if(path==="/library") library(params); else if(path.startsWith("/song/")) song(path.split("/")[2]);
+  if(path==="/") home(); else if(path==="/search"||path==="/library") searchView(params); else if(path.startsWith("/song/")) song(path.split("/")[2]);
+  else if(path.startsWith("/genre/")) genreView(path.split("/")[2]);
   else if(path==="/radio") radioView(); else if(path==="/videos") videosView(); else if(path==="/pricing") pricing(); else if(path==="/verify") verify(params);
   else if(path==="/stream"){ home(); startStream(); } else home();
   window.scrollTo(0,0);
