@@ -55,7 +55,7 @@ Example only, in `PRICES` at the top of `app.js`. Robert sets the real ones.
 
 1. Before you start, pull the latest `main`.
 2. When you finish, add a dated line to the Change log on the Notion page "Velora: song library site" saying what you changed.
-3. Every version stays in GitHub. The tag `before-claude-player` marks the site as it was before the 9 Nov player work.
+3. Every version stays in GitHub. The branch `before-claude-player` keeps the site exactly as it was before the 9 Nov player work, so going back is one step.
 4. The Vercel preview is deployed from the CLI, not from GitHub: after pushing, redeploy it so the preview link shows the new version.
 
 ## Run locally
