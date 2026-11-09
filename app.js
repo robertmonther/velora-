@@ -16,8 +16,8 @@ const PRICES = {rent:{label:"Rent a track",price:"€9",per:"30 days, one channe
 // Velora Radio follows the time of day; each slot plays songs from these categories.
 const RADIO = [
  {from:6,to:10,name:"Morning Light",cats:["Pop","Romantic","Soft Sensual"]},
- {from:10,to:14,name:"Rise Up",cats:["Protest Anthems"]},
- {from:14,to:18,name:"Afternoon Fire",cats:["Protest Anthems","Pop"]},
+ {from:10,to:14,name:"Rise Up",cats:["Trend (Arena)"]},
+ {from:14,to:18,name:"Afternoon Fire",cats:["Trend (Arena)","Pop"]},
  {from:18,to:22,name:"Golden Evening",cats:["Romantic","Soft Sensual","Pop"]},
  {from:22,to:26,name:"After Dark",cats:["Soft Sensual","Explicit Sensual"]},
  {from:2,to:6,name:"Late Night",cats:["Explicit Sensual"]}
@@ -454,7 +454,7 @@ function drawSearch(){
   const r=search(searchQ);
   box.innerHTML = (r.cats.length?`<div class="chips" style="margin-top:4px">${r.cats.map(c=>`<a class="chip cat-chip" href="${catLink(c)}" style="--st:${c.color}">${esc(c.name)} <span lang="ar" dir="rtl">${esc(c.ar)}</span> · ${songsIn(c).length}</a>`).join("")}</div>`:"")
     + (r.songs.length?`<div class="muted small" style="margin:6px 0 8px">${r.songs.length} song${r.songs.length===1?"":"s"}${r.lyricHit.size?" · some found in the lyrics":""}</div>${rows(r.songs,"Search: "+searchQ)}`
-    : `<p class="muted">No songs match “${esc(searchQ)}”. Try a category like Sensual, Romantic, Pop, Protest, or in Arabic: حسي، رومانسي، ثوري.</p>`);
+    : `<p class="muted">No songs match “${esc(searchQ)}”. Try a category like Sensual, Romantic, Pop, Trend, or in Arabic: حسي، رومانسي، ترند، ثوري.</p>`);
 }
 function genreView(id){
   const c=catById(id); if(!c){ main.innerHTML="<h1>Category not found</h1>"; return; }

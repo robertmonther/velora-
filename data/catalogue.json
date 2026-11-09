@@ -30,11 +30,11 @@
    "words": "pop بوب"
   },
   {
-   "id": "protest",
-   "name": "Protest Anthems",
-   "ar": "أغاني ثورية",
+   "id": "trend",
+   "name": "Trend (Arena)",
+   "ar": "ترند · أرينا",
    "color": "#a65441",
-   "words": "protest anthem anthems revolution freedom rise resistance ثورة ثوري ثورية احتجاج حرية نضال مقاومة"
+   "words": "trend arena anthem anthems protest revolution rebellion freedom rise resistance ترند ارينا حلبه ثوره ثوري ثوريه احتجاج حريه نضال مقاومه اغاني ثوريه"
   }
  ],
  "genres": [
@@ -42,13 +42,13 @@
   "Explicit Sensual",
   "Romantic",
   "Pop",
-  "Protest Anthems"
+  "Trend (Arena)"
  ],
  "songs": [
   {
    "id": "rm-0001",
    "title": "Off the Clock",
-   "genre": "Protest Anthems",
+   "genre": "Trend (Arena)",
    "mood": "Defiant",
    "bpm": 83,
    "key": "B minor",
@@ -283,7 +283,7 @@
   {
    "id": "rm-0002",
    "title": "The Skeleton Key",
-   "genre": "Protest Anthems",
+   "genre": "Trend (Arena)",
    "mood": "Epic",
    "bpm": 78,
    "key": "D minor",
@@ -462,7 +462,7 @@
   {
    "id": "rm-0003",
    "title": "Those Billions",
-   "genre": "Protest Anthems",
+   "genre": "Trend (Arena)",
    "mood": "Hopeful",
    "bpm": 83,
    "key": "A minor",
@@ -641,7 +641,7 @@
   {
    "id": "rm-0004",
    "title": "Count to Three",
-   "genre": "Protest Anthems",
+   "genre": "Trend (Arena)",
    "mood": "Uplifting",
    "bpm": 96,
    "key": "A minor",
@@ -804,7 +804,7 @@
   {
    "id": "rm-0005",
    "title": "If We Burn",
-   "genre": "Protest Anthems",
+   "genre": "Trend (Arena)",
    "mood": "Dramatic",
    "bpm": 78,
    "key": "G minor",

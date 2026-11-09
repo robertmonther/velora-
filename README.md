@@ -22,7 +22,7 @@ A plain static site with no build step and no framework, so anyone can open and 
 
 ### Pages (hash routes)
 - `#/` Home, laid out like Spotify: category pills, Today's pick, Recommended for today, Recommended Stations (one per category), Recents, More like…, one row per category, videos, Velora Radio, pricing
-- `#/search` Search (also `#/library`): "Browse all" category tiles and every song; typing searches titles, categories, moods and lyrics in English **and Arabic** (حسي، رومانسي، ثوري…)
+- `#/search` Search (also `#/library`): "Browse all" category tiles and every song; typing searches titles, categories, moods and lyrics in English **and Arabic** (حسي، رومانسي، ترند، ثوري…)
 - `#/genre/<id>` Category page: play, shuffle, the category's radio, numbered song list
 - `#/song/<id>` Song page: facts, Play, Rent and Buy buttons, lyrics (tap a line to play from there), song map with section start/end times, provenance record with date
 - `#/radio` Radio schedule and stations
@@ -101,6 +101,6 @@ Off the Clock, The Skeleton Key, Those Billions, Count to Three, If We Burn.
 ### Real songs only, categories, lyrics and covers (9 Nov 2026, Claude)
 
 - **Example songs removed:** the 60 example songs (`vl-…`, "Robert Mo"), their test-tone audio and the two generator scripts are gone. Only Robert's 11 songs remain.
-- **Categories** live in `data/catalogue.json` → `categories` (name, Arabic name, colour, search words). A song has one main category (`genre`) and optional extra ones (`tags`, e.g. `["Romantic"]`). Only categories with songs are shown. Now: Soft Sensual (حسي ناعم), Explicit Sensual (حسي صريح), Romantic (رومانسي), Pop (بوب), Protest Anthems (أغاني ثورية, the first five songs).
+- **Categories** live in `data/catalogue.json` → `categories` (name, Arabic name, colour, search words). A song has one main category (`genre`) and optional extra ones (`tags`, e.g. `["Romantic"]`). Only categories with songs are shown. Now: Soft Sensual (حسي ناعم), Explicit Sensual (حسي صريح), Romantic (رومانسي), Pop (بوب), Trend (Arena) (ترند · أرينا: Robert's genre of songs in the Hunger Games style, the first five songs).
 - **Lyrics:** `lyrics` is a list of `[seconds, "line"]`, written down from each recording and timed to the audio. Robert still has to check the words (`lyricsNote` says so on the site). Song parts (`sections`) now follow the lyrics for all 11 songs.
 - **Covers:** the six new songs got designed covers (`media/covers/song-06-art.jpg` … `song-11-art.jpg`), drawn as SVG and saved as JPEG; free, no AI credits used. Replace them any time with Robert's own covers and run `scripts/cover_colors.py --write`.
