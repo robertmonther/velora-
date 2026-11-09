@@ -54,7 +54,8 @@
    "real": true,
    "example": false,
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
+   "color": "#6b574d"
   },
   {
    "id": "rm-0002",
@@ -104,7 +105,8 @@
    "real": true,
    "example": false,
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
+   "color": "#abb0b4"
   },
   {
    "id": "rm-0003",
@@ -154,7 +156,8 @@
    "real": true,
    "example": false,
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
+   "color": "#362f27"
   },
   {
    "id": "rm-0004",
@@ -200,7 +203,8 @@
    "real": true,
    "example": false,
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
+   "color": "#6d5134"
   },
   {
    "id": "rm-0005",
@@ -250,7 +254,8 @@
    "real": true,
    "example": false,
    "analysisNote": "BPM, key, mood and section times are automatic estimates. Robert can correct them in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video)."
+   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
+   "color": "#b6d2e5"
   },
   {
    "id": "vl-0001",

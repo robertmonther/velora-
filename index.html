@@ -2,56 +2,117 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121214">
 <title>Velora — Robert's song library</title>
 <meta name="description" content="Velora: the full-song library of Robert's music. Listen to whole songs, rent a track for your content, buy usage rights, or subscribe to the whole library.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b7a99'/%3E%3Cstop offset='.5' stop-color='%23e0a9b0'/%3E%3Cstop offset='1' stop-color='%23b0524a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.94-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><rect x="4.5" y="5" width="2.6" height="14" rx="1"/><path d="M19.5 5.9v12.2a1 1 0 0 1-1.55.83L9.6 13.36a1.6 1.6 0 0 1 0-2.72l8.35-5.57a1 1 0 0 1 1.55.83Z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><rect x="16.9" y="5" width="2.6" height="14" rx="1"/><path d="M4.5 5.9v12.2a1 1 0 0 0 1.55.83l8.35-5.57a1.6 1.6 0 0 0 0-2.72L6.05 5.07A1 1 0 0 0 4.5 5.9Z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 3.2 3.5 10v10.3a.7.7 0 0 0 .7.7h5.3v-6.2h5v6.2h5.3a.7.7 0 0 0 .7-.7V10Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M10.5 3.8a6.7 6.7 0 1 1 0 13.4 6.7 6.7 0 0 1 0-13.4Zm5 11.7 4.8 4.8"/></symbol>
+  <symbol id="i-stream" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M4 10v4M8 6.5v11M12 3.5v17M16 7.5v9M20 10.5v3"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.3"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8.3 15.7a5.3 5.3 0 0 1 0-7.4M15.7 8.3a5.3 5.3 0 0 1 0 7.4M5.3 18.7a9.5 9.5 0 0 1 0-13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M5 4v16M10 4v16m4.5-15.4 4.8 15"/></symbol>
+  <symbol id="i-premium" viewBox="0 0 24 24"><path d="M12 2.8a9.2 9.2 0 1 0 0 18.4 9.2 9.2 0 0 0 0-18.4Zm0 3.6 1.7 3.8 4.1.4-3.1 2.8.9 4.1-3.6-2.1-3.6 2.1.9-4.1-3.1-2.8 4.1-.4Z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5.5 9 6.5 6.5L18.5 9"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m5.5 15 6.5-6.5 6.5 6.5"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7h3.2c2.3 0 3.5 1.2 4.8 3.5l1 1.8c1.3 2.3 2.5 3.7 4.8 3.7h3.2M3.5 17h3.2c1.4 0 2.4-.5 3.2-1.4M14 8.4c.8-.9 1.8-1.4 3.2-1.4h3.3"/><path d="m18 4.5 2.5 2.5L18 9.5M18 14.5l2.5 2.5-2.5 2.5"/></g></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 2.5c.5 4.4 2.3 6.9 6.9 7.6-4.6.7-6.4 3.2-6.9 7.6-.5-4.4-2.3-6.9-6.9-7.6 4.6-.7 6.4-3.2 6.9-7.6Zm7.5 11.3c.25 1.9 1 3 3 3.2-2 .3-2.75 1.4-3 3.3-.25-1.9-1-3-3-3.3 2-.2 2.75-1.3 3-3.2Z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0Z"/><circle cx="8" cy="8" r="1.6"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M4 5.5h11a1.5 1.5 0 0 1 1.5 1.5v2.4l3.6-2.3a.6.6 0 0 1 .9.5v8.8a.6.6 0 0 1-.9.5l-3.6-2.3V17a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 17V7A1.5 1.5 0 0 1 4 5.5Z"/></symbol>
+</svg>
+
 <a class="skip" href="#main">Skip to content</a>
 <div class="demo-banner" role="note">Prototype preview. Songs, prices and links are example data. Checkout is a demo and charges nothing.</div>
 <header class="topbar">
   <a class="brand" href="#/" aria-label="Velora home"><span class="logo-dot"></span>Velora</a>
-  <nav aria-label="Main">
-    <a href="#/">Home</a><a href="#/library">Library</a><a href="#/radio">Radio</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
+  <nav class="topnav" aria-label="Main">
+    <a href="#/">Home</a><button type="button" class="navlink" data-stream>Stream</button><a href="#/radio">Radio</a><a href="#/library">Library</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
   </nav>
   <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" placeholder="Search songs, genres, moods"></div>
+  <a class="icon-btn search-btn" href="#/library?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
 </header>
 <main id="main" tabindex="-1"></main>
 <footer class="footer">
   <div>
     <strong>Velora</strong> (working name). Lyrics, concepts and song design by Robert. Music made with Suno (AI-assisted).
   </div>
+  <nav class="footlinks" aria-label="More pages"><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a></nav>
   <div class="channels" aria-label="Channels">
     <a href="#" data-todo>Spotify</a><a href="#" data-todo>Apple Music</a><a href="#" data-todo>YouTube Radio</a><a href="#" data-todo>Instagram</a><a href="#" data-todo>TikTok</a><a href="#" data-todo>X</a>
   </div>
   <div class="muted small">Channel links are placeholders until Robert adds the real addresses.</div>
 </footer>
 
-<div class="player" id="player" aria-label="Player">
-  <div class="p-left">
-    <div class="p-cover" id="pCover"></div>
-    <div><div class="p-title" id="pTitle">Pick a song</div><div class="p-meta muted" id="pMeta">Whole songs, never snippets</div></div>
-  </div>
-  <div class="p-center">
-    <div class="p-controls">
-      <button class="icon" id="pPrev" aria-label="Previous">⏮</button>
-      <button class="icon play" id="pPlay" aria-label="Play">▶</button>
-      <button class="icon" id="pNext" aria-label="Next">⏭</button>
-      <button class="chip" id="pBest">Jump to best part</button>
+<!-- Mini player: appears once a song plays; tap it to open the full Now Playing screen -->
+<div class="mini" id="mini" aria-label="Now playing" hidden>
+  <button class="mini-open" id="miniOpen" type="button" aria-label="Open the player">
+    <span class="mini-cover" id="miniCover"></span>
+    <span class="mini-text"><span class="mini-title" id="miniTitle"></span><span class="mini-sub" id="miniSub"></span></span>
+    <svg class="mini-up" aria-hidden="true"><use href="#i-up"/></svg>
+  </button>
+  <div class="mini-center">
+    <div class="mini-controls">
+      <button class="icon-btn" id="miniPrev" type="button" aria-label="Previous"><svg><use href="#i-prev"/></svg></button>
+      <button class="icon-btn play" id="miniPlay" type="button" aria-label="Play"><svg><use href="#i-play"/></svg></button>
+      <button class="icon-btn" id="miniNext" type="button" aria-label="Next"><svg><use href="#i-next"/></svg></button>
     </div>
-    <div class="p-timeline">
-      <span id="pCur" class="time">0:00</span>
-      <div class="track" id="pTrack" role="slider" tabindex="0" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div class="wave" id="pWave"></div>
-        <div class="fill" id="pFill"></div>
-        <div class="sections" id="pSections"></div>
-      </div>
-      <span id="pDur" class="time">0:00</span>
+    <div class="mini-timeline">
+      <span class="time" id="miniCur">0:00</span>
+      <div class="bar" id="miniBar" role="slider" tabindex="0" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar-fill"></div><div class="bar-ticks"></div><div class="bar-knob"></div></div>
+      <span class="time" id="miniDur">0:00</span>
     </div>
   </div>
-  <div class="p-right"><button class="btn primary" id="pLicense">License this song</button></div>
+  <div class="mini-right">
+    <button class="chip" id="miniBest" type="button">Jump to best part</button>
+    <button class="btn primary sm" id="miniLicense" type="button">License this song</button>
+    <button class="icon-btn mini-licicon" id="miniLicIcon" type="button" aria-label="License this song"><svg><use href="#i-tag"/></svg></button>
+  </div>
+  <div class="mini-progress" aria-hidden="true"><i id="miniProg"></i></div>
 </div>
+
+<!-- Bottom tab bar on phones, like Spotify -->
+<nav class="tabbar" aria-label="Main">
+  <a href="#/" data-tab="/"><svg><use href="#i-home"/></svg><span>Home</span></a>
+  <button type="button" data-stream data-tab="stream"><svg><use href="#i-stream"/></svg><span>Stream</span></button>
+  <a href="#/radio" data-tab="/radio"><svg><use href="#i-radio"/></svg><span>Radio</span></a>
+  <a href="#/library" data-tab="/library"><svg><use href="#i-library"/></svg><span>Library</span></a>
+  <a href="#/pricing" data-tab="/pricing"><svg><use href="#i-premium"/></svg><span>Premium</span></a>
+</nav>
+
+<!-- Now Playing: full screen, coloured from the song's cover -->
+<section class="np" id="np" role="dialog" aria-modal="true" aria-label="Now playing" aria-hidden="true">
+  <div class="np-scroll" id="npScroll">
+    <header class="np-head">
+      <button class="icon-btn" id="npClose" type="button" aria-label="Close the player"><svg><use href="#i-down"/></svg></button>
+      <div class="np-from"><span>Playing from</span><b id="npFrom"></b></div>
+      <button class="icon-btn" id="npLicTop" type="button" aria-label="License this song"><svg><use href="#i-tag"/></svg></button>
+    </header>
+    <div class="np-art" id="npArt" role="img" aria-label=""></div>
+    <div class="np-titlerow">
+      <div class="np-titles"><h2 id="npTitle"></h2><div class="np-artist" id="npArtist"></div></div>
+      <button class="btn light sm" id="npLicense" type="button"><svg><use href="#i-tag"/></svg>License</button>
+    </div>
+    <div class="bar np-bar" id="npBar" role="slider" tabindex="0" aria-label="Song position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar-fill"></div><div class="bar-ticks"></div><div class="bar-knob"></div></div>
+    <div class="np-times"><span id="npCur">0:00</span><span id="npDur">0:00</span></div>
+    <div class="np-controls">
+      <button class="icon-btn" id="npShuffle" type="button" aria-label="Shuffle" aria-pressed="false"><svg><use href="#i-shuffle"/></svg></button>
+      <button class="icon-btn lg" id="npPrev" type="button" aria-label="Previous"><svg><use href="#i-prev"/></svg></button>
+      <button class="np-play" id="npPlay" type="button" aria-label="Play"><svg><use href="#i-play"/></svg></button>
+      <button class="icon-btn lg" id="npNext" type="button" aria-label="Next"><svg><use href="#i-next"/></svg></button>
+      <button class="icon-btn" id="npBest" type="button" aria-label="Jump to the best part" title="Jump to the best part"><svg><use href="#i-spark"/></svg></button>
+    </div>
+    <div class="np-sections" id="npSections" aria-label="Song map"></div>
+    <div id="npCards"></div>
+  </div>
+</section>
 
 <div class="modal-back" id="modal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">

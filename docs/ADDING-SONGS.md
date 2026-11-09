@@ -23,3 +23,16 @@ Entry fields:
 }
 ```
 3. Sections can be estimated from loudness/energy changes or entered by hand from the Suno song structure tags.
+
+Optional fields used by Robert's real songs and the Spotify-style player:
+```json
+{
+  "real": true,                                   // shows first, tagged "Robert original"
+  "art": "media/covers/<id>-art.jpg",             // square cover
+  "poster": "media/covers/<id>-poster.jpg",       // first frame of the video
+  "video": "media/shorts/<id>.mp4",               // plays muted in Now Playing, following the audio
+  "color": "#6b574d",                             // Now Playing background colour, taken from the cover
+  "provenance": "Made with Suno, by @robertmonther"
+}
+```
+4. After adding covers, run `python3 scripts/cover_colors.py --write` to fill in `color` and regenerate `data/catalogue.js`.

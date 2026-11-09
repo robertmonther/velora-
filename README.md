@@ -30,7 +30,7 @@ A plain static site with no build step and no framework, so anyone can open and 
 - `#/verify?id=VL-...` Verify a license ID (demo: stored in the browser's localStorage)
 
 ### Key behaviours
-- **Player:** full songs; waveform; clickable section markers (Intro, Verse, Chorus...) showing where each part starts and ends; "Jump to best part"; keyboard arrows seek 5 s.
+- **Player (Spotify-style, added 9 Nov 2026):** see the section below.
 - **Radio:** one station across genres. Time slots in `RADIO` in `app.js` (06-10 Morning Warmth, 10-14 Daylight Focus, 14-18 Afternoon Energy, 18-22 Golden Evening, 22-02 After Dark, 02-06 Late Night 18+). Mood chips override the slot.
 - **Listen to pay in two clicks:** "License" on any card or the player opens the modal with Rent preselected; "Pay (demo)" issues the certificate.
 - **Exclusivity rule (Robert's decision):** buying usage rights is non-exclusive and the song stays in the catalogue; it is removed for new buyers only if the buyer asks (Exclusive, on request).
@@ -39,6 +39,24 @@ A plain static site with no build step and no framework, so anyone can open and 
 
 ### Prices
 Example only, in `PRICES` at the top of `app.js`. Robert sets the real ones.
+
+## Spotify-style player (added 9 Nov 2026 by Claude)
+
+- **Phones:** a compact top bar (logo and a search icon) and a bottom tab bar like Spotify: Home, Stream, Radio, Library, Premium. Videos and Verify a license are in the footer.
+- **Mini player:** hidden until a song plays, then a slim bar above the tab bar (cover, title, License, play/pause, thin progress line). Tap it to open Now Playing. On desktop it is a bottom bar with previous/play/next, a progress bar with the song's section marks, Jump to best part and License.
+- **Now Playing (full screen):** the background takes its colour from the song's cover (the `color` field, or sampled from the cover in the browser). Big cover, title, License button, progress bar with section marks, shuffle/previous/play/next/best part, section chips (tap to jump), then cards: the song's video (plays muted and follows the audio, so the song never plays twice) or its lyrics, Rent/Buy, About the song, Up next and More like this. Tap the down arrow, press Escape or use the phone's back button to close it.
+- **Stream** (tab and top-bar link) opens Now Playing; if nothing is playing it starts Robert's songs. `#/stream` does the same.
+- **Autoplay:** when a list ends, similar songs keep playing.
+- **Lock screen:** title, artist, cover and controls show on the phone's lock screen (Media Session API).
+- **Downloads made harder:** no download button anywhere; the save menu is blocked on covers and videos; videos hide their download option. Real protection needs the media moved out of this public repo (open item on the Notion page).
+- Icons are SVG (no emoji). Browser storage is wrapped in try/catch so the demo never breaks when storage is blocked.
+
+## Working on this site (Claude and Grok take turns)
+
+1. Before you start, pull the latest `main`.
+2. When you finish, add a dated line to the Change log on the Notion page "Velora: song library site" saying what you changed.
+3. Every version stays in GitHub. The tag `before-claude-player` marks the site as it was before the 9 Nov player work.
+4. The Vercel preview is deployed from the CLI, not from GitHub: after pushing, redeploy it so the preview link shows the new version.
 
 ## Run locally
 ```bash
