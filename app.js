@@ -5,7 +5,7 @@ const D = window.VELORA_DATA, S = D.songs, CATS = D.categories || [];
 // and from the local folder when the site runs on localhost.
 // MEDIA_REV pins the media to one commit: a "@main" link can stay cached for hours, so new covers or songs
 // would not show. After pushing new or changed media, set MEDIA_REV to that commit's full ID (git rev-parse HEAD).
-const MEDIA_REV = "30cb0cc17af713be9f25aa3f330b2fb8283f4caa";
+const MEDIA_REV = "35af767f219230a9db57fd7bd3a1e184871a34a8";
 const LOCAL = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
 const MEDIA_BASE = LOCAL ? "" : "https://cdn.jsdelivr.net/gh/robertmonther/velora-@" + MEDIA_REV + "/";
 const url = p => /^https?:/.test(p) ? p : MEDIA_BASE + p;
