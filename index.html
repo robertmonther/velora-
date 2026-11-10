@@ -3,11 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.jsdelivr.net; media-src 'self' https://cdn.jsdelivr.net; font-src 'self'; connect-src 'self' https://*.supabase.co; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="robots" content="noindex">
 <meta name="theme-color" content="#121214">
-<title>Velora — Robert's song library</title>
-<meta name="description" content="Velora: the full-song library of Robert's music. Listen to whole songs, rent a track for your content, buy usage rights, or subscribe to the whole library.">
+<meta name="color-scheme" content="dark">
+<title>Velora</title>
+<meta name="description" content="Velora: full songs to listen to and to license for your videos. Rent a track, buy usage rights or go Premium, and tune in to the non-stop radio.">
+<meta property="og:title" content="Velora">
+<meta property="og:description" content="Full songs to listen to and to license for your videos, plus a non-stop radio.">
+<meta property="og:type" content="website">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b7a99'/%3E%3Cstop offset='.5' stop-color='%23e0a9b0'/%3E%3Cstop offset='1' stop-color='%23b0524a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=20261109d">
+<link rel="stylesheet" href="styles.css?v=20261110a">
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
@@ -26,6 +38,8 @@
   <symbol id="i-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7h3.2c2.3 0 3.5 1.2 4.8 3.5l1 1.8c1.3 2.3 2.5 3.7 4.8 3.7h3.2M3.5 17h3.2c1.4 0 2.4-.5 3.2-1.4M14 8.4c.8-.9 1.8-1.4 3.2-1.4h3.3"/><path d="m18 4.5 2.5 2.5L18 9.5M18 14.5l2.5 2.5-2.5 2.5"/></g></symbol>
   <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 2.5c.5 4.4 2.3 6.9 6.9 7.6-4.6.7-6.4 3.2-6.9 7.6-.5-4.4-2.3-6.9-6.9-7.6 4.6-.7 6.4-3.2 6.9-7.6Zm7.5 11.3c.25 1.9 1 3 3 3.2-2 .3-2.75 1.4-3 3.3-.25-1.9-1-3-3-3.3 2-.2 2.75-1.3 3-3.2Z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0Z"/><circle cx="8" cy="8" r="1.6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 12.2a4.1 4.1 0 1 0 0-8.2 4.1 4.1 0 0 0 0 8.2Zm-7.5 8c.6-3.6 3.6-5.6 7.5-5.6s6.9 2 7.5 5.6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></symbol>
   <symbol id="i-video" viewBox="0 0 24 24"><path d="M4 5.5h11a1.5 1.5 0 0 1 1.5 1.5v2.4l3.6-2.3a.6.6 0 0 1 .9.5v8.8a.6.6 0 0 1-.9.5l-3.6-2.3V17a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 17V7A1.5 1.5 0 0 1 4 5.5Z"/></symbol>
 </svg>
 
@@ -37,22 +51,22 @@
     <a href="#/">Home</a><a href="#/search">Browse</a><button type="button" class="navlink" data-stream>Stream</button><a href="#/radio">Radio</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
   </nav>
   <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" autocomplete="off" placeholder="Search songs, categories · ابحث"></div>
-  <a class="icon-btn search-btn" href="#/search?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
+  <div class="top-actions">
+    <a class="icon-btn search-btn" href="#/search?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
+    <a class="icon-btn" href="#/account" aria-label="Your account"><svg><use href="#i-user"/></svg></a>
+  </div>
 </header>
 <main id="main" tabindex="-1"></main>
 <footer class="footer">
   <div>
-    <strong>Velora</strong> (working name). Lyrics, concepts and song design by Robert. Music made with Suno (AI-assisted).
+    <strong>Velora</strong>. Lyrics, concepts and song design by Robert Monther. Music made with Suno (AI-assisted).
   </div>
-  <nav class="footlinks" aria-label="More pages"><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a></nav>
-  <div class="channels" aria-label="Channels">
-    <a href="#" data-todo>Spotify</a><a href="#" data-todo>Apple Music</a><a href="#" data-todo>YouTube Radio</a><a href="#" data-todo>Instagram</a><a href="#" data-todo>TikTok</a><a href="#" data-todo>X</a>
-  </div>
-  <div class="muted small">Channel links are placeholders until Robert adds the real addresses.</div>
+  <nav class="footlinks" aria-label="More pages"><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a><a href="#/account">Account</a></nav>
+  <nav class="channels" id="channels" aria-label="Channels" hidden></nav>
 </footer>
 
 <!-- Mini player: appears once a song plays; tap it to open the full Now Playing screen -->
-<div class="mini" id="mini" aria-label="Now playing" hidden>
+<div class="mini" id="mini" role="region" aria-label="Now playing" hidden>
   <button class="mini-open" id="miniOpen" type="button" aria-label="Open the player">
     <span class="mini-cover" id="miniCover"></span>
     <span class="mini-text"><span class="mini-title" id="miniTitle"></span><span class="mini-sub" id="miniSub"></span></span>
@@ -95,6 +109,7 @@
       <div class="np-from"><span>Playing from</span><b id="npFrom"></b></div>
       <button class="icon-btn" id="npLicTop" type="button" aria-label="License this song"><svg><use href="#i-tag"/></svg></button>
     </header>
+    <div class="np-ad" id="npAd" role="status"></div>
     <div class="np-art" id="npArt" role="img" aria-label=""></div>
     <div class="np-titlerow">
       <div class="np-titles"><h2 id="npTitle"></h2><div class="np-artist" id="npArtist"></div></div>
@@ -116,12 +131,16 @@
 
 <div class="modal-back" id="modal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-    <button class="icon close" id="mClose" aria-label="Close">✕</button>
+    <button type="button" class="icon-btn close" id="mClose" aria-label="Close"><svg><use href="#i-close"/></svg></button>
     <div id="mBody"></div>
   </div>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px;text-align:center">Velora needs JavaScript to play music. Please turn it on and reload.</p></noscript>
 <audio id="audio" preload="metadata"></audio>
-<script src="data/catalogue.js?v=20261109d"></script>
-<script src="app.js?v=20261109d"></script>
+<script src="config.js?v=20261110a"></script>
+<script src="data/catalogue.js?v=20261110a"></script>
+<script src="account.js?v=20261110a"></script>
+<script src="app.js?v=20261110a"></script>
 </body>
 </html>

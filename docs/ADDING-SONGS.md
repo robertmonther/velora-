@@ -39,4 +39,5 @@ Optional fields used by Robert's real songs and the Spotify-style player:
 4. After adding covers, run `python3 scripts/cover_colors.py --write` to fill in `color` and regenerate `data/catalogue.js`.
 5. A new category: add it to `categories` in `data/catalogue.json` (id, name, Arabic name `ar`, colour, search words in English and Arabic). It appears on the site as soon as one song uses it.
 6. Never put Suno song IDs in the public files; they stay in the private Notion song records.
-7. After pushing the new files, set `MEDIA_REV` in `app.js` to that commit's full ID and push again (see README, "Working on this site").
+7. After pushing the new files, set `mediaRev` in `config.js` to that commit's full ID and push again (see README, "Working on this site").
+8. A wide (16:9) music video: add `"clip": "media/clips/<file>.mp4"` and `"clipPoster": "media/covers/<file>.jpg"` to the song. It appears under Videos → Music videos.

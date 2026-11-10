@@ -278,7 +278,7 @@
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#6b574d",
    "tags": [],
-   "lyricsNote": "Written down from the recording. Robert will check every word."
+   "lyricsNote": "Written down from the recording; a few words may differ."
   },
   {
    "id": "rm-0002",
@@ -457,7 +457,7 @@
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#abb0b4",
    "tags": [],
-   "lyricsNote": "Written down from the recording. Robert will check every word."
+   "lyricsNote": "Written down from the recording; a few words may differ."
   },
   {
    "id": "rm-0003",
@@ -636,7 +636,7 @@
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#362f27",
    "tags": [],
-   "lyricsNote": "Written down from the recording. Robert will check every word."
+   "lyricsNote": "Written down from the recording; a few words may differ."
   },
   {
    "id": "rm-0004",
@@ -799,7 +799,7 @@
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#6d5134",
    "tags": [],
-   "lyricsNote": "Written down from the recording. Robert will check every word."
+   "lyricsNote": "Written down from the recording; a few words may differ."
   },
   {
    "id": "rm-0005",
@@ -954,7 +954,7 @@
    "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
    "color": "#b6d2e5",
    "tags": [],
-   "lyricsNote": "Written down from the recording. Robert will check every word."
+   "lyricsNote": "Written down from the recording; a few words may differ."
   },
   {
    "id": "rm-0006",
@@ -1195,7 +1195,7 @@
    "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
    "tags": [],
    "art": "media/covers/song-06-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#e8ccb8"
   },
   {
@@ -1515,7 +1515,7 @@
     "Romantic"
    ],
    "art": "media/covers/song-07-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#1a243a"
   },
   {
@@ -1713,7 +1713,7 @@
    "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
    "tags": [],
    "art": "media/covers/song-08-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#4f0d13"
   },
   {
@@ -2001,7 +2001,7 @@
     "Romantic"
    ],
    "art": "media/covers/song-09-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#4d0c17"
   },
   {
@@ -2326,7 +2326,7 @@
    "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
    "tags": [],
    "art": "media/covers/song-10-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#4c1219"
   },
   {
@@ -2567,7 +2567,7 @@
    "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
    "tags": [],
    "art": "media/covers/song-11-art.jpg",
-   "lyricsNote": "Written down from the recording. Robert will check every word.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
    "color": "#311b14"
   }
  ]
