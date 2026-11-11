@@ -13,13 +13,17 @@ window.VeloraBackend = (function () {
   "use strict";
   const C = (window.VELORA_CONFIG || {}).supabase || {};
   const url = String(C.url || "").replace(/\/+$/, ""), key = String(C.anonKey || "");
-  const enabled = /^https:\/\/[a-z0-9]{10,40}\.supabase\.co$/.test(url) && key.length >= 20;
+  // The server's address: a Supabase project, or (only while the site itself runs on this computer) a local stand-in used by the tests.
+  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /^http:\/\/(localhost|127\.0\.0\.1):\d+\/[\w-]+$/.test(url);
+  const enabled = (/^https:\/\/[a-z0-9]{10,40}\.supabase\.co$/.test(url) || local) && key.length >= 20;
   const shared = /(^|\.)githack\.com$|^htmlpreview\.github\.io$/i.test(location.hostname);
   const mem = {};
   const memStore = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } };
   let client = null, libP = null, initP = null;
   const subs = [];
-  const B = { enabled, url, shared, user: null, role: "", name: "", premium: false, ready: !enabled };
+  // Is there a remembered sign-in on this device? Only then is the account library loaded when the site opens.
+  const remembered = () => { if (!enabled || shared) return false; try { return !!localStorage.getItem("velora_auth"); } catch (e) { return false; } };
+  const B = { enabled, url, shared, user: null, role: "", name: "", premium: false, ready: !remembered() };
   const notify = () => subs.forEach(f => { try { f(B); } catch (e) {} });
 
   function lib() {
@@ -71,6 +75,7 @@ window.VeloraBackend = (function () {
     return initP;
   };
   B.onChange = f => { subs.push(f); };
+  B.remembered = remembered;
   B.canUpload = () => B.role === "owner" || B.role === "creator";
 
   B.signIn = async function (email, password) {
@@ -106,7 +111,11 @@ window.VeloraBackend = (function () {
     if (!enabled) return null;
     const r = await fetch(url + "/rest/v1/rpc/public_catalogue", { headers: { apikey: key, Accept: "application/json" } });
     if (!r.ok) throw new Error("catalogue " + r.status);
-    return r.json();
+    const d = await r.json();
+    // The server answers with storage paths; the site needs full addresses.
+    if (d && Array.isArray(d.songs)) d.songs.forEach(s => { if (s) { if (typeof s.audio === "string") s.audio = B.mediaUrl(s.audio); if (typeof s.art === "string") s.art = B.mediaUrl(s.art); } });
+    if (d && Array.isArray(d.artists)) d.artists.forEach(a => { if (a && typeof a.image === "string") a.image = B.mediaUrl(a.image); });
+    return d;
   };
   /* Public address of a stored file, and its storage path back from that address. */
   B.mediaUrl = path => url + "/storage/v1/object/public/media/" + String(path).split("/").map(encodeURIComponent).join("/");

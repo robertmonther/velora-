@@ -32,5 +32,6 @@ class H(SimpleHTTPRequestHandler):
             try: dst.write(chunk)
             except (BrokenPipeError, ConnectionResetError): break
             rem -= len(chunk)
-os.chdir(sys.argv[1])
-ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])), H).serve_forever()
+if __name__ == "__main__":
+    os.chdir(sys.argv[1])
+    ThreadingHTTPServer(("127.0.0.1", int(sys.argv[2])), H).serve_forever()

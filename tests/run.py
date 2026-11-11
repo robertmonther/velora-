@@ -12,6 +12,15 @@ BASE = f"http://localhost:{PORT}/index.html"
 SHOTS = os.path.join(ROOT, "tests", "shots")
 CHROME = os.environ.get("CHROME", "/usr/bin/google-chrome")
 results = []
+# The site's server (Supabase). The checks never talk to the real one: every page gets a stand-in that answers
+# like an empty server, and the upload checks use a fuller stand-in (tests/fake_backend.py).
+_cfg = open(os.path.join(ROOT, "config.js"), encoding="utf-8").read()
+SUPA = (re.search(r'supabase:\s*\{\s*url:\s*"([^"]*)"', _cfg) or [None, ""])[1]
+CORS = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS", "access-control-expose-headers": "*"}
+async def empty_backend(route):
+    if route.request.method == "OPTIONS": await route.fulfill(status=204, headers=CORS)
+    elif "/rest/v1/rpc/public_catalogue" in route.request.url: await route.fulfill(status=200, headers={**CORS, "content-type": "application/json"}, body='{"complete":true,"songs":[],"artists":[]}')
+    else: await route.fulfill(status=404, headers={**CORS, "content-type": "application/json"}, body='{"message":"not in the stand-in"}')
 
 def check(name, ok, detail=""):
     results.append(ok)
@@ -21,6 +30,7 @@ async def new_page(browser, width=390, height=844, mobile=True, adult=True):
     """A fresh visitor. adult=True: the age question was already answered with Yes (most checks are about the music)."""
     ctx = await browser.new_context(viewport={"width": width, "height": height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     if adult: await ctx.add_init_script("try{ localStorage.setItem('velora_age', JSON.stringify('adult')); }catch(e){}")
+    if SUPA: await ctx.route(SUPA + "/**", empty_backend)
     page = await ctx.new_page()
     page.problems = []
     page.on("pageerror", lambda e: page.problems.append("error: " + str(e)))

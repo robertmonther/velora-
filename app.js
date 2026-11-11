@@ -996,7 +996,7 @@ ARTISTS.forEach(a=>{ a.bundled=true; });
 if(Backend.enabled){
   Backend.catalogue().then(d=>mergeRemote(d)).catch(()=>{});
   Backend.onChange(()=>{ if(/^#\/(account|settings)/.test(location.hash)) route(true); });
-  Backend.init().catch(()=>{});
+  if(Backend.remembered()) Backend.init().catch(()=>{});   // someone signed in on this device before: restore it
 }
 
 // ---------- Upload pages (studio.js is loaded only when someone opens them) ----------
@@ -1006,7 +1006,11 @@ const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, c
   artists:()=>ARTISTS, songs:()=>ALL, addSongs:d=>mergeRemote(d,true), stopMusic:()=>{ try{ audio.pause(); }catch(e){} }, go:h=>{ location.hash=h; } };
 function studioView(path, params){
   main.innerHTML=`<p class="muted" style="margin-top:24px" role="status">One moment…</p>`;
-  if(!studioP) studioP = loadScript("data/taxonomy.js"+(VER?"?v="+VER:"")).then(()=>loadScript("studio.js"+(VER?"?v="+VER:""))).catch(e=>{ studioP=null; throw e; });
+  const q = VER ? "?v="+VER : "";
+  if(!studioP){
+    if(!document.getElementById("studioCss")){ const l=document.createElement("link"); l.id="studioCss"; l.rel="stylesheet"; l.href="studio.css"+q; document.head.appendChild(l); }
+    studioP = loadScript("data/taxonomy.js"+q).then(()=>loadScript("studio-audio.js"+q)).then(()=>loadScript("studio.js"+q)).catch(e=>{ studioP=null; throw e; });
+  }
   studioP.then(()=>{ if(/^#\/(upload|studio)/.test(location.hash)) window.VeloraStudio.open(path, params, studioCtx); })
     .catch(()=>{ main.innerHTML=`<h1 class="pagetitle">Upload</h1><p class="muted">The upload page did not load. Check your connection.</p><button type="button" class="btn primary" id="stRetry">Try again</button>`; const b=$("#stRetry"); if(b) b.onclick=()=>studioView(path, params); });
 }

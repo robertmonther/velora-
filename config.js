@@ -76,6 +76,7 @@ window.VELORA_CONFIG = {
 
   /* Accounts and uploads: a Supabase project. Put its address and its public (anon / publishable) key here.
      The public key is safe to publish; the database rules in supabase/schema.sql protect the data.
-     Never put the service_role (secret) key in this file. Empty = accounts and uploads are off. */
-  supabase: { url: "", anonKey: "" }
+     Never put the service_role (secret) key in this file. Empty = accounts and uploads are off.
+     Project "velora" (Frankfurt), free plan, created 11 Nov 2026. */
+  supabase: { url: "https://jbnburfenipnpruhqyst.supabase.co", anonKey: "sb_publishable_vnOMaRS-CgPd3ccliksCfw_Yn_kfCN5" }
 };
