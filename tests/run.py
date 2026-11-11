@@ -255,6 +255,22 @@ async def main():
             pw = await evil.evaluate("({p: window.__pwned === 1, imgs: document.querySelectorAll('main img, #np img, script:not([src])').length})")
             check("hostile song data and addresses can't inject code", not pw["p"] and pw["imgs"] == 0, str(pw))
 
+            # 7b. The legal pages: all six open, in plain words, with the prices from config.js
+            lg = await new_page(b)
+            await lg.goto(BASE + "#/legal"); await lg.wait_for_selector(".legalcard")
+            cards = await lg.evaluate("[...document.querySelectorAll('.legalcard')].map(a => a.getAttribute('href'))")
+            bad = []; texts = {}
+            for href in cards:
+                await lg.goto(BASE + href); await lg.wait_for_selector("article.legal h2")
+                t = await lg.inner_text("main"); texts[href] = t
+                n = await lg.evaluate("document.querySelectorAll('article.legal section').length")
+                if n < 2 or "Draft of" not in t or re.search(r"undefined|\[object|NaN|\$\{", t): bad.append(href)
+            await lg.screenshot(path=f"{SHOTS}/07b-legal.png", full_page=True)
+            foot = await lg.evaluate("!!document.querySelector('.footlinks a[href=\"#/legal\"]')")
+            await lg.click("#menuBtn"); await lg.wait_for_selector("#drawerNav a"); inmenu = await lg.evaluate("!!document.querySelector('#drawerNav a[href=\"#/legal\"]')")
+            check("the six legal pages open from the menu and the footer, with the prices from config.js", len(cards) == 6 and not bad and foot and inmenu
+                  and all(x in texts["#/license"] for x in ("€9", "€49", "€14")) and "lose the right to withdraw" in texts["#/sales"] and "Autoriteit Persoonsgegevens" in texts["#/privacy"] and not lg.problems, f"{cards} {bad} {lg.problems[:2]}")
+
             # 8. English only: no Arabic letters in anything the site serves
             arabic = []
             for dirpath, dirs, files in os.walk(ROOT):

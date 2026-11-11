@@ -621,7 +621,7 @@ function menuHTML(){
    <div class="dr-sep"></div>
    ${item("#/pricing","premium","Pricing")}${item("#/verify","check","Verify a license")}
    <div class="dr-sep"></div>
-   ${item("#/settings","settings","Settings")}
+   ${item("#/settings","settings","Settings")}${item("#/legal","lock","Terms and privacy")}
    ${u?`<button type="button" class="dr-item" id="menuOut">${icon("lock")}<span>Sign out</span></button>`:item("#/account","user",Backend.enabled?"Sign in":"Account")}`;
 }
 function openMenu(){
@@ -1145,6 +1145,15 @@ let studioP=null;
 const loadScript = src => new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=()=>rej(new Error("load")); document.head.appendChild(el); });
 const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, mediaOf:p=>url(p), longDateTime:v=>longDateTime(v),
   artists:()=>ARTISTS, songs:()=>ALL, addSongs:d=>mergeRemote(d,true), stopMusic:()=>{ try{ audio.pause(); }catch(e){} }, go:h=>{ location.hash=h; } };
+// The legal pages (terms, license terms, sale, privacy, content rules, who we are) load only when opened.
+const LEGAL = new Set(["/legal","/terms","/license","/sales","/privacy","/content","/imprint"]);
+let legalP = null;
+function legalView(path){
+  main.innerHTML=`<p class="muted" role="status">One moment…</p>`;
+  if(!legalP) legalP = new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="legal.js"+(VER?"?v="+VER:""); s.onload=res; s.onerror=()=>{ legalP=null; rej(); }; document.head.appendChild(s); });
+  legalP.then(()=>{ if(LEGAL.has((location.hash.slice(1).split("?")[0])||"")) window.VeloraLegal.open(path, { main, esc, CFG, creator: CREATOR }); })
+    .catch(()=>{ main.innerHTML=`<h1 class="pagetitle">Legal</h1><p class="muted">This page did not load. Check your connection and try again.</p>`; });
+}
 function studioView(path, params){
   main.innerHTML=`<p class="muted" style="margin-top:24px" role="status">One moment…</p>`;
   const q = VER ? "?v="+VER : "";
@@ -1210,6 +1219,7 @@ function route(keep){
   else if(path.startsWith("/artist/")){ const id=decode(path.split("/")[2]); artistView(id); const a=artistById(id); if(a) title=a.name; }
   else if(path==="/radio") radioView(); else if(path==="/videos") videosView(); else if(path==="/pricing") pricing(); else if(path==="/verify") verify(params);
   else if(path==="/account") accountView(); else if(path==="/settings") settingsView();
+  else if(LEGAL.has(path)) legalView(path);
   else if(path==="/upload"||path==="/studio") studioView(path, params);
   else if(path==="/stream"){ home(); startStream(); } else home();
   document.title=(title?title+" · ":"")+"Velora";

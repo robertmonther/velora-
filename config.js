@@ -67,7 +67,11 @@ window.VELORA_CONFIG = {
   /* Accounts for visitors (Menu → Sign in). signup false = nobody new can create an account from the site
      (the owner's account still signs in). minPassword is what the forms ask for. Before opening sign-up to
      everyone, the server needs its own email sender: see docs/GO-LIVE.md. */
-  accounts: { signup: true, minPassword: 10 },
+  accounts: { signup: true, minPassword: 10, minAge: 16 },
+
+  /* The business behind the site, shown on the legal pages (Menu → Terms and privacy). Fill these in when the
+     business is registered; until then the pages say "listed here before sales open". */
+  business: { name: "", legalForm: "", address: "", kvk: "", vat: "", email: "", country: "the Netherlands" },
 
   /* Upload page (Menu → Upload a song). The numbers below are what the form checks.
      Cover: the same rule as LANDR (square, JPG or PNG, 1500 to 6000 px). coverMinOwn is the smallest cover

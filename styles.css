@@ -508,3 +508,16 @@ body.ad-on .np-extra{visibility:hidden}
 .tick.agree a{color:var(--pink)}
 .linkbtn.danger{color:#f0b3ac;padding-left:0;margin-top:16px}
 .auth form .btn.sm{margin-top:2px}
+
+/* 11 Nov 2026: legal pages */
+.legal{max-width:720px}
+.legal h2{font:800 18px/1.35 var(--font);margin:26px 0 8px}
+.legal p,.legal li{font-size:15.5px;line-height:1.65;color:#e4ded8}
+.legal ul{margin:6px 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.legalnote{background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--blue,#6f8fb6);border-radius:12px;padding:10px 14px;font-size:14px!important;color:var(--muted)!important}
+.legalnav{display:flex;flex-wrap:wrap;gap:8px;margin:34px 0 0;padding-top:18px;border-top:1px solid var(--line)}
+.legalnav a{padding:8px 14px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--text);text-decoration:none;font:600 13px var(--font)}
+.legalnav a[aria-current=page]{background:var(--pink);color:#1b1114;border-color:transparent}
+.legallist{display:grid;gap:10px;max-width:720px}
+.legalcard{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:var(--text);margin:0}
+.legalcard:focus-visible,.legalnav a:focus-visible{outline:2px solid var(--pink);outline-offset:3px}
