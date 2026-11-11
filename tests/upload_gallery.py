@@ -111,7 +111,7 @@ async def main():
         steps.append({"file": f, "title": "s3b", "note": "", "w": im.width, "h": im.height}); print(f, im.size, flush=True)
         await pg.click("#cMore summary"); await pg.click("#stNext"); await pg.wait_for_selector("#lText")
         # ---- 4 lyrics ----
-        await pg.fill("#lText", lyrics); await pg.wait_for_timeout(200)
+        await pg.fill("#lText", lyrics); await pg.evaluate("document.querySelector('#lText').scrollTop = 0"); await pg.wait_for_timeout(200)
         await shot("step4-lyrics", "s4a", "", crop=2300)
         await pg.click("#lSync"); await pg.wait_for_selector("#syTap")
         await pg.evaluate("t => { document.querySelector('#stAudio').currentTime = Math.max(0, t - 2.5); }", times[0])
