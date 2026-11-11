@@ -63,6 +63,7 @@ window.VeloraStudio = (function () {
   };
   const chosenArtist = () => { const f = st.f; if (f.artistId === "+") { const n = f.artistNew.trim(); return n ? { id: slug(n), name: n, isNew: true, tagline: "", bio: "" } : null; } return artistList().find(a => a.id === f.artistId) || null; };
   const fullTitle = () => { const f = st.f, v = f.version === "Other" ? f.versionOther.trim() : f.version; return f.title.trim() + (v ? " (" + v + ")" : ""); };
+  const GATE = () => ctx.CFG.ageGate === true;      // the age question is switched on (config.js)
   const isAdult = () => st.f.explicit || st.f.adult || st.f.moods.some(m => (T().moods.find(x => x.name === m) || {}).adult);
 
   // ============================================================
@@ -153,7 +154,7 @@ window.VeloraStudio = (function () {
      <div class="field"><label id="dMoodL">Mood <span class="muted">(up to 3; the first is the main one)</span></label><div class="chips pick" role="group" aria-labelledby="dMoodL">${tx.moods.map(m => `<button type="button" class="chip${f.moods.includes(m.name) ? " on" : ""}" data-mood="${esc(m.name)}" aria-pressed="${f.moods.includes(m.name)}">${esc(m.name)}</button>`).join("")}</div></div>
      <div class="two">${field("dLang", "Language of the lyrics", `<select id="dLang">${tx.languages.map(x => opt(x, x, f.language === x)).join("")}</select>`)}
        <div class="field"><label id="dExpL">Lyrics</label><div class="seg wide" role="group" aria-labelledby="dExpL"><button type="button" data-exp="0" class="${f.explicit ? "" : "on"}" aria-pressed="${!f.explicit}">Clean</button><button type="button" data-exp="1" class="${f.explicit ? "on" : ""}" aria-pressed="${f.explicit}">Explicit</button></div></div></div>
-     <label class="tick${lockAdult ? " locked" : ""}"><input type="checkbox" id="dAdult"${lockAdult || f.adult ? " checked" : ""}${lockAdult ? " disabled" : ""}><span><b>For adults (sensual)</b><small>Adults only, behind the age question.${lockAdult ? " Switched on because the song is explicit or sensual." : ""}</small></span></label>
+     ${GATE() ? `<label class="tick${lockAdult ? " locked" : ""}"><input type="checkbox" id="dAdult"${lockAdult || f.adult ? " checked" : ""}${lockAdult ? " disabled" : ""}><span><b>For adults (sensual)</b><small>Adults only, behind the age question.${lockAdult ? " Switched on because the song is explicit or sensual." : ""}</small></span></label>` : ""}
      <div class="two">${field("dRelease", "Release date", `<input id="dRelease" type="date" value="${esc(f.release)}" max="2099-12-31">`)}
        ${field("dCreated", "Made on <span class=\"muted\">(optional)</span>", `<input id="dCreated" type="date" value="${esc(f.created)}" max="${today()}">`, "The day the song was made, if you know it.")}</div>`;
   }
@@ -495,8 +496,8 @@ window.VeloraStudio = (function () {
       <h3 class="st-h">Ready to publish</h3>
       <div class="st-card summary"><div class="sumcover" style="background-image:url('${esc(st.cover.url)}')"></div><div class="sumbody"><b>${esc(fullTitle())}</b><span>${esc(a ? a.name : "")}${f.featured.trim() ? " · feat. " + esc(f.featured.trim()) : ""}</span>
         <small>${esc(f.genre)}${f.subgenre ? " · " + esc(f.subgenre) : ""} · ${esc(f.moods.join(", "))} · ${len(st.duration)}</small>
-        <div class="sumtags">${f.explicit ? '<span class="e-badge">E</span>' : ""}${adult ? '<span class="a18">18+</span>' : ""}<span class="tag">${lo.lyrics ? (lo.synced ? "Synced lyrics" : "Lyrics, not timed") : "No lyrics"}</span><span class="tag">${st.master.on ? "Mastered" : "Original sound"}</span>${f.aiUsed ? '<span class="tag">AI disclosed</span>' : ""}</div></div></div>
-      <p class="muted small">Publish makes the song live at once for everyone${adult ? " who confirmed they are 18 or older" : ""}, and writes its ownership record.</p>`;
+        <div class="sumtags">${f.explicit ? '<span class="e-badge">E</span>' : ""}${adult && GATE() ? '<span class="a18">18+</span>' : ""}<span class="tag">${lo.lyrics ? (lo.synced ? "Synced lyrics" : "Lyrics, not timed") : "No lyrics"}</span><span class="tag">${st.master.on ? "Mastered" : "Original sound"}</span>${f.aiUsed ? '<span class="tag">AI disclosed</span>' : ""}</div></div></div>
+      <p class="muted small">Publish makes the song live at once for everyone${adult && GATE() ? " who confirmed they are 18 or older" : ""}, and writes its ownership record.</p>`;
   }
   function wirePublish() {
     const c = st.artist, p = st.pub;

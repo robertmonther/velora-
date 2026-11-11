@@ -133,14 +133,17 @@ function reindex(){ IDX = S.map(s=>{ const a=artistOf(s); return {s, title:norm(
   meta:norm([s.genre,s.subgenre,...(s.tags||[]),s.mood,s.language,a?a.name:"",...catsOf(s).map(c=>c.words||""),s.explicit?"explicit e":"clean",s.video?"video videos short shorts":"",s.clip?"video videos clip clips music video":""].join(" ")),
   lyr:norm(hasLyrics(s) && playable(s) ? s.lyrics.map(l=>l[1]).join(" ") : "")}; }); }
 
-// ---------- Adults only ----------
-// Sensual songs are for adults: the first time someone opens one, the site asks their age (config.js: ageGate).
-// Until then adult songs are listed with an "18+" mark and never start by themselves; after "No" they are hidden.
-const AGE_GATE = CFG.ageGate !== false;
+// ---------- Explicit and sensual songs ----------
+// Default (config.js: ageGate false): like Spotify. Explicit songs carry an E badge and play like every other song;
+// Settings has one switch that hides them on this device.
+// With ageGate true: the first time someone opens a sensual or explicit song the site asks their age. Until then those
+// songs are listed with an "18+" mark and never start by themselves; after "No" they are hidden.
+const AGE_GATE = CFG.ageGate === true;
+const hideExplicit = () => !AGE_GATE && store.get("velora_explicit","")==="hide";
 const age = () => { if(!AGE_GATE) return "adult"; const v=store.get("velora_age",""); return v==="adult"||v==="minor" ? v : ""; };
 const adultOK = () => age()==="adult";
 const playable = s => adultOK() || !isAdult(s);
-function applyAge(){ S = age()==="minor" ? ALL.filter(s=>!isAdult(s)) : ALL; ensureCats(); sortCats(); reindex(); }
+function applyAge(){ S = AGE_GATE ? (age()==="minor" ? ALL.filter(s=>!isAdult(s)) : ALL) : (hideExplicit() ? ALL.filter(s=>!s.explicit) : ALL); ensureCats(); sortCats(); reindex(); }
 function setAge(v){ if(v) store.set("velora_age",v); else { try{ localStorage.removeItem("velora_age"); }catch(e){} } applyAge(); }
 function askAge(then){
   if(adultOK()){ if(then) then(); return; }
@@ -993,7 +996,10 @@ function settingsView(){
   main.innerHTML=`<h1 class="pagetitle">Settings</h1>
   ${AGE_GATE?`<div class="panel"><h3>Adult songs</h3>
     <p class="small">${a==="adult"?"You confirmed that you are 18 or older. Sensual songs play like every other song.":a==="minor"?"Adult songs are hidden on this device.":"Sensual songs are for adults. The site asks your age the first time you open one."}</p>
-    ${a==="adult"?`<button type="button" class="btn ghost sm" id="ageHide">Hide adult songs on this device</button>`:`<button type="button" class="btn sm" data-age>I'm 18 or older</button>`}</div>`:""}
+    ${a==="adult"?`<button type="button" class="btn ghost sm" id="ageHide">Hide adult songs on this device</button>`:`<button type="button" class="btn sm" data-age>I'm 18 or older</button>`}</div>`
+  :`<div class="panel"><h3>Explicit songs</h3>
+    <p class="small">${hideExplicit()?"Songs with explicit lyrics are hidden on this device.":"Songs with explicit lyrics carry an E badge and play like every other song."}</p>
+    <button type="button" class="btn ghost sm" id="exToggle" aria-pressed="${hideExplicit()}">${hideExplicit()?"Show explicit songs":"Hide explicit songs"}</button></div>`}
   <div class="panel"><h3>Account</h3>${!Backend.enabled?`<p class="muted small" style="margin:0">Accounts open soon. Listening needs no account.</p>`
     :u?`<p class="small">Signed in as ${esc(u.email)}.</p><div class="row"><a class="btn sm" href="#/account">Open my account</a><button type="button" class="btn ghost sm" id="setOut">Sign out</button></div>`
     :`<p class="small">You are not signed in. Listening needs no account.</p><a class="btn sm" href="#/account">Sign in</a>`}</div>
@@ -1002,6 +1008,10 @@ function settingsView(){
    <p class="muted small" style="margin:8px 0 0">Open-source parts: MP3 files are made in your browser with lamejs 1.2.1, which uses the LAME encoder (<a href="https://lame.sourceforge.io" target="_blank" rel="noopener noreferrer">lame.sourceforge.io</a>), under the LGPL licence; accounts use supabase-js (MIT). Both are in the site's vendor folder, unchanged.</p></div>`;
   wireWipe();
   const h=$("#ageHide"); if(h) h.onclick=()=>{ setAge("minor"); if(current && isAdult(current)) audio.pause(); toast("Adult songs are hidden on this device."); route(true); };
+  const x=$("#exToggle"); if(x) x.onclick=()=>{
+    if(hideExplicit()){ try{ localStorage.removeItem("velora_explicit"); }catch(e){} toast("Explicit songs are back."); }
+    else { store.set("velora_explicit","hide"); if(current && current.explicit) audio.pause(); toast("Explicit songs are hidden on this device."); }
+    applyAge(); route(true); };
   const o=$("#setOut"); if(o) o.onclick=()=>Backend.signOut().then(()=>toast("Signed out."));
 }
 

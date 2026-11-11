@@ -63,10 +63,11 @@ async def main():
     cfg = re.sub(r'supabase:\s*\{[^}]*\}', f'supabase: {{ url: "{API}", anonKey: "sb_publishable_stand_in_key_0000000000" }}', cfg)
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=CHROME, args=["--autoplay-policy=no-user-gesture-required"])
-        async def visitor(adult=True, w=390, h=844, mobile=True):
+        cfg_gate = cfg.replace("ageGate: false", "ageGate: true"); assert cfg_gate != cfg
+        async def visitor(adult=True, w=390, h=844, mobile=True, gate=False):
             c = await b.new_context(viewport={"width": w, "height": h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
             if adult: await c.add_init_script("try{ localStorage.setItem('velora_age', JSON.stringify('adult')); }catch(e){}")
-            await c.route("**/config.js*", lambda r: r.fulfill(body=cfg, content_type="application/javascript"))
+            await c.route("**/config.js*", lambda r: r.fulfill(body=cfg_gate if gate else cfg, content_type="application/javascript"))
             pg = await c.new_page(); pg.problems = []
             pg.on("pageerror", lambda e: pg.problems.append("error: " + str(e) + " @ " + " | ".join((getattr(e, "stack", "") or "").split("\n")[1:4])))
             pg.on("console", lambda m: pg.problems.append("console: " + m.text) if m.type == "error" else None)
@@ -118,8 +119,8 @@ async def main():
         await pg.select_option("#dArtist", "+"); await pg.fill("#dArtistNew", "Test Artist"); await pg.fill("#dFeat", "Guest One")
         await pg.select_option("#dGenre", "Pop"); await until(pg, "document.querySelectorAll('#dSub option').length > 3"); await pg.select_option("#dSub", "Dance Pop")
         await pg.click("[data-mood='Playful']"); await pg.click("[data-mood='Sensual']")
-        locked = await pg.evaluate("document.querySelector('#dAdult').checked && document.querySelector('#dAdult').disabled")
-        check("choosing the Sensual mood marks the song for adults", locked)
+        no_tick = await pg.evaluate("!document.querySelector('#dAdult')")
+        check("no 'for adults' question in the form (the age question is off, like Spotify)", no_tick)
         await shot(pg, "step2-details")
         await pg.click("#stNext"); await pg.wait_for_selector("#cLyr")
 
@@ -199,7 +200,7 @@ async def main():
         await pg.set_input_files("#aPhoto", photo); await until(pg, "document.querySelector('.aphoto').style.backgroundImage.includes('blob:')")
         await pg.fill("#aTag", "Only a test"); await pg.fill("#aBio", "An artist made for the upload check.")
         s = await pg.inner_text(".summary")
-        check("the last step shows the artist profile and a summary", "Fashionably Late (Slowed)" in s and "Test Artist" in s and "feat. Guest One" in s and "SYNCED LYRICS" in s.upper() and "18+" in s, s)
+        check("the last step shows the artist profile and a summary", "Fashionably Late (Slowed)" in s and "Test Artist" in s and "feat. Guest One" in s and "SYNCED LYRICS" in s.upper() and "18+" not in s, s)
         await shot(pg, "step8-artist-and-publish")
         await pg.click("#stNext"); await pg.wait_for_selector(".publog"); await pg.wait_for_timeout(400); await shot(pg, "publishing", full=False)
         await pg.wait_for_selector(".st-done", timeout=180000)
@@ -255,9 +256,9 @@ async def main():
         await fresh.goto(BASE + "#/search?q=test%20artist"); await fresh.wait_for_selector("#sres .srow")
         v = await fresh.evaluate("({songs: [...document.querySelectorAll('#sres .srow b')].map(e=>e.textContent), artist: document.querySelectorAll('#sres .atile').length, img: getComputedStyle(document.querySelector('#sres .atile-img')).backgroundImage.includes('/artists/')})")
         check("another visitor finds the new song and its artist at once", v["songs"] == ["Fashionably Late (Slowed)"] and v["artist"] == 1 and v["img"], str(v))
-        gate = await visitor(adult=False)
+        gate = await visitor(adult=False, gate=True)
         await gate.goto(BASE + "#/search?q=fashionably%20late"); await gate.wait_for_selector("#sres .srow"); await gate.click("#sres .srow >> nth=0"); await gate.wait_for_selector("#ageYes")
-        check("an uploaded adult song sits behind the age question too", (await gate.inner_text("#mTitle")) == "Adults only")
+        check("where the age question is switched on, an uploaded sensual song sits behind it too", (await gate.inner_text("#mTitle")) == "Adults only")
 
         # ---- 11. My songs: off the list and back; the record ----
         await pg.goto(BASE + "#/studio"); await pg.wait_for_selector(".msrow")

@@ -57,10 +57,12 @@ window.VELORA_CONFIG = {
     { name: "X", url: "" }
   ],
 
-  /* Adults only: sensual songs ("adult" in the catalogue, and every explicit song) ask the visitor's age
-     the first time one is opened; until then they carry an "18+" mark and never start by themselves.
-     false = no age question at all (explicit songs then only carry the E badge, like Spotify). */
-  ageGate: true,
+  /* Explicit and sensual songs.
+     false (Robert's choice, 11 Nov 2026): like Spotify. Explicit songs carry an E badge and play like every other song;
+     Settings has one switch to hide them on a device.
+     true = sensual and explicit songs ask the visitor's age the first time one is opened; until then they carry an
+     "18+" mark and never start by themselves, and after "No" they are hidden. */
+  ageGate: false,
 
   /* Upload page (Menu → Upload a song). The numbers below are what the form checks.
      Cover: the same rule as LANDR (square, JPG or PNG, 1500 to 6000 px). coverMinOwn is the smallest cover

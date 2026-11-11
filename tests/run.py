@@ -26,10 +26,14 @@ def check(name, ok, detail=""):
     results.append(ok)
     print(("PASS  " if ok else "FAIL  ") + name + (f"   [{detail}]" if detail and not ok else ""), flush=True)
 
-async def new_page(browser, width=390, height=844, mobile=True, adult=True):
-    """A fresh visitor. adult=True: the age question was already answered with Yes (most checks are about the music)."""
+CFG_GATE = open(os.path.join(ROOT, "config.js"), encoding="utf-8").read().replace("ageGate: false", "ageGate: true")
+
+async def new_page(browser, width=390, height=844, mobile=True, adult=True, gate=False):
+    """A fresh visitor. gate=True switches the age question on for this visitor (config.js: ageGate), the way a site
+    that wants it would; adult=True then means the question was already answered with Yes."""
     ctx = await browser.new_context(viewport={"width": width, "height": height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     if adult: await ctx.add_init_script("try{ localStorage.setItem('velora_age', JSON.stringify('adult')); }catch(e){}")
+    if gate: await ctx.route("**/config.js*", lambda r: r.fulfill(body=CFG_GATE, content_type="application/javascript"))
     if SUPA: await ctx.route(SUPA + "/**", empty_backend)
     page = await ctx.new_page()
     page.problems = []
@@ -148,8 +152,25 @@ async def main():
             there = await small.evaluate("location.hash==='#/settings' && document.querySelector('#drawer').hidden && !!document.querySelector('main h1')")
             check("Escape closes the menu; a menu item opens its page", closed and there)
 
-            # 4c. Adults only: sensual songs ask the age once, never start by themselves, and hide after "No"
-            ag = await new_page(b, adult=False)
+            # 4c. Like Spotify (the default): no age question; explicit songs carry an E badge and can be hidden in Settings
+            ex = await new_page(b, adult=False)
+            n_exp = len([x for x in cat if x.get("explicit")])
+            await ex.goto(BASE + "#/genre/sensual"); await ex.wait_for_timeout(500)
+            marks = await ex.evaluate("({a18: document.querySelectorAll('main .a18').length, e: document.querySelectorAll('main .e-badge').length})")
+            await ex.click("main .lrow >> nth=0"); await ex.wait_for_timeout(1800)
+            st = await state(ex); asked = await ex.evaluate("!document.querySelector('#modal').hidden")
+            check("no age question: a sensual song plays at once, explicit songs show the E badge", marks["a18"] == 0 and marks["e"] >= 1 and st["np"] and not st["paused"] and not asked, f"{marks} {st} {asked}")
+            await ex.click("#npClose"); await ex.goto(BASE + "#/settings"); await ex.wait_for_timeout(300)
+            await ex.screenshot(path=f"{SHOTS}/04d-settings.png", full_page=True)
+            await ex.click("#exToggle"); await ex.wait_for_timeout(400)
+            await ex.goto(BASE + "#/search?q=explicit"); await ex.wait_for_timeout(400); n1 = await ex.evaluate("document.querySelectorAll('#sres .srow').length")
+            await ex.goto(BASE + "#/search?q="); await ex.wait_for_timeout(300); total = await ex.evaluate("document.querySelectorAll('#sres .srow').length")
+            await ex.goto(BASE + "#/settings"); await ex.wait_for_timeout(300); await ex.click("#exToggle"); await ex.wait_for_timeout(300)
+            await ex.goto(BASE + "#/search?q=explicit"); await ex.wait_for_timeout(400); n2 = await ex.evaluate("document.querySelectorAll('#sres .srow').length")
+            check("Settings can hide the explicit songs on a device and bring them back", n1 == 0 and total == len(cat) - n_exp and n2 == n_exp and not ex.problems, f"{n1} {total} {n2} {n_exp} {ex.problems[:2]}")
+
+            # 4d. The age question, for a site that switches it on (config.js: ageGate true): asks once, nothing adult starts by itself, hidden after "No"
+            ag = await new_page(b, adult=False, gate=True)
             await ag.goto(BASE + "#/genre/sensual"); await ag.wait_for_timeout(500)
             marks = await ag.evaluate("document.querySelectorAll('main .a18').length")
             await ag.click("main .lrow >> nth=0"); await ag.wait_for_timeout(700)
@@ -159,7 +180,7 @@ async def main():
             await ag.click("#ageYes"); await ag.wait_for_timeout(1800)
             st = await state(ag); left = await ag.evaluate("document.querySelectorAll('main .a18').length")
             check("after Yes the song plays and the 18+ marks are gone", st["np"] and not st["paused"] and left == 0, f"{st} {left}")
-            a2 = await new_page(b, adult=False)
+            a2 = await new_page(b, adult=False, gate=True)
             await a2.goto(BASE); await a2.wait_for_timeout(600)
             await a2.click(".tabbar [data-stream]"); await a2.wait_for_timeout(1500)
             adult_ids = {x["id"] for x in cat if x.get("adult") or x.get("explicit")}
@@ -177,7 +198,7 @@ async def main():
             await a2.goto(BASE + "#/search?q="); await a2.wait_for_timeout(300)
             total = await a2.evaluate("document.querySelectorAll('#sres .srow').length")
             check("after No, adult songs are hidden everywhere", asked == "Adults only" and n1 == 0 and hid == "For adults only" and total == len(cat) - len(adult_ids), f"{asked} {n1} {hid} {total}")
-            await a2.goto(BASE + "#/settings"); await a2.wait_for_timeout(300); await a2.screenshot(path=f"{SHOTS}/04d-settings.png", full_page=True)
+            await a2.goto(BASE + "#/settings"); await a2.wait_for_timeout(300)
             await a2.click("[data-age]"); await a2.wait_for_timeout(300); await a2.click("#ageYes"); await a2.wait_for_timeout(400)
             await a2.goto(BASE + "#/search?q=sensual"); await a2.wait_for_timeout(400)
             back = await a2.evaluate("document.querySelectorAll('#sres .srow').length")
