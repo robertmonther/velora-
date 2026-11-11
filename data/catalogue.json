@@ -1,55 +1,371 @@
 {
- "note": "Robert's real songs only (example songs removed 9 Nov 2026). Song IDs rm-0001 and up. Each song has one main category (genre), optional extra categories (tags), timed lyric lines [seconds, text] and song parts (sections).",
+ "note": "Robert's real songs only. Song IDs rm-0001 and up. Each song has one musical genre (with a sub-genre), tags (moods and collections; every genre and tag is a category), timed lyric lines [seconds, text] and song parts (sections). 'adult' marks sensual songs (age gate). Genres, moods and artist links were proposed by Claude on 11 Nov 2026 and are Robert's to change.",
  "categories": [
   {
-   "id": "soft-sensual",
-   "name": "Soft Sensual",
-   "ar": "حسي ناعم",
-   "color": "#c0687c",
-   "words": "sensual sexy soft seductive sensuality حسي حسية ناعم ناعمة مثير اغراء"
-  },
-  {
-   "id": "explicit-sensual",
-   "name": "Explicit Sensual",
-   "ar": "حسي صريح",
-   "color": "#7e2433",
-   "words": "sensual explicit sexy adult hot حسي حسية صريح صريحة جريء جريئة"
+   "id": "sensual",
+   "name": "Sensual",
+   "kind": "mood",
+   "color": "#8f2f44",
+   "words": "sensual sexy seductive sensuality hot adult",
+   "adult": true
   },
   {
    "id": "romantic",
    "name": "Romantic",
-   "ar": "رومانسي",
+   "kind": "mood",
    "color": "#d58aa0",
-   "words": "romantic romance love رومانسي رومانسية رومانسيه حب غرام عاطفي"
+   "words": "romantic romance love lovers"
+  },
+  {
+   "id": "playful",
+   "name": "Playful",
+   "kind": "mood",
+   "color": "#d9a441",
+   "words": "playful fun flirty sassy cheeky"
+  },
+  {
+   "id": "empowering",
+   "name": "Empowering",
+   "kind": "mood",
+   "color": "#3f7d6e",
+   "words": "empowering motivation motivational discipline confidence strong"
+  },
+  {
+   "id": "tender",
+   "name": "Tender",
+   "kind": "mood",
+   "color": "#c9a0a8",
+   "words": "tender gentle comfort warm"
+  },
+  {
+   "id": "dreamy",
+   "name": "Dreamy",
+   "kind": "mood",
+   "color": "#8aa3c9",
+   "words": "dreamy floating soft"
+  },
+  {
+   "id": "dark",
+   "name": "Dark",
+   "kind": "mood",
+   "color": "#4a3a55",
+   "words": "dark moody shadow"
+  },
+  {
+   "id": "melancholic",
+   "name": "Melancholic",
+   "kind": "mood",
+   "color": "#5f7390",
+   "words": "melancholic melancholy bittersweet"
+  },
+  {
+   "id": "sad",
+   "name": "Sad",
+   "kind": "mood",
+   "color": "#4f6480",
+   "words": "sad heartbreak"
+  },
+  {
+   "id": "happy",
+   "name": "Happy",
+   "kind": "mood",
+   "color": "#e0b84a",
+   "words": "happy joyful bright"
+  },
+  {
+   "id": "chill",
+   "name": "Chill",
+   "kind": "mood",
+   "color": "#5aa39a",
+   "words": "chill relaxed laid back calm"
+  },
+  {
+   "id": "energetic",
+   "name": "Energetic",
+   "kind": "mood",
+   "color": "#d9653f",
+   "words": "energetic energy hype"
+  },
+  {
+   "id": "uplifting",
+   "name": "Uplifting",
+   "kind": "mood",
+   "color": "#e09a4a",
+   "words": "uplifting inspiring"
+  },
+  {
+   "id": "hopeful",
+   "name": "Hopeful",
+   "kind": "mood",
+   "color": "#7fb08a",
+   "words": "hopeful hope"
+  },
+  {
+   "id": "defiant",
+   "name": "Defiant",
+   "kind": "mood",
+   "color": "#a3443a",
+   "words": "defiant rebel rebellious"
+  },
+  {
+   "id": "epic",
+   "name": "Epic",
+   "kind": "mood",
+   "color": "#5a4a8f",
+   "words": "epic big huge cinematic"
+  },
+  {
+   "id": "dramatic",
+   "name": "Dramatic",
+   "kind": "mood",
+   "color": "#7a3a4a",
+   "words": "dramatic drama intense"
+  },
+  {
+   "id": "nostalgic",
+   "name": "Nostalgic",
+   "kind": "mood",
+   "color": "#b08f6a",
+   "words": "nostalgic nostalgia memories"
+  },
+  {
+   "id": "peaceful",
+   "name": "Peaceful",
+   "kind": "mood",
+   "color": "#7fa3a8",
+   "words": "peaceful peace quiet"
+  },
+  {
+   "id": "mysterious",
+   "name": "Mysterious",
+   "kind": "mood",
+   "color": "#3f4a6f",
+   "words": "mysterious mystery"
+  },
+  {
+   "id": "angry",
+   "name": "Angry",
+   "kind": "mood",
+   "color": "#8f2a2a",
+   "words": "angry rage"
+  },
+  {
+   "id": "anthems",
+   "name": "Arena Anthems",
+   "kind": "collection",
+   "color": "#a65441",
+   "words": "arena anthem anthems trend protest revolution rebellion freedom rise resistance march choir stadium"
+  },
+  {
+   "id": "slowed",
+   "name": "Slowed",
+   "kind": "collection",
+   "color": "#4b4f8a",
+   "words": "slowed slow reverb slowed down"
   },
   {
    "id": "pop",
    "name": "Pop",
-   "ar": "بوب",
+   "kind": "genre",
    "color": "#6d8fb0",
-   "words": "pop بوب"
+   "words": "pop electropop"
   },
   {
-   "id": "trend",
-   "name": "Trend (Arena)",
-   "ar": "ترند · أرينا",
-   "color": "#a65441",
-   "words": "trend arena anthem anthems protest revolution rebellion freedom rise resistance ترند ارينا حلبه ثوره ثوري ثوريه احتجاج حريه نضال مقاومه اغاني ثوريه"
+   "id": "rnb-soul",
+   "name": "R&B / Soul",
+   "kind": "genre",
+   "color": "#7a5c9a",
+   "words": "rnb soul slow jam rhythm blues funk"
+  },
+  {
+   "id": "hip-hop-rap",
+   "name": "Hip-Hop / Rap",
+   "kind": "genre",
+   "color": "#8a6a3c",
+   "words": "hip hop hiphop rap trap"
+  },
+  {
+   "id": "jazz",
+   "name": "Jazz",
+   "kind": "genre",
+   "color": "#b08a4a",
+   "words": "jazz swing lounge"
+  },
+  {
+   "id": "blues",
+   "name": "Blues",
+   "kind": "genre",
+   "color": "#3f6f9c",
+   "words": "blues"
+  },
+  {
+   "id": "dance",
+   "name": "Dance",
+   "kind": "genre",
+   "color": "#c2558f",
+   "words": "dance house techno trance edm club"
+  },
+  {
+   "id": "electronic",
+   "name": "Electronic",
+   "kind": "genre",
+   "color": "#4aa3a8",
+   "words": "electronic ambient synthwave lofi lo-fi"
+  },
+  {
+   "id": "rock",
+   "name": "Rock",
+   "kind": "genre",
+   "color": "#9c4a3f",
+   "words": "rock"
+  },
+  {
+   "id": "alternative",
+   "name": "Alternative",
+   "kind": "genre",
+   "color": "#6f7a4a",
+   "words": "alternative indie"
+  },
+  {
+   "id": "metal",
+   "name": "Metal",
+   "kind": "genre",
+   "color": "#555a66",
+   "words": "metal"
+  },
+  {
+   "id": "country",
+   "name": "Country",
+   "kind": "genre",
+   "color": "#b3773f",
+   "words": "country americana"
+  },
+  {
+   "id": "folk",
+   "name": "Folk",
+   "kind": "genre",
+   "color": "#7f8f5a",
+   "words": "folk"
+  },
+  {
+   "id": "singer-songwriter",
+   "name": "Singer/Songwriter",
+   "kind": "genre",
+   "color": "#a3836a",
+   "words": "singer songwriter acoustic"
+  },
+  {
+   "id": "latin",
+   "name": "Latin",
+   "kind": "genre",
+   "color": "#c9653f",
+   "words": "latin reggaeton salsa bachata"
+  },
+  {
+   "id": "reggae",
+   "name": "Reggae",
+   "kind": "genre",
+   "color": "#4f8f4a",
+   "words": "reggae dancehall ska"
+  },
+  {
+   "id": "world",
+   "name": "World",
+   "kind": "genre",
+   "color": "#3f8f86",
+   "words": "world afrobeats arabic"
+  },
+  {
+   "id": "classical",
+   "name": "Classical",
+   "kind": "genre",
+   "color": "#8f8a7a",
+   "words": "classical orchestral piano opera"
+  },
+  {
+   "id": "soundtrack",
+   "name": "Soundtrack",
+   "kind": "genre",
+   "color": "#5a6f8f",
+   "words": "soundtrack cinematic score film"
+  },
+  {
+   "id": "gospel-christian",
+   "name": "Gospel / Christian",
+   "kind": "genre",
+   "color": "#a38f4a",
+   "words": "gospel christian worship"
+  },
+  {
+   "id": "new-age",
+   "name": "New Age",
+   "kind": "genre",
+   "color": "#6aa39c",
+   "words": "new age meditation relaxation"
+  },
+  {
+   "id": "easy-listening",
+   "name": "Easy Listening",
+   "kind": "genre",
+   "color": "#a39c8a",
+   "words": "easy listening lounge"
+  },
+  {
+   "id": "children-s-music",
+   "name": "Children's Music",
+   "kind": "genre",
+   "color": "#d9a441",
+   "words": "children kids lullaby"
+  },
+  {
+   "id": "holiday",
+   "name": "Holiday",
+   "kind": "genre",
+   "color": "#b0524a",
+   "words": "holiday christmas"
+  },
+  {
+   "id": "spoken-word",
+   "name": "Spoken Word",
+   "kind": "genre",
+   "color": "#777a86",
+   "words": "spoken word poetry"
+  },
+  {
+   "id": "fitness-n-workout",
+   "name": "Fitness & Workout",
+   "kind": "genre",
+   "color": "#3f7d6e",
+   "words": "fitness workout gym"
+  },
+  {
+   "id": "comedy",
+   "name": "Comedy",
+   "kind": "genre",
+   "color": "#c9a13f",
+   "words": "comedy funny"
   }
  ],
- "genres": [
-  "Soft Sensual",
-  "Explicit Sensual",
-  "Romantic",
-  "Pop",
-  "Trend (Arena)"
+ "artists": [
+  {
+   "id": "voluptra",
+   "name": "VOLUPTRA",
+   "tagline": "WHERE DESIRE MEETS SHADOW",
+   "color": "#5a2a2a",
+   "image": "media/artists/voluptra.jpg",
+   "bio": "VOLUPTRA is where desire slows down and shadow takes shape. Music for the hours between midnight and dawn."
+  },
+  {
+   "id": "lucid-lava",
+   "name": "LUCID LAVA",
+   "color": "#7b1fa2",
+   "image": "media/artists/lucid-lava.jpg"
+  }
  ],
  "songs": [
   {
    "id": "rm-0001",
    "title": "Off the Clock",
-   "genre": "Trend (Arena)",
-   "mood": "Defiant",
    "bpm": 83,
    "key": "B minor",
    "duration": 138,
@@ -106,7 +422,7 @@
    "bestPart": 41,
    "explicit": false,
    "published": "2026-11-04",
-   "hue": 0,
+   "color": "#6b574d",
    "lyrics": [
     [
      5.0,
@@ -273,18 +589,20 @@
      "We're off the clock"
     ]
    ],
-   "real": true,
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
-   "color": "#6b574d",
-   "tags": [],
-   "lyricsNote": "Written down from the recording; a few words may differ."
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Defiant"
+   ],
+   "mood": "Defiant",
+   "language": "English",
+   "adult": false
   },
   {
    "id": "rm-0002",
    "title": "The Skeleton Key",
-   "genre": "Trend (Arena)",
-   "mood": "Epic",
    "bpm": 78,
    "key": "D minor",
    "duration": 224,
@@ -325,7 +643,7 @@
    "bestPart": 45,
    "explicit": false,
    "published": "2026-11-05",
-   "hue": 1,
+   "color": "#abb0b4",
    "lyrics": [
     [
      2.2,
@@ -452,18 +770,20 @@
      "With you, the skeleton key"
     ]
    ],
-   "real": true,
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
-   "color": "#abb0b4",
-   "tags": [],
-   "lyricsNote": "Written down from the recording; a few words may differ."
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Epic"
+   ],
+   "mood": "Epic",
+   "language": "English",
+   "adult": false
   },
   {
    "id": "rm-0003",
    "title": "Those Billions",
-   "genre": "Trend (Arena)",
-   "mood": "Hopeful",
    "bpm": 83,
    "key": "A minor",
    "duration": 200,
@@ -500,7 +820,7 @@
    "bestPart": 41,
    "explicit": false,
    "published": "2026-11-06",
-   "hue": 2,
+   "color": "#362f27",
    "lyrics": [
     [
      7.3,
@@ -631,18 +951,20 @@
      "Bring them home"
     ]
    ],
-   "real": true,
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
-   "color": "#362f27",
-   "tags": [],
-   "lyricsNote": "Written down from the recording; a few words may differ."
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Hopeful"
+   ],
+   "mood": "Hopeful",
+   "language": "English",
+   "adult": false
   },
   {
    "id": "rm-0004",
    "title": "Count to Three",
-   "genre": "Trend (Arena)",
-   "mood": "Uplifting",
    "bpm": 96,
    "key": "A minor",
    "duration": 139,
@@ -683,7 +1005,7 @@
    "bestPart": 30,
    "explicit": false,
    "published": "2026-11-07",
-   "hue": 0,
+   "color": "#6d5134",
    "lyrics": [
     [
      9.6,
@@ -794,18 +1116,20 @@
      "When I count to three"
     ]
    ],
-   "real": true,
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
-   "color": "#6d5134",
-   "tags": [],
-   "lyricsNote": "Written down from the recording; a few words may differ."
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Uplifting"
+   ],
+   "mood": "Uplifting",
+   "language": "English",
+   "adult": false
   },
   {
    "id": "rm-0005",
    "title": "If We Burn",
-   "genre": "Trend (Arena)",
-   "mood": "Dramatic",
    "bpm": 78,
    "key": "G minor",
    "duration": 190,
@@ -842,7 +1166,7 @@
    "bestPart": 90,
    "explicit": false,
    "published": "2026-11-08",
-   "hue": 1,
+   "color": "#b6d2e5",
    "lyrics": [
     [
      0.0,
@@ -949,22 +1273,25 @@
      "If we burn at midnight, you will burn with me"
     ]
    ],
-   "real": true,
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "provenance": "Made with Suno, by @robertmonther (shown in the original video).",
-   "color": "#b6d2e5",
-   "tags": [],
-   "lyricsNote": "Written down from the recording; a few words may differ."
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Dramatic"
+   ],
+   "mood": "Dramatic",
+   "language": "English",
+   "adult": false
   },
   {
    "id": "rm-0006",
    "title": "BAREFOOT",
-   "genre": "Soft Sensual",
-   "mood": "Dreamy",
    "bpm": 72,
    "key": "Bb major",
    "duration": 231,
    "audio": "media/audio/song-06-barefoot.mp3",
+   "art": "media/covers/song-06-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -1009,9 +1336,9 @@
    ],
    "bestPart": 73,
    "explicit": false,
-   "published": "2026-05-31",
    "created": "2026-05-31",
-   "hue": 2,
+   "published": "2026-05-31",
+   "color": "#e8ccb8",
    "lyrics": [
     [
      15.6,
@@ -1190,23 +1517,26 @@
      "Nowhere I have to go"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "tags": [],
-   "art": "media/covers/song-06-art.jpg",
    "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#e8ccb8"
+   "genre": "R&B / Soul",
+   "subgenre": "Contemporary R&B",
+   "tags": [
+    "Sensual",
+    "Romantic",
+    "Dreamy"
+   ],
+   "mood": "Dreamy",
+   "language": "English",
+   "adult": true
   },
   {
    "id": "rm-0007",
    "title": "Live Footage of Me Ruining This",
-   "genre": "Pop",
-   "mood": "Melancholic",
    "bpm": 76,
    "key": "G minor",
    "duration": 228,
    "audio": "media/audio/song-07-live-footage-of-me-ruining-this.mp3",
+   "art": "media/covers/song-07-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -1251,9 +1581,9 @@
    ],
    "bestPart": 54,
    "explicit": false,
-   "published": "2026-05-31",
    "created": "2026-05-31",
-   "hue": 0,
+   "published": "2026-05-31",
+   "color": "#1a243a",
    "lyrics": [
     [
      0.6,
@@ -1508,25 +1838,26 @@
      "She'll probably do it again. She knows"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "tags": [
-    "Romantic"
-   ],
-   "art": "media/covers/song-07-art.jpg",
    "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#1a243a"
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Romantic",
+    "Melancholic"
+   ],
+   "mood": "Melancholic",
+   "language": "English",
+   "adult": false,
+   "artist": "voluptra"
   },
   {
    "id": "rm-0008",
    "title": "USED",
-   "genre": "Explicit Sensual",
-   "mood": "Sexy",
    "bpm": 78,
    "key": "Bb minor",
    "duration": 171,
    "audio": "media/audio/song-08-used.mp3",
+   "art": "media/covers/song-08-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -1555,9 +1886,9 @@
    ],
    "bestPart": 42,
    "explicit": true,
-   "published": "2026-06-12",
    "created": "2026-06-12",
-   "hue": 1,
+   "published": "2026-06-12",
+   "color": "#4f0d13",
    "lyrics": [
     [
      5.7,
@@ -1708,23 +2039,24 @@
      "Let's use it one more time"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "tags": [],
-   "art": "media/covers/song-08-art.jpg",
    "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#4f0d13"
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true
   },
   {
    "id": "rm-0009",
    "title": "Your Eyes Still Own Me",
-   "genre": "Explicit Sensual",
-   "mood": "Romantic",
    "bpm": 76,
    "key": "C major",
    "duration": 227,
    "audio": "media/audio/song-09-your-eyes-still-own-me.mp3",
+   "art": "media/covers/song-09-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -1753,9 +2085,9 @@
    ],
    "bestPart": 71,
    "explicit": true,
-   "published": "2026-06-12",
    "created": "2026-06-12",
-   "hue": 2,
+   "published": "2026-06-12",
+   "color": "#4d0c17",
    "lyrics": [
     [
      8.0,
@@ -1994,24 +2326,24 @@
      "Even right now"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
    "tags": [
+    "Sensual",
     "Romantic"
    ],
-   "art": "media/covers/song-09-art.jpg",
-   "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#4d0c17"
+   "mood": "Romantic",
+   "language": "English",
+   "adult": true
   },
   {
    "id": "rm-0010",
    "title": "Obey Me",
-   "genre": "Soft Sensual",
-   "mood": "Seductive",
    "bpm": 108,
    "duration": 200,
    "audio": "media/audio/song-10-obey-me.mp3",
+   "art": "media/covers/song-10-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -2056,9 +2388,9 @@
    ],
    "bestPart": 47,
    "explicit": false,
-   "published": "2026-06-12",
    "created": "2026-06-12",
-   "hue": 1,
+   "published": "2026-06-12",
+   "color": "#4c1219",
    "lyrics": [
     [
      7.7,
@@ -2321,22 +2653,23 @@
      "Forever"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "tags": [],
-   "art": "media/covers/song-10-art.jpg",
    "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#4c1219"
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true
   },
   {
    "id": "rm-0011",
    "title": "She's Better",
-   "genre": "Explicit Sensual",
-   "mood": "Dark",
    "bpm": 76,
    "duration": 242,
    "audio": "media/audio/song-11-shes-better.mp3",
+   "art": "media/covers/song-11-art.jpg",
    "sections": [
     {
      "name": "Intro",
@@ -2381,9 +2714,9 @@
    ],
    "bestPart": 55,
    "explicit": true,
-   "published": "2026-06-12",
    "created": "2026-06-12",
-   "hue": 0,
+   "published": "2026-06-12",
+   "color": "#311b14",
    "lyrics": [
     [
      1.1,
@@ -2562,13 +2895,3338 @@
      "Don't stop"
     ]
    ],
-   "real": true,
-   "provenance": "Made with Suno; the original song file records its creation date",
-   "analysisNote": "Category, mood, song parts and lyrics were set from the recording on 9 Nov 2026. Times can be a second off; Robert can correct anything in data/catalogue.json.",
-   "tags": [],
-   "art": "media/covers/song-11-art.jpg",
    "lyricsNote": "Written down from the recording; a few words may differ.",
-   "color": "#311b14"
+   "genre": "Pop",
+   "subgenre": "Dark Pop",
+   "tags": [
+    "Sensual",
+    "Dark"
+   ],
+   "mood": "Dark",
+   "language": "English",
+   "adult": true
+  },
+  {
+   "id": "rm-0012",
+   "title": "bon appétit",
+   "bpm": 92,
+   "key": "Bb minor",
+   "duration": 181,
+   "audio": "media/audio/song-12-bon-appetit.mp3",
+   "art": "media/covers/song-12-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 12
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 32
+    },
+    {
+     "name": "Chorus",
+     "start": 43
+    },
+    {
+     "name": "Verse 2",
+     "start": 67
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 88
+    },
+    {
+     "name": "Chorus",
+     "start": 99
+    },
+    {
+     "name": "Bridge",
+     "start": 120
+    },
+    {
+     "name": "Final Chorus",
+     "start": 141
+    },
+    {
+     "name": "Outro",
+     "start": 160
+    }
+   ],
+   "bestPart": 43,
+   "explicit": false,
+   "created": "2026-06-16",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     12.8,
+     "I like the way you're hungry without saying it"
+    ],
+    [
+     29.7,
+     "So let me make this easy, start with this"
+    ],
+    [
+     32.5,
+     "I'm not in a rush and neither should you be"
+    ],
+    [
+     35.1,
+     "The best things in life take time, you'll see"
+    ],
+    [
+     37.8,
+     "I've been told I'm quite the delicacy"
+    ],
+    [
+     40.2,
+     "So take it slow and savor every piece of me"
+    ],
+    [
+     43.1,
+     "Bon appétit, I'm on the menu tonight"
+    ],
+    [
+     49.2,
+     "Bon appétit, take your first bite"
+    ],
+    [
+     53.3,
+     "Everything you wanted, everything you need"
+    ],
+    [
+     58.1,
+     "I've been waiting for someone with your appetite"
+    ],
+    [
+     67.0,
+     "Your hands are telling stories on my skin"
+    ],
+    [
+     70.0,
+     "Every touch a question, I let you in"
+    ],
+    [
+     72.3,
+     "You're learning every curve like a secret language"
+    ],
+    [
+     74.9,
+     "Slow enough to make me lose my mind"
+    ],
+    [
+     77.7,
+     "I catch my breath, you catch me catching you"
+    ],
+    [
+     80.3,
+     "That half smile says you know exactly what you do"
+    ],
+    [
+     82.9,
+     "The hunger between us has its own heartbeat"
+    ],
+    [
+     85.5,
+     "And baby, we've got all the time to eat"
+    ],
+    [
+     88.3,
+     "I'm not in a rush and neither should you be"
+    ],
+    [
+     91.0,
+     "The best things in life take time, you'll see"
+    ],
+    [
+     93.7,
+     "I've been told I'm quite the delicacy"
+    ],
+    [
+     96.1,
+     "So take it slow and savor every piece of me"
+    ],
+    [
+     99.1,
+     "Bon appétit"
+    ],
+    [
+     101.0,
+     "I'm on the menu tonight"
+    ],
+    [
+     105.1,
+     "Bon appétit"
+    ],
+    [
+     106.3,
+     "Take your first bite"
+    ],
+    [
+     109.3,
+     "Everything you wanted"
+    ],
+    [
+     110.7,
+     "And everything you need"
+    ],
+    [
+     113.6,
+     "I've been waiting for someone with your appetite"
+    ],
+    [
+     120.5,
+     "I'm the kind of sweet that stays on your tongue"
+    ],
+    [
+     124.2,
+     "The kind of taste you can't forget when it's done"
+    ],
+    [
+     129.2,
+     "And you'll come back, they always come back"
+    ],
+    [
+     136.3,
+     "For one more taste of everything I've got"
+    ],
+    [
+     141.2,
+     "Bon appétit"
+    ],
+    [
+     143.6,
+     "I'm everything tonight"
+    ],
+    [
+     146.4,
+     "Bon appétit"
+    ],
+    [
+     149.0,
+     "Now take your time"
+    ],
+    [
+     150.7,
+     "You've never tasted anything like me"
+    ],
+    [
+     156.4,
+     "I hope you came with quite an appetite"
+    ],
+    [
+     160.7,
+     "Go ahead"
+    ],
+    [
+     163.6,
+     "Don't be shy"
+    ],
+    [
+     169.2,
+     "Bon appétit"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Dance Pop",
+   "tags": [
+    "Sensual",
+    "Playful"
+   ],
+   "mood": "Playful",
+   "language": "English",
+   "adult": true,
+   "color": "#4b0c14"
+  },
+  {
+   "id": "rm-0013",
+   "title": "Fashionably Late",
+   "bpm": 89,
+   "key": "F minor",
+   "duration": 181,
+   "audio": "media/audio/song-13-fashionably-late.mp3",
+   "art": "media/covers/song-13-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 19
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 40
+    },
+    {
+     "name": "Chorus",
+     "start": 50
+    },
+    {
+     "name": "Verse 2",
+     "start": 76
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 97
+    },
+    {
+     "name": "Chorus",
+     "start": 109
+    },
+    {
+     "name": "Bridge",
+     "start": 132
+    },
+    {
+     "name": "Outro",
+     "start": 156
+    }
+   ],
+   "bestPart": 50,
+   "explicit": false,
+   "created": "2026-06-01",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     2.1,
+     "Sugar, I arrived"
+    ],
+    [
+     9.7,
+     "Exactly when I mean to"
+    ],
+    [
+     19.3,
+     "You've been watching the doorway"
+    ],
+    [
+     21.2,
+     "Since a quarter past eight"
+    ],
+    [
+     24.9,
+     "Checking your reflection"
+    ],
+    [
+     26.7,
+     "Like that could change your fate"
+    ],
+    [
+     29.2,
+     "I'm still choosing my earrings, pouring something gold"
+    ],
+    [
+     34.7,
+     "Let you sit there and wonder, let the evening grow cold"
+    ],
+    [
+     40.1,
+     "I clasp the little wristwatch, let it kiss my pulse"
+    ],
+    [
+     45.5,
+     "Decide if you deserve me or somebody else"
+    ],
+    [
+     50.9,
+     "Tick-tock, tick-tock, I'm in no rush at all"
+    ],
+    [
+     56.1,
+     "Should I grace you with an entrance or not show up at all?"
+    ],
+    [
+     61.7,
+     "I've got slower mornings, I've got finer time"
+    ],
+    [
+     67.2,
+     "Tick-tock, sugar, the hour's always mine"
+    ],
+    [
+     76.2,
+     "You keep texting, are you coming?"
+    ],
+    [
+     79.7,
+     "How desperately sweet"
+    ],
+    [
+     81.7,
+     "I let it glow and fade out underneath my seat"
+    ],
+    [
+     87.1,
+     "I've been called unbothered, I've been called too proud"
+    ],
+    [
+     92.6,
+     "But from here in my mirror I am laughing out loud"
+    ],
+    [
+     97.9,
+     "I clasp the little wristwatch, let it kiss my pulse"
+    ],
+    [
+     103.5,
+     "Decide if you deserve me or somebody else"
+    ],
+    [
+     109.1,
+     "Tick-tock, tick-tock"
+    ],
+    [
+     111.1,
+     "I'm in no rush at all"
+    ],
+    [
+     114.2,
+     "Should I grace you with an entrance"
+    ],
+    [
+     116.9,
+     "Or not show up at all"
+    ],
+    [
+     119.5,
+     "I've got slower mornings"
+    ],
+    [
+     122.3,
+     "I've got finer time"
+    ],
+    [
+     125.1,
+     "Tick-tock, sugar"
+    ],
+    [
+     127.8,
+     "The hour's always mine"
+    ],
+    [
+     132.2,
+     "Tick-tock, tick-tock"
+    ],
+    [
+     134.0,
+     "Can you hear me stalling?"
+    ],
+    [
+     136.4,
+     "Tick-tock, tick-tock, is she on her way?"
+    ],
+    [
+     143.1,
+     "Sugar, I'm still finishing"
+    ],
+    [
+     146.8,
+     "The story of my day"
+    ],
+    [
+     156.1,
+     "Tick-tock"
+    ],
+    [
+     161.5,
+     "Tick-tock"
+    ],
+    [
+     165.0,
+     "The hour's mine"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Dance Pop",
+   "tags": [
+    "Playful"
+   ],
+   "mood": "Playful",
+   "language": "English",
+   "adult": false,
+   "color": "#2d261b"
+  },
+  {
+   "id": "rm-0014",
+   "title": "Molasses",
+   "bpm": 80,
+   "key": "G minor",
+   "duration": 244,
+   "audio": "media/audio/song-14-molasses.mp3",
+   "art": "media/covers/song-14-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 17
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 53
+    },
+    {
+     "name": "Chorus",
+     "start": 70
+    },
+    {
+     "name": "Verse 2",
+     "start": 108
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 145
+    },
+    {
+     "name": "Chorus",
+     "start": 163
+    },
+    {
+     "name": "Bridge",
+     "start": 202
+    },
+    {
+     "name": "Outro",
+     "start": 219
+    }
+   ],
+   "bestPart": 70,
+   "explicit": false,
+   "created": "2026-06-05",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     17.4,
+     "The lamp burns low"
+    ],
+    [
+     24.4,
+     "I don't do nothing quickly"
+    ],
+    [
+     30.9,
+     "And a winter day"
+    ],
+    [
+     35.2,
+     "You came in too fast, love"
+    ],
+    [
+     39.2,
+     "Slow down, sit"
+    ],
+    [
+     41.1,
+     "This kind of evening"
+    ],
+    [
+     47.9,
+     "You don't rush yet"
+    ],
+    [
+     53.8,
+     "Don't reach for me yet"
+    ],
+    [
+     56.6,
+     "Let the warning rise"
+    ],
+    [
+     61.7,
+     "The ache is half the sweetness"
+    ],
+    [
+     65.6,
+     "Look, don't close your eyes"
+    ],
+    [
+     70.8,
+     "I move like molasses"
+    ],
+    [
+     74.4,
+     "Slow and dark and sweet"
+    ],
+    [
+     78.8,
+     "The kind of warm that ruins you"
+    ],
+    [
+     83.8,
+     "Right down to your feet"
+    ],
+    [
+     87.4,
+     "I'm not a thing you finish"
+    ],
+    [
+     93.7,
+     "I'm a thing you taste"
+    ],
+    [
+     96.8,
+     "Good is never hurried, baby"
+    ],
+    [
+     101.4,
+     "The best things make you wait"
+    ],
+    [
+     108.9,
+     "Your hands run too eager"
+    ],
+    [
+     112.6,
+     "They don't know the floor"
+    ],
+    [
+     117.0,
+     "The ones who really had me"
+    ],
+    [
+     121.8,
+     "Learn to want me more"
+    ],
+    [
+     127.2,
+     "Put the hunger down now"
+    ],
+    [
+     130.9,
+     "Leave it at the door"
+    ],
+    [
+     136.2,
+     "I give to the patient"
+    ],
+    [
+     139.8,
+     "And nobody before"
+    ],
+    [
+     145.5,
+     "Don't reach for me yet"
+    ],
+    [
+     148.6,
+     "Let the warning rise"
+    ],
+    [
+     153.3,
+     "The ache is half the sweetness"
+    ],
+    [
+     157.6,
+     "Look, don't close your eyes"
+    ],
+    [
+     163.1,
+     "I move like molasses"
+    ],
+    [
+     166.8,
+     "Slow and dark and sweet"
+    ],
+    [
+     171.2,
+     "The kind of warm that ruins you"
+    ],
+    [
+     175.9,
+     "Right down to your feet"
+    ],
+    [
+     179.8,
+     "I'm not a thing you finish"
+    ],
+    [
+     186.0,
+     "I'm a thing you taste"
+    ],
+    [
+     189.1,
+     "Good is never hurried, baby"
+    ],
+    [
+     193.7,
+     "The best things make you wait"
+    ],
+    [
+     202.0,
+     "This isn't a tease"
+    ],
+    [
+     206.3,
+     "This isn't for show"
+    ],
+    [
+     208.3,
+     "A woman in no hurry, baby"
+    ],
+    [
+     212.4,
+     "Is the sweetest thing"
+    ],
+    [
+     217.1,
+     "You'll never own"
+    ],
+    [
+     219.5,
+     "Mmm, molasses, slow, sweet"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "R&B / Soul",
+   "subgenre": "Slow Jam",
+   "tags": [
+    "Sensual",
+    "Romantic"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true,
+   "color": "#8e4f0e"
+  },
+  {
+   "id": "rm-0015",
+   "title": "Play With Us",
+   "bpm": 117,
+   "key": "Eb minor",
+   "duration": 244,
+   "audio": "media/audio/song-15-play-with-us.mp3",
+   "art": "media/covers/song-15-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 27
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 59
+    },
+    {
+     "name": "Chorus",
+     "start": 68
+    },
+    {
+     "name": "Verse 2",
+     "start": 100
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 117
+    },
+    {
+     "name": "Chorus",
+     "start": 125
+    },
+    {
+     "name": "Bridge",
+     "start": 160
+    },
+    {
+     "name": "Final Chorus",
+     "start": 190
+    },
+    {
+     "name": "Outro",
+     "start": 227
+    }
+   ],
+   "bestPart": 68,
+   "explicit": true,
+   "created": "2026-06-07",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     0.0,
+     "Mmm, baby, you alone tonight?"
+    ],
+    [
+     5.8,
+     "I have a little surprise for you"
+    ],
+    [
+     9.0,
+     "Come closer"
+    ],
+    [
+     27.2,
+     "I told my best friend all about the way you make me feel"
+    ],
+    [
+     35.3,
+     "She smiled and said she wants to know if it's real"
+    ],
+    [
+     42.9,
+     "So I invited her over, lights down low and slow"
+    ],
+    [
+     51.3,
+     "Now we're both here waiting, wearing nothing but a glow"
+    ],
+    [
+     59.8,
+     "She's looking at you hungry, I'm looking at you too"
+    ],
+    [
+     64.0,
+     "Two girls, one night, and we only want you"
+    ],
+    [
+     68.1,
+     "Come play with us, we're ready, we're wet, we're wild"
+    ],
+    [
+     73.2,
+     "Come play with us, two bodies, one smile"
+    ],
+    [
+     77.2,
+     "Come play with us, don't think, just dive right in"
+    ],
+    [
+     81.3,
+     "Come play with us, let the three of us begin"
+    ],
+    [
+     85.2,
+     "We'll kiss you slow, we'll touch you deep"
+    ],
+    [
+     88.6,
+     "We'll make you lose your mind while you watch us tease"
+    ],
+    [
+     92.8,
+     "Come play with us, baby, say yes tonight"
+    ],
+    [
+     96.5,
+     "Two girls for you, we're burning so bright"
+    ],
+    [
+     100.8,
+     "She kissed my neck while you were watching from the door"
+    ],
+    [
+     105.8,
+     "Then I pulled you closer, now you're in the middle of our floor"
+    ],
+    [
+     109.8,
+     "Her hands on my waist, my lips on your chest"
+    ],
+    [
+     114.0,
+     "We're moving like a secret that nobody else can guess"
+    ],
+    [
+     117.8,
+     "She's looking at you hungry, I'm looking at you too"
+    ],
+    [
+     120.9,
+     "Two girls, one night, and we only want you"
+    ],
+    [
+     125.0,
+     "Come play with us"
+    ],
+    [
+     127.2,
+     "We're ready, we're wet, we're wild"
+    ],
+    [
+     130.1,
+     "Come play with us"
+    ],
+    [
+     131.3,
+     "Two bodies, one smile"
+    ],
+    [
+     134.1,
+     "Come play with us"
+    ],
+    [
+     135.4,
+     "Don't think, just dive right in"
+    ],
+    [
+     138.2,
+     "Come play with us"
+    ],
+    [
+     139.3,
+     "Let the three of us begin"
+    ],
+    [
+     142.2,
+     "We'll kiss you slow, we'll touch you deep"
+    ],
+    [
+     145.6,
+     "We'll make you lose your mind while you watch us tease"
+    ],
+    [
+     149.7,
+     "Come play with us"
+    ],
+    [
+     151.6,
+     "Baby, say yes tonight"
+    ],
+    [
+     153.4,
+     "Two girls for you, we're burning so bright"
+    ],
+    [
+     160.4,
+     "You look so surprised"
+    ],
+    [
+     162.5,
+     "But I see that fire in your eyes"
+    ],
+    [
+     167.6,
+     "She's already touching me"
+    ],
+    [
+     171.0,
+     "Now come and touch us both"
+    ],
+    [
+     175.5,
+     "No rules tonight"
+    ],
+    [
+     178.0,
+     "Just us three in the dark"
+    ],
+    [
+     183.2,
+     "Let us spoil you"
+    ],
+    [
+     186.1,
+     "Till you can't even walk"
+    ],
+    [
+     190.2,
+     "Come play with us"
+    ],
+    [
+     192.3,
+     "We're losing our control"
+    ],
+    [
+     194.3,
+     "Come play with us"
+    ],
+    [
+     199.1,
+     "Come play with us"
+    ],
+    [
+     200.2,
+     "We want you everywhere"
+    ],
+    [
+     202.0,
+     "Come play with us"
+    ],
+    [
+     204.3,
+     "This is our secret affair"
+    ],
+    [
+     206.4,
+     "We'll kiss you slow"
+    ],
+    [
+     208.5,
+     "We'll ride you deep"
+    ],
+    [
+     210.6,
+     "We'll make you feel like a king while you watch us meet"
+    ],
+    [
+     214.7,
+     "Come play with us, baby, say yes right now"
+    ],
+    [
+     218.7,
+     "Two girls for you, we're gonna show you how"
+    ],
+    [
+     227.6,
+     "Good boy, stay right here with us"
+    ],
+    [
+     235.5,
+     "We're not done yet"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true,
+   "color": "#321037"
+  },
+  {
+   "id": "rm-0016",
+   "title": "Tip (Let Me Watch)",
+   "bpm": 112,
+   "key": "F# major",
+   "duration": 215,
+   "audio": "media/audio/song-16-tip-let-me-watch.mp3",
+   "art": "media/covers/song-16-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 11
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 42
+    },
+    {
+     "name": "Chorus",
+     "start": 50
+    },
+    {
+     "name": "Verse 2",
+     "start": 83
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 102
+    },
+    {
+     "name": "Chorus",
+     "start": 110
+    },
+    {
+     "name": "Bridge",
+     "start": 145
+    },
+    {
+     "name": "Final Chorus",
+     "start": 161
+    },
+    {
+     "name": "Outro",
+     "start": 197
+    }
+   ],
+   "bestPart": 50,
+   "explicit": true,
+   "created": "2026-10-09",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     11.3,
+     "I have one request"
+    ],
+    [
+     15.0,
+     "I want you right there, sittin' across from me"
+    ],
+    [
+     23.7,
+     "Lights low, no touching, just you and me"
+    ],
+    [
+     31.4,
+     "I wanna see the way you look when you lose control"
+    ],
+    [
+     37.0,
+     "Show me everything, nice and slow"
+    ],
+    [
+     42.1,
+     "Don't hide, don't rush, let me see it all"
+    ],
+    [
+     46.4,
+     "I wanna watch you break, I wanna watch you fall"
+    ],
+    [
+     50.7,
+     "Let me watch while you touch yourself for me"
+    ],
+    [
+     55.2,
+     "Let me watch, every move, every breath, every fantasy"
+    ],
+    [
+     59.6,
+     "Let me watch, I wanna see you come undone"
+    ],
+    [
+     63.8,
+     "Let me watch, baby, this is how we have fun"
+    ],
+    [
+     68.2,
+     "I'll sit right here, eyes locked on you"
+    ],
+    [
+     76.1,
+     "Let me watch, that's all I wanna do"
+    ],
+    [
+     83.9,
+     "Your hand moves slow, I see the way you breathe"
+    ],
+    [
+     88.3,
+     "Your eyes are on me, but you're giving in to me"
+    ],
+    [
+     92.5,
+     "I love the way you tremble, I love the way you fight"
+    ],
+    [
+     96.9,
+     "Knowing I'm watching makes it feel so right"
+    ],
+    [
+     102.1,
+     "Don't hide, don't rush, let me see it all"
+    ],
+    [
+     106.1,
+     "I wanna watch you break, I wanna watch you fall"
+    ],
+    [
+     110.5,
+     "Let me watch while you touch yourself for me"
+    ],
+    [
+     115.0,
+     "Let me watch, every move, every breath, every fantasy"
+    ],
+    [
+     119.4,
+     "Let me watch, I wanna see you come undone"
+    ],
+    [
+     123.6,
+     "Let me watch, baby, this is how we have fun"
+    ],
+    [
+     128.0,
+     "I'll sit right here, eyes locked on you"
+    ],
+    [
+     135.6,
+     "Let me watch, that's all I wanna do"
+    ],
+    [
+     145.0,
+     "Don't close your eyes, keep them on me"
+    ],
+    [
+     148.9,
+     "Let me see the moment you set yourself free"
+    ],
+    [
+     153.1,
+     "I'm not touching you, but I'm right here"
+    ],
+    [
+     157.7,
+     "Let me watch, that's my only desire"
+    ],
+    [
+     161.5,
+     "Let me watch"
+    ],
+    [
+     162.8,
+     "Till the end, till you can't hold on"
+    ],
+    [
+     166.4,
+     "I wanna see you come undone"
+    ],
+    [
+     171.3,
+     "This is the hottest thing for me"
+    ],
+    [
+     175.5,
+     "Baby, give it up to me"
+    ],
+    [
+     178.7,
+     "I'll sit right here, eyes locked on you"
+    ],
+    [
+     186.3,
+     "Let me watch"
+    ],
+    [
+     188.1,
+     "That's all I want from you"
+    ],
+    [
+     197.5,
+     "That was perfect"
+    ],
+    [
+     201.6,
+     "Thank you for letting me watch"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true,
+   "color": "#311726"
+  },
+  {
+   "id": "rm-0017",
+   "title": "Lose Our Fear",
+   "bpm": 92,
+   "key": "A major",
+   "duration": 138,
+   "audio": "media/audio/song-17-lose-our-fear.mp3",
+   "art": "media/covers/song-17-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 4
+    },
+    {
+     "name": "Verse 2",
+     "start": 25
+    },
+    {
+     "name": "Verse 3",
+     "start": 56
+    },
+    {
+     "name": "Final Verse",
+     "start": 98
+    },
+    {
+     "name": "Outro",
+     "start": 119
+    }
+   ],
+   "bestPart": 98,
+   "explicit": false,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     4.3,
+     "Can you, can you hear them over me"
+    ],
+    [
+     10.2,
+     "Where they light up the towers but not you and me"
+    ],
+    [
+     15.0,
+     "If we lose our fear here"
+    ],
+    [
+     17.9,
+     "They lose their throne, you'll see"
+    ],
+    [
+     20.2,
+     "Hold your phone like a flame and come march with me"
+    ],
+    [
+     25.6,
+     "Can you, can you hear them over me"
+    ],
+    [
+     30.9,
+     "Where their children wear gold that was stolen from me"
+    ],
+    [
+     36.1,
+     "If we lose our fear here"
+    ],
+    [
+     38.8,
+     "They lose their throne, you'll see"
+    ],
+    [
+     41.2,
+     "Hold your phone like a flame and come march with me"
+    ],
+    [
+     56.8,
+     "Can you, can you hear them over me"
+    ],
+    [
+     62.1,
+     "Where a boy brought our food and they took him from me"
+    ],
+    [
+     67.3,
+     "If we lose our fear here"
+    ],
+    [
+     70.0,
+     "They lose their throne, you'll see"
+    ],
+    [
+     72.4,
+     "Hold your phone like a flame and come march with me"
+    ],
+    [
+     98.3,
+     "Can you, can you hear them over me"
+    ],
+    [
+     103.9,
+     "Raise a flag made of cloth, run the streets with me"
+    ],
+    [
+     108.8,
+     "We have lost our fear here"
+    ],
+    [
+     111.6,
+     "They've lost their throne, you see"
+    ],
+    [
+     114.0,
+     "Hold your phone like a flame, we are finally free"
+    ],
+    [
+     119.3,
+     "Can you, can you hear me"
+    ]
+   ],
+   "lyricsNote": "The words shown in the song's lyric video.",
+   "genre": "Pop",
+   "subgenre": "Anthem",
+   "tags": [
+    "Arena Anthems",
+    "Defiant"
+   ],
+   "mood": "Defiant",
+   "language": "English",
+   "adult": false,
+   "video": "media/shorts/song-17.mp4",
+   "poster": "media/covers/song-17-poster.jpg",
+   "color": "#072654"
+  },
+  {
+   "id": "rm-0018",
+   "title": "Not a Vibe",
+   "bpm": 129,
+   "key": "D major",
+   "duration": 152,
+   "audio": "media/audio/song-18-not-a-vibe.mp3",
+   "art": "media/covers/song-18-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 17
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 33
+    },
+    {
+     "name": "Drop",
+     "start": 44
+    },
+    {
+     "name": "Chorus",
+     "start": 46
+    },
+    {
+     "name": "Verse 2",
+     "start": 62
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 78
+    },
+    {
+     "name": "Drop",
+     "start": 90
+    },
+    {
+     "name": "Chorus",
+     "start": 91
+    },
+    {
+     "name": "Bridge",
+     "start": 108
+    },
+    {
+     "name": "Final Chorus",
+     "start": 120
+    },
+    {
+     "name": "Outro",
+     "start": 142
+    }
+   ],
+   "bestPart": 46,
+   "explicit": false,
+   "created": "2026-09-19",
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     1.4,
+     "Discipline isn't a vibe (uh huh)"
+    ],
+    [
+     4.8,
+     "Discipline isn't a vibe (uh huh)"
+    ],
+    [
+     12.4,
+     "Discipline isn't a vibe (uh huh)"
+    ],
+    [
+     14.8,
+     "Discipline isn't a vibe (uh huh)"
+    ],
+    [
+     17.2,
+     "Five a.m. and the gym's still dark"
+    ],
+    [
+     19.0,
+     "Nobody clapping, nobody keeping score"
+    ],
+    [
+     20.7,
+     "I don't do it for the mirror, don't do it for the like"
+    ],
+    [
+     22.7,
+     "I do it 'cause I said I would and I don't lie"
+    ],
+    [
+     24.6,
+     "You want the body, you don't want the work"
+    ],
+    [
+     26.4,
+     "You want the aura but you skip the hurt"
+    ],
+    [
+     28.3,
+     "I skip the excuses, I skip the noise"
+    ],
+    [
+     30.2,
+     "I just keep showing up, that's my only choice"
+    ],
+    [
+     33.3,
+     "Motivation's a mood, it comes and goes"
+    ],
+    [
+     35.9,
+     "Discipline's the thing that stays when nobody knows"
+    ],
+    [
+     42.5,
+     "So say it"
+    ],
+    [
+     44.6,
+     "BUILT!"
+    ],
+    [
+     46.8,
+     "Not a vibe, not a feeling, not a phase I'm in"
+    ],
+    [
+     50.1,
+     "I'm built, I'm built, from the discipline"
+    ],
+    [
+     54.1,
+     "Not cute, not soft, not something you can rent"
+    ],
+    [
+     58.3,
+     "I'm built, I'm built, and it's permanent"
+    ],
+    [
+     62.2,
+     "Everybody wants the outcome overnight"
+    ],
+    [
+     63.7,
+     "Everybody quits by the second week, no fight"
+    ],
+    [
+     65.5,
+     "I'm still here when the motivation's dead"
+    ],
+    [
+     67.6,
+     "Still here running off the promise in my head"
+    ],
+    [
+     69.4,
+     "Ain't glamorous, ain't cute, ain't a highlight reel"
+    ],
+    [
+     71.2,
+     "It's the boring hour where the whole thing's real"
+    ],
+    [
+     73.0,
+     "You can't screenshot discipline, can't fake the grind"
+    ],
+    [
+     74.9,
+     "I've been doing this since before it was online"
+    ],
+    [
+     78.1,
+     "Motivation's a mood, it comes and goes"
+    ],
+    [
+     80.7,
+     "Discipline's the thing that stays when nobody knows"
+    ],
+    [
+     87.1,
+     "So say it"
+    ],
+    [
+     90.0,
+     "BUILT!"
+    ],
+    [
+     91.5,
+     "Not a vibe, not a feeling, not a phase I'm in"
+    ],
+    [
+     94.7,
+     "I'm built, I'm built, from the discipline"
+    ],
+    [
+     98.6,
+     "Not cute, not soft, not something you can rent"
+    ],
+    [
+     102.8,
+     "I'm built, I'm built, and it's permanent"
+    ],
+    [
+     108.8,
+     "Doesn't have to be complicated"
+    ],
+    [
+     112.6,
+     "Just has to be done"
+    ],
+    [
+     118.2,
+     "Every single day"
+    ],
+    [
+     119.1,
+     "BUILT!"
+    ],
+    [
+     120.1,
+     "Not a vibe, not a feeling, not a phase I'm in"
+    ],
+    [
+     124.2,
+     "I'm built, I'm built, from the discipline"
+    ],
+    [
+     127.9,
+     "Not cute, not soft, not something you can rent"
+    ],
+    [
+     132.3,
+     "I'm built, I'm built, and it's permanent"
+    ],
+    [
+     142.0,
+     "Discipline isn't a vibe"
+    ],
+    [
+     145.6,
+     "I'm built"
+    ]
+   ],
+   "lyricsNote": "The song's own lyrics.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Empowering",
+    "Energetic"
+   ],
+   "mood": "Empowering",
+   "language": "English",
+   "adult": false,
+   "color": "#17294b"
+  },
+  {
+   "id": "rm-0019",
+   "title": "Hug Me Until I Smell Like You (Slowed)",
+   "bpm": 96,
+   "key": "B major",
+   "duration": 324,
+   "audio": "media/audio/song-19-hug-me-until-i-smell-like-you-slowed.mp3",
+   "art": "media/covers/song-19-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 18
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 60
+    },
+    {
+     "name": "Chorus",
+     "start": 78
+    },
+    {
+     "name": "Verse 2",
+     "start": 119
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 161
+    },
+    {
+     "name": "Chorus",
+     "start": 181
+    },
+    {
+     "name": "Bridge",
+     "start": 220
+    },
+    {
+     "name": "Final Chorus",
+     "start": 262
+    },
+    {
+     "name": "Outro",
+     "start": 301
+    }
+   ],
+   "bestPart": 78,
+   "explicit": false,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     18.8,
+     "Don't say a word, just open up your arms"
+    ],
+    [
+     23.7,
+     "I don't need a reason or a plan"
+    ],
+    [
+     28.8,
+     "I've been out there trying to stay strong"
+    ],
+    [
+     33.3,
+     "But right now I just need to feel your face"
+    ],
+    [
+     38.7,
+     "Not the kind of touch that leads somewhere"
+    ],
+    [
+     43.5,
+     "Just the kind that says you're not alone"
+    ],
+    [
+     48.9,
+     "Press your chest against me, hold me there"
+    ],
+    [
+     53.8,
+     "Until this feeling finally feels like home"
+    ],
+    [
+     60.2,
+     "I don't want your words tonight"
+    ],
+    [
+     64.9,
+     "I don't need you to make it right"
+    ],
+    [
+     68.4,
+     "I just want to disappear"
+    ],
+    [
+     74.2,
+     "Hold me till the world stops coming through"
+    ],
+    [
+     78.9,
+     "Hug me until I smell like you"
+    ],
+    [
+     83.9,
+     "Until your skin is all I breathe in"
+    ],
+    [
+     89.2,
+     "Hold me till there's nothing else to do"
+    ],
+    [
+     94.0,
+     "But stay right here, keep me in"
+    ],
+    [
+     98.1,
+     "I wanna walk away tomorrow"
+    ],
+    [
+     103.6,
+     "Carry me like a second skin"
+    ],
+    [
+     109.1,
+     "Hug me until I smell like you"
+    ],
+    [
+     115.8,
+     "And let the rest begin"
+    ],
+    [
+     119.1,
+     "There's a version of safe I only find"
+    ],
+    [
+     124.4,
+     "When my face is buried in your neck"
+    ],
+    [
+     129.3,
+     "The whole world gets quiet in my mind"
+    ],
+    [
+     134.6,
+     "And I forget what I was so upset"
+    ],
+    [
+     139.5,
+     "Your heartbeat does something to my chest"
+    ],
+    [
+     144.7,
+     "Slows me down from everything I feel"
+    ],
+    [
+     149.7,
+     "Of all the places I have ever rested"
+    ],
+    [
+     154.4,
+     "This is the only one that feels sincere"
+    ],
+    [
+     161.1,
+     "I don't want your words tonight"
+    ],
+    [
+     165.8,
+     "I don't need you to make it right"
+    ],
+    [
+     169.3,
+     "I just wanna disappear with you"
+    ],
+    [
+     175.0,
+     "Hold me till the world stops coming through"
+    ],
+    [
+     181.3,
+     "Hug me till I smell like you"
+    ],
+    [
+     184.9,
+     "Until your skin is all I breathe in"
+    ],
+    [
+     189.6,
+     "Hold me till there's nothing else to do"
+    ],
+    [
+     195.3,
+     "But stay right here, keep me in"
+    ],
+    [
+     199.1,
+     "I wanna walk away tomorrow"
+    ],
+    [
+     204.4,
+     "Carry me like a second skin"
+    ],
+    [
+     210.0,
+     "Hug me until I smell like you"
+    ],
+    [
+     216.0,
+     "And let the rest begin"
+    ],
+    [
+     220.1,
+     "This is my weakness"
+    ],
+    [
+     225.2,
+     "This is the bravest thing I know"
+    ],
+    [
+     229.9,
+     "To let someone hold me"
+    ],
+    [
+     235.8,
+     "Until I finally let go"
+    ],
+    [
+     241.4,
+     "Your arms are the only place"
+    ],
+    [
+     245.6,
+     "Where I stop pretending to be fine"
+    ],
+    [
+     250.7,
+     "So hold me a little longer"
+    ],
+    [
+     256.0,
+     "Make your scent stay on mine"
+    ],
+    [
+     262.3,
+     "Hold me till I smell like you"
+    ],
+    [
+     270.4,
+     "Hold me like you know I need you to"
+    ],
+    [
+     280.2,
+     "I wanna carry you through every room, through every day"
+    ],
+    [
+     291.2,
+     "Hug me till I smell like you"
+    ],
+    [
+     301.0,
+     "Just hold me"
+    ],
+    [
+     305.6,
+     "Don't let go, yeah"
+    ],
+    [
+     310.3,
+     "I'm not ready"
+    ]
+   ],
+   "lyricsNote": "Written down from the slowed recording; some words may differ.",
+   "genre": "Pop",
+   "subgenre": "Dark Pop",
+   "tags": [
+    "Romantic",
+    "Tender",
+    "Slowed"
+   ],
+   "mood": "Tender",
+   "language": "English",
+   "adult": false,
+   "color": "#4f1501"
+  },
+  {
+   "id": "rm-0020",
+   "title": "I'm Your Good Girl (Slowed)",
+   "bpm": 117,
+   "key": "Bb major",
+   "duration": 222,
+   "audio": "media/audio/song-20-im-your-good-girl-slowed.mp3",
+   "art": "media/covers/song-20-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 19
+    },
+    {
+     "name": "Chorus",
+     "start": 69
+    },
+    {
+     "name": "Verse 2",
+     "start": 90
+    },
+    {
+     "name": "Chorus",
+     "start": 139
+    },
+    {
+     "name": "Bridge",
+     "start": 160
+    },
+    {
+     "name": "Final Chorus",
+     "start": 181
+    },
+    {
+     "name": "Outro",
+     "start": 200
+    }
+   ],
+   "bestPart": 69,
+   "explicit": true,
+   "published": "2026-11-11",
+   "genre": "Pop",
+   "subgenre": "Dark Pop",
+   "tags": [
+    "Sensual",
+    "Slowed"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true,
+   "color": "#380f18"
+  },
+  {
+   "id": "rm-0021",
+   "title": "Just Friends (Slowed)",
+   "bpm": 72,
+   "key": "F major",
+   "duration": 311,
+   "audio": "media/audio/song-21-just-friends-slowed.mp3",
+   "art": "media/covers/song-21-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 12
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 52
+    },
+    {
+     "name": "Chorus",
+     "start": 71
+    },
+    {
+     "name": "Verse 2",
+     "start": 110
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 150
+    },
+    {
+     "name": "Chorus",
+     "start": 168
+    },
+    {
+     "name": "Bridge",
+     "start": 209
+    },
+    {
+     "name": "Final Chorus",
+     "start": 248
+    },
+    {
+     "name": "Outro",
+     "start": 293
+    }
+   ],
+   "bestPart": 71,
+   "explicit": false,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     12.9,
+     "We said keep it simple"
+    ],
+    [
+     15.4,
+     "Keep it cool, keep it light"
+    ],
+    [
+     17.8,
+     "That was Tuesday, now it's 2am"
+    ],
+    [
+     20.5,
+     "And I'm in your bed and the lights are off"
+    ],
+    [
+     23.4,
+     "And nothing about this is simple anymore"
+    ],
+    [
+     26.3,
+     "You got your hand on my waist like it lives there"
+    ],
+    [
+     30.4,
+     "And I'm not moving it, I'm really not moving it"
+    ],
+    [
+     35.3,
+     "We have this thing where we don't talk about the thing"
+    ],
+    [
+     39.6,
+     "And it works until it doesn't, until you look at me like that"
+    ],
+    [
+     46.6,
+     "And I forget what the rules were"
+    ],
+    [
+     52.3,
+     "I know what this is, you know what this is"
+    ],
+    [
+     57.4,
+     "We both keep pretending that we don't know what this is"
+    ],
+    [
+     62.1,
+     "But your mouth on my neck tells a different story than just friends"
+    ],
+    [
+     71.6,
+     "We said just friends, look at us now"
+    ],
+    [
+     76.9,
+     "Your hands all over me"
+    ],
+    [
+     79.9,
+     "Tell me how friends end up here at 3 a.m. like this"
+    ],
+    [
+     85.6,
+     "Tell me how friends kiss like this"
+    ],
+    [
+     91.6,
+     "We said just friends, but just friends don't do what we do"
+    ],
+    [
+     97.7,
+     "In every room of your apartment"
+    ],
+    [
+     100.4,
+     "So what are we, what are we, what are we?"
+    ],
+    [
+     110.5,
+     "We went to dinner, you paid, I said you didn't have to"
+    ],
+    [
+     114.6,
+     "You said I know"
+    ],
+    [
+     117.4,
+     "We don't say it out loud, we do this thing"
+    ],
+    [
+     120.5,
+     "Where our legs touch under the table"
+    ],
+    [
+     123.6,
+     "And neither of us moves and we're talking about something else"
+    ],
+    [
+     127.1,
+     "While that's happening"
+    ],
+    [
+     128.7,
+     "And I love that, I love that we do that"
+    ],
+    [
+     132.3,
+     "You drove me home, sat outside for 45 minutes just talking"
+    ],
+    [
+     138.4,
+     "Just friends, just talking"
+    ],
+    [
+     140.9,
+     "At midnight in your car, with your hand on the gear shift"
+    ],
+    [
+     145.1,
+     "Two centimeters from mine, just friends"
+    ],
+    [
+     150.7,
+     "I know what this is, you know what this is"
+    ],
+    [
+     155.6,
+     "We both keep pretending that we don't know what this is"
+    ],
+    [
+     160.4,
+     "But the way you breathe different"
+    ],
+    [
+     163.0,
+     "When I walk in the room"
+    ],
+    [
+     165.5,
+     "It's not just friends either"
+    ],
+    [
+     168.8,
+     "Oh, we said just friends"
+    ],
+    [
+     172.9,
+     "Look at us now"
+    ],
+    [
+     175.3,
+     "Your hands all over me"
+    ],
+    [
+     178.3,
+     "Tell me how friends end up here"
+    ],
+    [
+     182.0,
+     "Being like this"
+    ],
+    [
+     184.0,
+     "Tell me how friends kiss like this"
+    ],
+    [
+     190.6,
+     "We said just friends, but just friends"
+    ],
+    [
+     193.6,
+     "Don't wake up like this"
+    ],
+    [
+     195.6,
+     "Smellin' like each other, not wantin' to move"
+    ],
+    [
+     198.6,
+     "So what do we, what do we, what do we do?"
+    ],
+    [
+     209.0,
+     "And I don't need a label"
+    ],
+    [
+     212.2,
+     "I don't need a conversation, I just need you to stop looking at me like that in front of people"
+    ],
+    [
+     220.7,
+     "Because I can't keep my face straight"
+    ],
+    [
+     224.7,
+     "And everyone's gonna know, everyone already knows"
+    ],
+    [
+     230.0,
+     "My friend told me last week, she said you don't look at me like I'm your friend"
+    ],
+    [
+     237.9,
+     "And I said she was wrong"
+    ],
+    [
+     241.7,
+     "And she laughed"
+    ],
+    [
+     244.2,
+     "She just laughed"
+    ],
+    [
+     248.8,
+     "We said just friends"
+    ],
+    [
+     252.0,
+     "That was the plan"
+    ],
+    [
+     254.0,
+     "But plans change when you touch me like that"
+    ],
+    [
+     257.7,
+     "The rules we made are somewhere on your floor"
+    ],
+    [
+     262.6,
+     "With my jacket and my better judgment"
+    ],
+    [
+     265.7,
+     "We said just friends"
+    ],
+    [
+     271.8,
+     "And maybe we are the best kind of friends"
+    ],
+    [
+     277.3,
+     "Who burn like this in the dark"
+    ],
+    [
+     283.6,
+     "So just friends then, yeah"
+    ],
+    [
+     293.5,
+     "Just friends"
+    ],
+    [
+     297.3,
+     "Next morning you make coffee"
+    ],
+    [
+     300.7,
+     "You knew how I'd take it"
+    ],
+    [
+     304.6,
+     "You didn't ask, you just knew"
+    ],
+    [
+     307.8,
+     "Just friends know that, right?"
+    ]
+   ],
+   "lyricsNote": "Written down from the slowed recording; some words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual",
+    "Romantic",
+    "Slowed"
+   ],
+   "mood": "Romantic",
+   "language": "English",
+   "adult": true,
+   "color": "#151c33"
+  },
+  {
+   "id": "rm-0022",
+   "title": "Love You Crazily (Slowed)",
+   "bpm": 99,
+   "key": "Bb major",
+   "duration": 231,
+   "audio": "media/audio/song-22-love-you-crazily-slowed.mp3",
+   "art": "media/covers/song-22-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 18
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 56
+    },
+    {
+     "name": "Chorus",
+     "start": 75
+    },
+    {
+     "name": "Verse 2",
+     "start": 94
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 132
+    },
+    {
+     "name": "Chorus",
+     "start": 151
+    },
+    {
+     "name": "Bridge",
+     "start": 169
+    },
+    {
+     "name": "Final Chorus",
+     "start": 188
+    },
+    {
+     "name": "Outro",
+     "start": 207
+    }
+   ],
+   "bestPart": 75,
+   "explicit": false,
+   "published": "2026-11-11",
+   "genre": "Pop",
+   "subgenre": "Dark Pop",
+   "tags": [
+    "Sensual",
+    "Romantic",
+    "Slowed"
+   ],
+   "mood": "Passionate",
+   "language": "English",
+   "adult": true,
+   "color": "#4c0d17"
+  },
+  {
+   "id": "rm-0023",
+   "title": "SWEET AGONY (Slowed)",
+   "bpm": 103,
+   "key": "Eb minor",
+   "duration": 288,
+   "audio": "media/audio/song-23-sweet-agony-slowed.mp3",
+   "art": "media/covers/song-23-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 16
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 63
+    },
+    {
+     "name": "Chorus",
+     "start": 82
+    },
+    {
+     "name": "Verse 2",
+     "start": 120
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 157
+    },
+    {
+     "name": "Chorus",
+     "start": 177
+    },
+    {
+     "name": "Bridge",
+     "start": 214
+    },
+    {
+     "name": "Final Chorus",
+     "start": 231
+    },
+    {
+     "name": "Outro",
+     "start": 272
+    }
+   ],
+   "bestPart": 82,
+   "explicit": false,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     16.3,
+     "I left the door unlocked"
+    ],
+    [
+     19.7,
+     "Hoping you'd find your way in"
+    ],
+    [
+     25.2,
+     "I told my pride to wait outside"
+    ],
+    [
+     30.7,
+     "Let the fever begin"
+    ],
+    [
+     35.2,
+     "The air is heavy with the things we haven't said yet"
+    ],
+    [
+     40.2,
+     "I'm chasing scars I haven't even felt yet"
+    ],
+    [
+     44.6,
+     "The way you look at me is like a beautiful knife"
+    ],
+    [
+     49.3,
+     "Cutting through the static of my ordinary life"
+    ],
+    [
+     53.9,
+     "I'm shaking but I'm steady"
+    ],
+    [
+     55.9,
+     "Reaching for the spark"
+    ],
+    [
+     58.2,
+     "I'm ready for the damage"
+    ],
+    [
+     60.7,
+     "I'm gonna leave your mark"
+    ],
+    [
+     63.5,
+     "I promised I would keep my heart in the shade"
+    ],
+    [
+     68.8,
+     "But I'm standing in the fire that we made"
+    ],
+    [
+     73.7,
+     "Break the silence, let the tension snap"
+    ],
+    [
+     77.4,
+     "I'm walking right into your beautiful trap"
+    ],
+    [
+     82.5,
+     "Sweet agony"
+    ],
+    [
+     86.0,
+     "I'm addicted to the sting"
+    ],
+    [
+     91.2,
+     "Take the peace away"
+    ],
+    [
+     95.3,
+     "And see what the chaos brings"
+    ],
+    [
+     101.7,
+     "It hurts so good"
+    ],
+    [
+     104.0,
+     "I never wanna be healed"
+    ],
+    [
+     110.6,
+     "I'm finally alive"
+    ],
+    [
+     115.1,
+     "In the way that you make me feel"
+    ],
+    [
+     120.6,
+     "Your shadow's leaning heavy right against my skin"
+    ],
+    [
+     124.3,
+     "I'm losing every battle and I'm happy to let you win"
+    ],
+    [
+     129.7,
+     "The ache in my chest is the only thing that's real"
+    ],
+    [
+     134.3,
+     "I'm trading every comfort for the way you make me feel"
+    ],
+    [
+     139.0,
+     "Put your hands on the places that I try to hide"
+    ],
+    [
+     143.2,
+     "There's a wilder version of me waking up inside"
+    ],
+    [
+     147.6,
+     "I want the friction, I want the heavy weight of you"
+    ],
+    [
+     152.4,
+     "I want the kind of ruin only you can do"
+    ],
+    [
+     157.4,
+     "I promised I would keep my heart in the shade"
+    ],
+    [
+     162.4,
+     "But I'm standing in the fire that we made"
+    ],
+    [
+     167.1,
+     "Just break the silence, let the tension snap"
+    ],
+    [
+     171.1,
+     "I'm walking right into your beautiful trap"
+    ],
+    [
+     177.0,
+     "Sweet agony"
+    ],
+    [
+     179.5,
+     "I'm addicted to the sting"
+    ],
+    [
+     184.6,
+     "Take the peace away"
+    ],
+    [
+     188.7,
+     "And see what the chaos brings"
+    ],
+    [
+     195.2,
+     "It hurts so good"
+    ],
+    [
+     197.5,
+     "I never wanna be healed"
+    ],
+    [
+     203.9,
+     "I'm finally alive"
+    ],
+    [
+     208.3,
+     "In the way that you make me feel"
+    ],
+    [
+     214.8,
+     "Here's the secret about the moment that it breaks"
+    ],
+    [
+     218.4,
+     "It's the only time I'm certain of the breath it takes"
+    ],
+    [
+     223.2,
+     "Don't be gentle, don't you dare be kind"
+    ],
+    [
+     227.6,
+     "I'm leaving every careful thought behind"
+    ],
+    [
+     231.9,
+     "Sweet agony"
+    ],
+    [
+     235.4,
+     "I'm addicted to the sting"
+    ],
+    [
+     240.4,
+     "Take the peace away"
+    ],
+    [
+     245.6,
+     "And see what the chaos brings"
+    ],
+    [
+     251.1,
+     "It hurts so good"
+    ],
+    [
+     253.2,
+     "I never wanna be healed"
+    ],
+    [
+     259.4,
+     "I'm finally alive"
+    ],
+    [
+     263.6,
+     "In the way that you make me feel"
+    ],
+    [
+     272.9,
+     "Keep hurting me sweet"
+    ],
+    [
+     276.4,
+     "Just don't let me go"
+    ]
+   ],
+   "lyricsNote": "Written down from the slowed recording; some words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual",
+    "Dark",
+    "Slowed"
+   ],
+   "mood": "Dark",
+   "language": "English",
+   "adult": true,
+   "artist": "lucid-lava",
+   "color": "#2e0c39"
+  },
+  {
+   "id": "rm-0024",
+   "title": "Your Kind of Love",
+   "bpm": 112,
+   "key": "B major",
+   "duration": 234,
+   "audio": "media/audio/song-24-your-kind-of-love.mp3",
+   "art": "media/covers/song-24-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 15
+    },
+    {
+     "name": "Chorus",
+     "start": 51
+    },
+    {
+     "name": "Bridge",
+     "start": 108
+    },
+    {
+     "name": "Verse 2",
+     "start": 123
+    },
+    {
+     "name": "Final Chorus",
+     "start": 171
+    },
+    {
+     "name": "Outro",
+     "start": 228
+    }
+   ],
+   "bestPart": 51,
+   "explicit": true,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     15.3,
+     "I know that I'm in big trouble when I want you, babe"
+    ],
+    [
+     19.8,
+     "But I like that, cause I like when it's taboo"
+    ],
+    [
+     24.0,
+     "Pick me, babe, fill me with your love"
+    ],
+    [
+     28.3,
+     "I'm wide open, ready for this love tonight, yeah"
+    ],
+    [
+     35.2,
+     "You know I'm broken, but you don't mind"
+    ],
+    [
+     39.5,
+     "I like the way you put me in line"
+    ],
+    [
+     43.8,
+     "You see me screaming, but I'm feeling fine"
+    ],
+    [
+     47.2,
+     "Cause I like this pain, yeah, I loved it, babe"
+    ],
+    [
+     51.4,
+     "Boy, you got me baited"
+    ],
+    [
+     54.0,
+     "Drunk in your love and I'm wasted"
+    ],
+    [
+     57.6,
+     "Do me, twist me however you want"
+    ],
+    [
+     62.7,
+     "I want it now"
+    ],
+    [
+     66.5,
+     "It's so hot, so good, yeah"
+    ],
+    [
+     70.6,
+     "The feelings I'm into make me feel, huh"
+    ],
+    [
+     74.9,
+     "I lost all my pride but there's no shame needed"
+    ],
+    [
+     79.9,
+     "Deleted by the pleasure that you gave me"
+    ],
+    [
+     83.4,
+     "It's lovely, feeling like, oh, yeah"
+    ],
+    [
+     87.7,
+     "So hard to quit this love, quit your love, babe"
+    ],
+    [
+     92.1,
+     "This kind of love driving me crazy, so crazy"
+    ],
+    [
+     96.6,
+     "And I can feel your love flowing inside"
+    ],
+    [
+     108.8,
+     "Oh, babe, I've been needing this kind of love"
+    ],
+    [
+     114.0,
+     "I want it more and more"
+    ],
+    [
+     118.1,
+     "Yeah, it's so hot the way that you ruin me"
+    ],
+    [
+     123.2,
+     "It's like a drug gets me so high"
+    ],
+    [
+     127.3,
+     "You think about it when you're inside my mind"
+    ],
+    [
+     131.2,
+     "But I'm so addicted that I don't mind"
+    ],
+    [
+     135.9,
+     "You are the only lust that make me feel alive"
+    ],
+    [
+     139.8,
+     "The way that your hands get in between my thighs"
+    ],
+    [
+     144.2,
+     "Come to your home late, do me all through the night"
+    ],
+    [
+     148.4,
+     "Then I have to sneak out before morning light"
+    ],
+    [
+     153.9,
+     "Come here boy, come be my boss"
+    ],
+    [
+     157.8,
+     "I really wanna get this done"
+    ],
+    [
+     160.7,
+     "I know you like to make me soft down there"
+    ],
+    [
+     165.0,
+     "And I know you love to give me your love"
+    ],
+    [
+     171.0,
+     "Boy, you got me baited"
+    ],
+    [
+     174.5,
+     "Drunk in your love and I'm wasted"
+    ],
+    [
+     178.5,
+     "Do me, twist me however you want"
+    ],
+    [
+     182.6,
+     "I want it now"
+    ],
+    [
+     186.6,
+     "It's so hot, so good, yeah"
+    ],
+    [
+     190.6,
+     "The feelings I'm into make me feel, huh"
+    ],
+    [
+     194.8,
+     "I lost all my pride but there's no shame needed"
+    ],
+    [
+     199.8,
+     "Deleted by the pleasure that you gave me"
+    ],
+    [
+     203.4,
+     "It's lovely, feeling like, oh"
+    ],
+    [
+     206.2,
+     "Yeah, so hard to quit this love, quit your love, babe"
+    ],
+    [
+     212.1,
+     "This kind of love driving me crazy, so crazy"
+    ],
+    [
+     216.7,
+     "And I can feel your love flowing inside"
+    ],
+    [
+     228.4,
+     "Oh, babe, I've been needing this kind of love"
+    ]
+   ],
+   "lyricsNote": "Written down from the recording; a few words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual"
+   ],
+   "mood": "Seductive",
+   "language": "English",
+   "adult": true,
+   "color": "#e9c6cf"
+  },
+  {
+   "id": "rm-0025",
+   "title": "you already knew (Slowed)",
+   "bpm": 96,
+   "key": "B major",
+   "duration": 371,
+   "audio": "media/audio/song-25-you-already-knew-slowed.mp3",
+   "art": "media/covers/song-25-art.jpg",
+   "sections": [
+    {
+     "name": "Intro",
+     "start": 0
+    },
+    {
+     "name": "Verse 1",
+     "start": 16
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 60
+    },
+    {
+     "name": "Chorus",
+     "start": 79
+    },
+    {
+     "name": "Verse 2",
+     "start": 123
+    },
+    {
+     "name": "Pre-Chorus",
+     "start": 161
+    },
+    {
+     "name": "Chorus",
+     "start": 180
+    },
+    {
+     "name": "Bridge",
+     "start": 225
+    },
+    {
+     "name": "Final Chorus",
+     "start": 284
+    },
+    {
+     "name": "Outro",
+     "start": 340
+    }
+   ],
+   "bestPart": 79,
+   "explicit": false,
+   "published": "2026-11-11",
+   "lyrics": [
+    [
+     16.6,
+     "I don't go to church anymore"
+    ],
+    [
+     20.8,
+     "But I still get on my knees"
+    ],
+    [
+     23.8,
+     "Not for forgiveness, for you"
+    ],
+    [
+     27.2,
+     "And I don't feel ashamed, it's the part that scares me"
+    ],
+    [
+     32.1,
+     "I used to need a reason"
+    ],
+    [
+     34.6,
+     "Now I just need the dark in your hands"
+    ],
+    [
+     38.9,
+     "And the specific silence that happens right after"
+    ],
+    [
+     43.4,
+     "You sing my name like it means something"
+    ],
+    [
+     47.3,
+     "Like I mean something"
+    ],
+    [
+     49.7,
+     "Nobody said it like that before you"
+    ],
+    [
+     57.5,
+     "Nobody"
+    ],
+    [
+     60.7,
+     "I've been so careful my whole life"
+    ],
+    [
+     66.2,
+     "Kept everything behind glass"
+    ],
+    [
+     70.7,
+     "And then you happened"
+    ],
+    [
+     75.0,
+     "And I stopped caring about the glass"
+    ],
+    [
+     79.9,
+     "You're the closest thing to God I've ever touched"
+    ],
+    [
+     85.5,
+     "The kind of feeling they warn you about"
+    ],
+    [
+     89.1,
+     "Holy and wrong in the same breath"
+    ],
+    [
+     94.6,
+     "Alive in a way that feels like death"
+    ],
+    [
+     98.6,
+     "You're the closest thing to God I've ever known"
+    ],
+    [
+     103.0,
+     "The reason I stop being afraid to be alone"
+    ],
+    [
+     108.1,
+     "With everything, with nothing, with the dark and the ache"
+    ],
+    [
+     113.1,
+     "You're the closest thing to God"
+    ],
+    [
+     116.7,
+     "And I pray at your feet"
+    ],
+    [
+     121.9,
+     "Every time"
+    ],
+    [
+     123.2,
+     "I know what my body is saying when it says your name and it's still"
+    ],
+    [
+     128.1,
+     "I know what my hands mean when they reach for you before I'm even awake"
+    ],
+    [
+     133.2,
+     "I know this is insane"
+    ],
+    [
+     135.7,
+     "I knew from the first night"
+    ],
+    [
+     138.2,
+     "You looked at me, not at my face"
+    ],
+    [
+     141.0,
+     "But at the thing behind my face"
+    ],
+    [
+     143.3,
+     "The part I keep locked and you didn't ask"
+    ],
+    [
+     146.1,
+     "You just waited like you had all the time"
+    ],
+    [
+     148.3,
+     "Like you already knew"
+    ],
+    [
+     150.3,
+     "I was gonna let you in eventually"
+    ],
+    [
+     157.6,
+     "I always let you in"
+    ],
+    [
+     161.5,
+     "I've been so careful my whole life"
+    ],
+    [
+     166.0,
+     "Kept everything behind glass"
+    ],
+    [
+     170.8,
+     "And then you happened"
+    ],
+    [
+     174.6,
+     "And the glass became light"
+    ],
+    [
+     177.4,
+     "Everything became light"
+    ],
+    [
+     180.2,
+     "You're the closest thing to God I've ever touched"
+    ],
+    [
+     185.3,
+     "The kind of feeling they warn you about"
+    ],
+    [
+     190.2,
+     "Holy and wrong in the same breath"
+    ],
+    [
+     195.5,
+     "Alive in a way that feels like death"
+    ],
+    [
+     199.5,
+     "You're the closest thing to God I've ever known"
+    ],
+    [
+     204.0,
+     "The reason I stop being afraid"
+    ],
+    [
+     207.3,
+     "To be alone with everything"
+    ],
+    [
+     210.4,
+     "With nothing, with the dark and the ache"
+    ],
+    [
+     213.9,
+     "You're the closest thing to God"
+    ],
+    [
+     216.6,
+     "And I pray at your feet"
+    ],
+    [
+     222.5,
+     "Every time"
+    ],
+    [
+     225.4,
+     "There are things I've wanted, I never said out loud"
+    ],
+    [
+     230.5,
+     "Things I've practiced in the dark before I knew your name"
+    ],
+    [
+     233.9,
+     "When I finally said them, you didn't flinch"
+    ],
+    [
+     239.3,
+     "You just pulled me closer and said"
+    ],
+    [
+     242.5,
+     "I know, I've always known"
+    ],
+    [
+     246.3,
+     "That's when I understood"
+    ],
+    [
+     249.9,
+     "That's when I finally understood what it means to be saved"
+    ],
+    [
+     255.7,
+     "Completely saved by someone who isn't afraid of what they find"
+    ],
+    [
+     263.2,
+     "There's a version of me that existed before you"
+    ],
+    [
+     266.7,
+     "She was fine, she was careful, she was managing, but she wasn't alive"
+    ],
+    [
+     272.5,
+     "Not like this, not in the places you found"
+    ],
+    [
+     276.3,
+     "Not in the dark of a Tuesday"
+    ],
+    [
+     278.4,
+     "When nothing was supposed to happen"
+    ],
+    [
+     282.1,
+     "And everything did"
+    ],
+    [
+     284.2,
+     "You're the closest thing to God I've ever touched"
+    ],
+    [
+     288.6,
+     "I've burned every life I have"
+    ],
+    [
+     291.5,
+     "For just one of these nights"
+    ],
+    [
+     293.5,
+     "Holy and wrong in my mind"
+    ],
+    [
+     298.1,
+     "And I choose wrong every time"
+    ],
+    [
+     303.3,
+     "You're the closest thing to God I've ever known"
+    ],
+    [
+     306.6,
+     "The kind of love they don't teach you"
+    ],
+    [
+     310.0,
+     "The kind of want they don't name"
+    ],
+    [
+     311.8,
+     "The kind of need that has no shame"
+    ],
+    [
+     314.5,
+     "You're the closest thing to God"
+    ],
+    [
+     319.2,
+     "And I'm not afraid anymore"
+    ],
+    [
+     322.8,
+     "I'm not afraid of any of it"
+    ],
+    [
+     326.9,
+     "Of wanting this much"
+    ],
+    [
+     329.3,
+     "Of needing this much"
+    ],
+    [
+     331.7,
+     "Of being this known, I'm not afraid"
+    ],
+    [
+     340.6,
+     "I used to think surrender was weakness"
+    ],
+    [
+     346.0,
+     "Now I think it was the bravest thing"
+    ],
+    [
+     349.9,
+     "I ever did"
+    ],
+    [
+     352.4,
+     "Letting you"
+    ],
+    [
+     354.9,
+     "All the way in"
+    ],
+    [
+     358.8,
+     "All the way"
+    ],
+    [
+     361.7,
+     "All the way"
+    ]
+   ],
+   "lyricsNote": "Written down from the slowed recording; some words may differ.",
+   "genre": "Pop",
+   "subgenre": "Electropop",
+   "tags": [
+    "Sensual",
+    "Romantic",
+    "Slowed"
+   ],
+   "mood": "Intense",
+   "language": "English",
+   "adult": true,
+   "color": "#062d4e"
   }
  ]
 }

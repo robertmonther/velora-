@@ -35,7 +35,6 @@ const store = {
 };
 const CREATOR = "Robert Monther"; // rights holder (lyrics and song design); never shown as a singer
 const PAL = [["#5b7a99","#2a3646"],["#b0524a","#3b1f1d"],["#e0a9b0","#5a3a40"]];
-const MOOD_AR = {Defiant:"متحدّي",Epic:"ملحمي",Hopeful:"متفائل",Uplifting:"حماسي",Dramatic:"درامي",Dreamy:"حالم",Melancholic:"حزين",Sexy:"مثير",Romantic:"رومانسي",Seductive:"مغري",Dark:"قاتم"};
 const PRICES = CFG.prices, RADIO = CFG.radio, DEMO = CFG.demo!==false, demoTag = DEMO?" (demo)":"";
 
 // Seeded shuffle: the same seed always gives the same order (used for "today" rows and the radio schedule).
@@ -54,43 +53,72 @@ const catById = id => CATS.find(c=>c.id===id);
 const inCat = (s,c) => s.genre===c.name || (s.tags||[]).includes(c.name);
 const songsIn = c => S.filter(s=>inCat(s,c));
 const catsOf = s => CATS.filter(c=>inCat(s,c));
-const USED = CATS.filter(c=>songsIn(c).length); // only categories that have songs
 const catLink = c => `#/genre/${encodeURIComponent(c.id)}`;
+const kindLabel = c => c.kind==="mood" ? "Mood" : c.kind==="collection" ? "Collection" : "Genre";
+// Every genre and every tag (a mood, or a collection such as "Slowed") is a category.
+// USED: categories that have songs (search). BROWSE: 2 songs or more (Browse all). HOME: 3 or more (shelves, stations, pills).
+// Moods and collections come first, then genres; inside each group the biggest first.
+let USED = [], BROWSE = [], HOME = [];
+function sortCats(){
+  const n = new Map(CATS.map(c=>[c,songsIn(c).length])), rank = c => c.kind==="genre" ? 1 : 0;
+  USED = CATS.filter(c=>n.get(c)>0).map((c,i)=>[c,i]).sort((a,b)=>rank(a[0])-rank(b[0]) || n.get(b[0])-n.get(a[0]) || a[1]-b[1]).map(x=>x[0]);
+  BROWSE = USED.filter(c=>n.get(c)>=2); HOME = USED.filter(c=>n.get(c)>=3);
+  if(!HOME.length) HOME = USED.slice(0,6);
+}
+sortCats();
 
 const coverStyle = s => { if(s.art) return `background:#141418 ${cssUrl(s.art)} center/cover no-repeat`; const c=catByName(s.genre); const p=PAL[s.hue||0]||PAL[0]; return `background:radial-gradient(circle at 30% 25%, ${safeColor(c&&c.color)} 0%, transparent 62%),linear-gradient(160deg, ${p[1]}, #141418 80%)`; };
 const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.art?"":`<span>${esc(s.title)}</span>`}</div>`;
 const hasLyrics = s => Array.isArray(s.lyrics) && s.lyrics.length>0;
+// Adult songs: marked "adult" in the catalogue (sensual songs), and every song with explicit lyrics.
+const isAdult = s => !!(s && (s.adult || s.explicit));
 // Explicit songs carry an "E" badge, like Spotify, and play like every other song.
 const eb = s => s.explicit ? '<span class="e-badge" title="Explicit lyrics" aria-label="Explicit">E</span>' : "";
-// The line under a song title shows its category (where Spotify shows the artist).
-const subOf = s => esc(s.genre);
-
-// ---------- Search (English and Arabic) ----------
-function norm(s){
-  return String(s||"").toLowerCase().replace(/[ً-ٰٟـ]/g,"").replace(/[أإآٱ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/ؤ/g,"و").replace(/ئ/g,"ي")
-    .replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
+// ---------- Artists and credits ----------
+// A song may name an artist (catalogue "artists"). Without one, the line under the title shows the genre.
+const ARTISTS = D.artists || [];
+const artistById = id => ARTISTS.find(a=>a.id===id);
+const artistOf = s => s.artist ? artistById(s.artist) : null;
+const songsBy = a => S.filter(s=>s.artist===a.id);
+const artistLink = a => `#/artist/${encodeURIComponent(a.id)}`;
+const artistArt = a => a.image ? `background:#141418 ${cssUrl(a.image)} center/cover no-repeat` : `background:linear-gradient(160deg, ${safeColor(a.color)}, #141418 85%)`;
+const subOf = s => { const a=artistOf(s); return esc(a ? a.name : s.genre); };
+function creditsOf(s){
+  if(Array.isArray(s.credits) && s.credits.length) return s.credits;
+  const a=artistOf(s), out=[];
+  if(a) out.push({group:"Artist", name:a.name, roles:["Main Artist"], artist:a.id});
+  out.push({group:"Composition and lyrics", name:CREATOR, roles:["Lyricist","Song design"]});
+  out.push({group:"Production", name:CREATOR, roles:["Producer"]});
+  out.push({group:"Production", name:"Suno", roles:["Music generation (AI-assisted)"]});
+  return out;
 }
-const STOP = new Set(["song","songs","music","track","tracks","the","a","of","اغاني","اغنيه","اغنيات","اغان","موسيقي","موسيقى","ال"].map(norm));
-const IDX = S.map(s=>({s, title:norm(s.title),
-  meta:norm([s.genre,...(s.tags||[]),s.mood,MOOD_AR[s.mood]||"",...catsOf(s).map(c=>c.ar+" "+c.words),s.explicit?"explicit E صريح":""].join(" ")),
-  lyr:norm(hasLyrics(s)?s.lyrics.map(l=>l[1]).join(" "):"")}));
+
+// ---------- Search (like Spotify: a title, an artist, a genre, a mood, "explicit", "video", or a lyric) ----------
+function norm(s){ return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\br\s*(?:&|and|n|'n'|\+)\s*b\b/g,"rnb").replace(/\bhip[\s-]*hop\b/g,"hiphop").replace(/\blo[\s-]*fi\b/g,"lofi").replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim(); }
+const STOP = new Set(["song","songs","music","track","tracks","the","a","of"]);
+let IDX = [];
+function reindex(){ IDX = S.map(s=>{ const a=artistOf(s); return {s, title:norm(s.title),
+  meta:norm([s.genre,s.subgenre,...(s.tags||[]),s.mood,s.language,a?a.name:"",...catsOf(s).map(c=>c.words||""),s.explicit?"explicit e":"clean",s.video?"video videos short shorts":"",s.clip?"video videos clip clips music video":""].join(" ")),
+  lyr:norm(hasLyrics(s)?s.lyrics.map(l=>l[1]).join(" "):"")}; }); }
+reindex();
 function search(q){
   const toks = norm(q).split(" ").filter(t=>t && !STOP.has(t)).slice(0,8);
-  if(!toks.length) return {songs:[], cats:[], lyricHit:new Set()};
+  if(!toks.length) return {songs:[], cats:[], artists:[], lyricHit:new Set()};
   const hits=[], lyricHit=new Set();
   for(const e of IDX){
     let score=0, viaLyr=false, ok=true;
     for(const t of toks){
       if(e.title.includes(t)) score+=5;
-      else if(e.meta.includes(t)) score+=3;
+      else if(e.meta.split(" ").some(w=>w.startsWith(t))) score+=3;
       else if(t.length>=3 && e.lyr.includes(t)){ score+=1; viaLyr=true; }
       else { ok=false; break; }
     }
     if(ok){ hits.push([e.s,score]); if(viaLyr) lyricHit.add(e.s.id); }
   }
   hits.sort((a,b)=>b[1]-a[1]);
-  const cats = USED.filter(c=>{ const hay=norm(c.name+" "+c.ar+" "+c.words); return toks.every(t=>hay.includes(t)); });
-  return {songs:hits.map(h=>h[0]), cats, lyricHit};
+  const cats = USED.filter(c=>{ const hay=norm(c.name+" "+(c.words||"")).split(" "); return toks.every(t=>hay.some(w=>w.startsWith(t))); });
+  const artists = ARTISTS.filter(a=>songsBy(a).length && toks.every(t=>norm(a.name).includes(t)));
+  return {songs:hits.map(h=>h[0]), cats, artists, lyricHit};
 }
 
 // ---------- Colour from the cover (Spotify-style background) ----------
@@ -266,6 +294,7 @@ $("#miniBest").onclick=bestPart; $("#npBest").onclick=bestPart;
 const licCurrent=()=>{ if(current) openLicense(current); };
 $("#miniLicense").onclick=licCurrent; $("#miniLicIcon").onclick=licCurrent; $("#npLicense").onclick=licCurrent; $("#npLicTop").onclick=licCurrent;
 $("#npClose").onclick=()=>closeNP(false);
+$("#npShare").onclick=()=>{ if(current) openShare(current); };
 $("#npShuffle").onclick=()=>{ shuffle=!shuffle; const b=$("#npShuffle"); b.setAttribute("aria-pressed",String(shuffle)); b.classList.toggle("on",shuffle); toast(shuffle?"Shuffle is on":"Shuffle is off"); };
 $("#npSections").addEventListener("click",e=>{ const b=e.target.closest(".sec"); if(b&&current){ seekTo(+b.dataset.t,true); markSection(true); } });
 
@@ -275,12 +304,13 @@ function renderNP(s){
   const art=$("#npArt"); art.setAttribute("style",coverStyle(s)); art.setAttribute("aria-label","Cover of "+s.title);
   art.innerHTML = s.art ? "" : `<span class="np-art-title">${esc(s.title)}</span>`;
   const c=catByName(s.genre);
-  $("#npTitle").textContent=s.title; $("#npArtist").innerHTML=eb(s)+(c?`<a href="${catLink(c)}" data-close-np>${subOf(s)}</a>`:subOf(s));
+  const ar=artistOf(s);
+  $("#npTitle").textContent=s.title; $("#npArtist").innerHTML=eb(s)+(ar?`<a href="${artistLink(ar)}" data-close-np>${esc(ar.name)}</a>`:c?`<a href="${catLink(c)}" data-close-np>${esc(s.genre)}</a>`:esc(s.genre));
   paintTicks($("#npBar"), s);
   const d=s.duration, secs=s.sections||[];
   $("#npSections").innerHTML = secs.map((x,j)=>{ const end=(secs[j+1]||{start:d}).start, best=x.start===s.bestPart;
     return `<button type="button" class="sec${best?" best":""}" data-t="${+x.start||0}" aria-label="${esc(x.name)}, ${fmt(x.start)} to ${fmt(end)}${best?", best part":""}">${best?icon("spark"):""}${esc(x.name)} <small>${fmt(x.start)}</small></button>`; }).join("");
-  $("#npCards").innerHTML = lyricsCard(s) + videoCard(s) + licenseCard(s) + banner("player") + aboutCard(s) + nextCard(s);
+  $("#npCards").innerHTML = lyricsCard(s) + videoCard(s) + artistCard(s) + creditsCard(s) + licenseCard(s) + banner("player") + aboutCard(s) + nextCard(s);
   lastSec=-1; lastLyr=-2; markSection(true); markLyric(true);
   if(videoOn && (s.video||s.clip)) startVideo();
 }
@@ -305,6 +335,24 @@ function videoCard(s){
     <button type="button" class="np-video-btn" id="npVideoBtn">${icon("play")}<span>Play the video with the song</span></button></div>
     <p class="muted small" style="margin:0;text-align:center">The video follows the song you're hearing.</p></div>`;
 }
+// "About the artist" and "Credits", as on Spotify.
+function artistCard(s){
+  const a=artistOf(s); if(!a) return "";
+  const n=songsBy(a).length;
+  return `<div class="np-card artist"><a class="artist-img" href="${artistLink(a)}" data-close-np style="${artistArt(a)}" aria-label="${esc(a.name)}"><span>About the artist</span></a>
+    <div class="artist-body"><div class="artist-row"><div><b>${esc(a.name)}</b><small>${plural(n,"song")} on Velora</small></div><a class="btn ghost sm" href="${artistLink(a)}" data-close-np>View artist</a></div>
+    ${a.bio?`<p class="clamp3">${esc(a.bio)}</p>`:""}</div></div>`;
+}
+const creditRow = c => { const a=c.artist&&artistById(c.artist); return `<div class="credit"><div><b>${esc(c.name)}</b><small>${(c.roles||[]).map(esc).join(" · ")}</small></div>${a?`<a class="btn ghost sm" href="${artistLink(a)}" data-close-np>View</a>`:""}</div>`; };
+function creditsCard(s){
+  const list=creditsOf(s), names=[...new Set(list.map(c=>c.name))];
+  const merged=names.map(n=>{ const of=list.filter(c=>c.name===n); return {name:n, roles:[...new Set(of.flatMap(c=>c.roles||[]))], artist:(of.find(c=>c.artist)||{}).artist}; });
+  return `<div class="np-card"><div class="card-h spread"><span>Credits</span><button type="button" class="linkbtn" data-credits="${esc(s.id)}">Show all</button></div>${merged.slice(0,3).map(creditRow).join("")}</div>`;
+}
+function openCredits(s){
+  const list=creditsOf(s), groups=[...new Set(list.map(c=>c.group||"Credits"))];
+  openModal(`<h2 id="mTitle">${esc(s.title)}</h2><p class="muted small" style="margin-top:-6px">${subOf(s)}</p>${groups.map(g=>`<h3 class="cgroup">${esc(g)}</h3>${list.filter(c=>(c.group||"Credits")===g).map(creditRow).join("")}`).join("")}<p class="muted small" style="margin:16px 0 0">Source: Velora catalogue · ID ${esc(s.id)}</p>`);
+}
 function licenseCard(s){
   return `<div class="np-card"><div class="card-h">${icon("tag")}<span>Use this song in your videos</span></div>
     <div class="lic-row"><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button></div>
@@ -313,7 +361,7 @@ function licenseCard(s){
 function aboutCard(s){
   const cats=catsOf(s);
   return `<div class="np-card"><div class="card-h"><span>About the song</span></div>
-    <div class="facts np-facts"><div class="fact"><b>Category</b>${esc(s.genre)}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
+    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}${s.subgenre?" · "+esc(s.subgenre):""}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
     ${cats.length>1?`<div class="chips" style="margin:0 0 12px">${cats.map(c=>`<a class="chip" href="${catLink(c)}" data-close-np>${esc(c.name)}</a>`).join("")}</div>`:""}
     <p class="small" style="margin:0 0 12px">Lyrics, concept and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).</p>
     <a class="btn ghost sm" href="#/song/${encodeURIComponent(s.id)}" data-close-np>Open the song page</a></div>`;
@@ -393,7 +441,7 @@ window.addEventListener("popstate",()=>{ if(npOpen) closeNP(true); if(pendingHas
 // Lock-screen and headphone controls on phones (like any music app)
 function setMediaSession(s){
   if(!("mediaSession" in navigator)) return;
-  try{ navigator.mediaSession.metadata = new MediaMetadata({ title:s.title, artist:"Velora · "+s.genre, album:mode==="radio"?"Velora Radio":"Velora", artwork: s.art ? [{src:url(s.art), sizes:"600x600", type:"image/jpeg"}] : [] }); }catch(e){}
+  try{ navigator.mediaSession.metadata = new MediaMetadata({ title:s.title, artist:(artistOf(s)||{name:"Velora · "+s.genre}).name, album:mode==="radio"?"Velora Radio":"Velora", artwork: s.art ? [{src:url(s.art), sizes:"600x600", type:"image/jpeg"}] : [] }); }catch(e){}
 }
 function setPosition(){
   if(!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
@@ -422,7 +470,12 @@ function slotAt(ms){
   const into=Math.max(0,(c.secs+(late?86400:0))-slot.from*3600), start=ms-into*1000;
   return {slot, into, start, key:stationClock(start).date+"|"+slot.from};
 }
-function radioPool(slot){ const p=S.filter(s=>slot.cats.some(n=>{ const c=catByName(n); return c && inCat(s,c); })); return p.length?p:S; }
+// A slot plays the songs of its categories; "adult:false" leaves out adult songs, "explicit:false" explicit ones.
+const slotAllows = (slot,s) => !(slot.adult===false && isAdult(s)) && !(slot.explicit===false && s.explicit);
+function radioPool(slot){
+  const p=S.filter(s=>slotAllows(slot,s) && slot.cats.some(n=>{ const c=catByName(n); return c && inCat(s,c); }));
+  if(p.length) return p; const rest=S.filter(s=>slotAllows(slot,s)); return rest.length?rest:S;
+}
 // The song on air at time ms (with how far into it we are) and the ones after it.
 function radioTimeline(ms, count=4){
   const {slot,into,start,key}=slotAt(ms), pool=radioPool(slot), out=[]; let t=0, last=null;
@@ -478,6 +531,75 @@ $("#modal").addEventListener("keydown",e=>{
   const first=f[0], last=f[f.length-1];
   if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
 });
+
+// ---------- Share (a ready card, like Spotify: the song, or lyric lines you pick) ----------
+const pageLink = hashPath => location.href.split("#")[0] + hashPath;
+async function shareLink(title, link){
+  try{ if(navigator.share){ await navigator.share({title, text:title, url:link}); return; } }catch(e){ if(e && e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(link); toast("Link copied."); }catch(e){ toast(link); }
+}
+const imgCache = new Map();
+const loadImg = src => { if(!imgCache.has(src)) imgCache.set(src, new Promise(res=>{ const i=new Image(); i.crossOrigin="anonymous"; i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; })); return imgCache.get(src); };
+function wrapText(x, text, maxW){ const out=[]; let line=""; for(const w of String(text).split(/\s+/)){ const t=line?line+" "+w:w; if(x.measureText(t).width>maxW && line){ out.push(line); line=w; } else line=t; } if(line) out.push(line); return out; }
+function rrect(x, X, Y, W, H, r){ x.beginPath(); if(x.roundRect) x.roundRect(X,Y,W,H,r); else x.rect(X,Y,W,H); }
+let share=null;
+async function drawShare(){
+  const cv=$("#shareCv"); if(!cv||!share) return; const x=cv.getContext("2d"), s=share.s, W=1080, H=1920, t=themeOf(s), sub=(artistOf(s)||{name:s.genre}).name;
+  try{ await document.fonts.load('800 60px Inter'); }catch(e){}
+  const img = s.art && share.art!==false ? await loadImg(url(s.art)) : null;
+  if(!share || share.s!==s) return;
+  if(share.bg===2){ x.fillStyle="#121214"; } else if(share.bg===1){ const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,t.top); g.addColorStop(1,"#121214"); x.fillStyle=g; } else x.fillStyle=t.top;
+  x.fillRect(0,0,W,H); x.textBaseline="alphabetic";
+  const brand=(bx,by)=>{ const g=x.createLinearGradient(bx,by-40,bx+44,by); g.addColorStop(0,"#5b7a99"); g.addColorStop(.5,"#e0a9b0"); g.addColorStop(1,"#b0524a"); x.fillStyle=g; x.beginPath(); x.arc(bx+22,by-18,22,0,7); x.fill(); x.fillStyle="#fff"; x.font='700 44px "Playfair Display", Georgia, serif'; x.fillText("Velora",bx+60,by-3); };
+  const drawCover=(X,Y,Z,r)=>{ x.save(); rrect(x,X,Y,Z,Z,r); x.clip(); if(img) x.drawImage(img,X,Y,Z,Z); else { const g=x.createLinearGradient(X,Y,X+Z,Y+Z); g.addColorStop(0,t.card); g.addColorStop(1,"#141418"); x.fillStyle=g; x.fillRect(X,Y,Z,Z); } x.restore(); };
+  if(share.tab==="lyrics" && hasLyrics(s)){
+    drawCover(100,150,150,16);
+    x.fillStyle="#fff"; x.font='700 44px Inter, sans-serif'; x.fillText(wrapText(x,s.title,700)[0],280,212);
+    x.fillStyle="rgba(255,255,255,.75)"; x.font='500 38px Inter, sans-serif'; x.fillText(sub,280,268);
+    const picked=[...share.lines].sort((a,b)=>a-b).map(i=>s.lyrics[i][1]);
+    let size=92; x.fillStyle="#fff";
+    for(;size>=52;size-=8){ x.font=`800 ${size}px Inter, sans-serif`; const n=picked.reduce((a,l)=>a+wrapText(x,l,880).length,0); if(n*size*1.22+picked.length*size*0.35<=1180) break; }
+    let y=470+size;
+    for(const l of picked){ for(const ln of wrapText(x,l,880)){ x.fillText(ln,100,y); y+=size*1.22; } y+=size*0.35; }
+    brand(100,1790);
+  } else {
+    x.fillStyle="rgba(0,0,0,.34)"; rrect(x,120,400,840,1120,40); x.fill();
+    drawCover(160,440,760,20);
+    x.fillStyle="#fff"; x.font='800 58px Inter, sans-serif'; const tl=wrapText(x,s.title,760).slice(0,2); tl.forEach((ln,i)=>x.fillText(ln,160,1290+i*70));
+    x.fillStyle="rgba(255,255,255,.75)"; x.font='500 46px Inter, sans-serif'; x.fillText(sub,160,1290+tl.length*70);
+    brand(160,1480);
+  }
+}
+function openShare(s){
+  const L=hasLyrics(s), start = L ? Math.max(0, current===s ? lastLyr : 0) : 0;
+  share={s, tab:"song", bg:0, lines:new Set(L?[start]:[])};
+  openModal(`<h2 id="mTitle">Share</h2>
+   <canvas id="shareCv" class="share-cv" width="1080" height="1920" role="img" aria-label="Share card for ${esc(s.title)}"></canvas>
+   <div class="seg" role="tablist" aria-label="What to share"><button type="button" role="tab" aria-selected="true" class="on" data-shtab="song">Song</button><button type="button" role="tab" aria-selected="false" data-shtab="lyrics"${L?"":" disabled"}>Lyrics</button></div>
+   <div class="swatches" role="group" aria-label="Background">${[0,1,2].map(i=>`<button type="button" class="swatch${i===0?" on":""}" data-shbg="${i}" aria-label="Background ${i+1}" style="background:${i===2?"#121214":i===1?`linear-gradient(${themeOf(s).top},#121214)`:themeOf(s).top}"></button>`).join("")}</div>
+   <div class="share-pick" id="sharePick" hidden><p class="muted small" style="margin:0 0 6px">Tap the lines you want (up to 5).</p>${L?s.lyrics.map((l,i)=>`<button type="button" class="pickline${i===start?" on":""}" data-shline="${i}" aria-pressed="${i===start}">${esc(l[1])}</button>`).join(""):""}</div>
+   <div class="share-actions"><button type="button" class="btn primary" id="shGo">${icon("share")}Share</button><button type="button" class="btn" id="shCopy">Copy link</button><button type="button" class="btn ghost" id="shSave">Save image</button></div>`);
+  const link=pageLink("#/song/"+encodeURIComponent(s.id)), body=$("#mBody");
+  body.onclick=async e=>{
+    const tb=e.target.closest("[data-shtab]"); if(tb && !tb.disabled){ share.tab=tb.dataset.shtab; body.querySelectorAll("[data-shtab]").forEach(b=>{ const on=b===tb; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); }); const pk=$("#sharePick"); pk.hidden=share.tab!=="lyrics"; if(!pk.hidden){ const on=pk.querySelector(".pickline.on"); if(on) pk.scrollTop=Math.max(0,on.offsetTop-pk.clientHeight/3); } drawShare(); return; }
+    const bg=e.target.closest("[data-shbg]"); if(bg){ share.bg=+bg.dataset.shbg; body.querySelectorAll(".swatch").forEach(b=>b.classList.toggle("on",b===bg)); drawShare(); return; }
+    const ln=e.target.closest("[data-shline]"); if(ln){ const i=+ln.dataset.shline;
+      if(share.lines.has(i)){ if(share.lines.size>1) share.lines.delete(i); } else if(share.lines.size>=5){ toast("Up to 5 lines."); return; } else share.lines.add(i);
+      body.querySelectorAll(".pickline").forEach(b=>{ const on=share.lines.has(+b.dataset.shline); b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); }); drawShare(); return; }
+    if(e.target.closest("#shCopy")){ try{ await navigator.clipboard.writeText(link); toast("Link copied."); }catch(err){ toast(link); } return; }
+    const go=e.target.closest("#shGo"), save=e.target.closest("#shSave"); if(!go && !save) return;
+    const title=s.title+" · "+(artistOf(s)||{name:"Velora"}).name;
+    let blob=null; try{ blob=await new Promise(res=>$("#shareCv").toBlob(res,"image/png")); }catch(err){ share.art=false; await drawShare(); try{ blob=await new Promise(res=>$("#shareCv").toBlob(res,"image/png")); }catch(e2){} }
+    if(save){ if(!blob){ toast("The image isn't ready."); return; } const a=document.createElement("a"), u=URL.createObjectURL(blob); a.href=u; a.download="velora-"+s.id+".png"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); return; }
+    try{
+      const file = blob ? new File([blob],"velora-"+s.id+".png",{type:"image/png"}) : null;
+      if(file && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title, text:title+"\n"+link}); return; }
+      if(navigator.share){ await navigator.share({title, text:title, url:link}); return; }
+      await navigator.clipboard.writeText(link); toast("Link copied. Use Save image for the card.");
+    }catch(err){ if(!err || err.name!=="AbortError") toast("Sharing didn't work here. Try Copy link."); }
+  };
+  drawShare();
+}
 
 // ---------- License / checkout (demo: nothing is charged, records stay in this browser) ----------
 const LIC_TEXT = {
@@ -541,8 +663,8 @@ const circles = list => { const a=list.slice(0,3); while(a.length<3 && list.leng
 const isDark = hex => { const [, , l]=hexToHsl(hex); return l<52; };
 const station = c => { const list=songsIn(c); return `<div class="st-wrap"><button type="button" class="station${isDark(c.color)?" dark":""}" data-station="${esc(c.id)}" style="--st:${safeColor(c.color)}" aria-label="Play ${esc(c.name)} Radio"><span class="st-top">RADIO</span>${circles(list)}<span class="st-name">${esc(c.name)}</span></button><div class="st-sub">${list.slice(0,6).map(s=>esc(s.title)).join(", ")}</div></div>`; };
 const head = (title, sub="", link="") => `<div class="row-head"><div><h2>${title}</h2>${sub?`<div class="muted small">${sub}</div>`:""}</div>${link}</div>`;
-const pills = active => `<nav class="pillrow" aria-label="Categories"><a class="pill${active?"":" on"}" href="#/"${active?"":' aria-current="page"'}>All</a>${USED.map(c=>`<a class="pill${active===c.id?" on":""}" href="${catLink(c)}"${active===c.id?' aria-current="page"':""}>${esc(c.name)}</a>`).join("")}</nav>`;
-const btile = c => { const n=songsIn(c), s=n[0]; return `<a class="btile" href="${catLink(c)}" style="--st:${safeColor(c.color)}"><b>${esc(c.name)}</b><span lang="ar" dir="rtl">${esc(c.ar)}</span><small>${plural(n.length,"song")}</small>${s?`<i style="${coverStyle(s)}"></i>`:""}</a>`; };
+const pills = active => `<nav class="pillrow" aria-label="Categories"><a class="pill${active?"":" on"}" href="#/"${active?"":' aria-current="page"'}>All</a>${HOME.map(c=>`<a class="pill${active===c.id?" on":""}" href="${catLink(c)}"${active===c.id?' aria-current="page"':""}>${esc(c.name)}</a>`).join("")}</nav>`;
+const btile = c => { const n=songsIn(c), s=n[0]; return `<a class="btile" href="${catLink(c)}" style="--st:${safeColor(c.color)}"><b>${esc(c.name)}</b><small>${plural(n.length,"song")}</small>${s?`<i style="${coverStyle(s)}"></i>`:""}</a>`; };
 function onAirHTML(){
   const tl=radioTimeline(Date.now(),2), e=tl[0]; if(!e) return "";
   return `<section class="radio-banner"><div class="rb-now"><span class="rb-cover" style="${coverStyle(e.song)}"></span><div><div class="onair">Velora Radio · on air</div><h2>${esc(e.song.title)}</h2><div class="muted small">${esc(e.slot.name)} · the same station for everyone, non-stop</div></div></div><button type="button" class="btn primary" data-radio>${icon("play")}Listen live</button></section>`;
@@ -562,11 +684,11 @@ function home(){
   </section>
   <section>${head("Recommended for today")}${hrow(today,"Recommended for today")}</section>
   ${onAirHTML()}
-  <section>${head("Recommended Stations")}<div class="hrow st-row">${USED.map(station).join("")}</div></section>
+  <section>${head("Recommended Stations")}<div class="hrow st-row">${HOME.map(station).join("")}</div></section>
   ${banner("home")}
   ${rec.length?`<section>${head("Recents")}${hrow(rec,"Recents")}</section>`:""}
   <section><div class="morelike"><span class="ml-cover" style="${coverStyle(base)}"></span><div><div class="muted small">More like</div><h2>${esc(base.title)}</h2></div></div>${hrow(suggestions(base,8),"More like "+base.title)}</section>
-  ${USED.map(c=>`<section>${head(esc(c.name),`<span lang="ar" dir="rtl">${esc(c.ar)}</span> · ${plural(songsIn(c).length,"song")}`,`<a class="showall" href="${catLink(c)}" aria-label="Show all ${esc(c.name)}">Show all</a>`)}${hrow(songsIn(c),c.name)}</section>`).join("")}
+  ${HOME.map(c=>`<section>${head(esc(c.name),plural(songsIn(c).length,"song"),`<a class="showall" href="${catLink(c)}" aria-label="Show all ${esc(c.name)}">Show all</a>`)}${hrow(songsIn(c),c.name)}</section>`).join("")}
   ${S.some(s=>s.video||s.clip)?`<section>${head("Videos","",`<a class="showall" href="#/videos" aria-label="Show all videos">Show all</a>`)}<div class="hrow vrow">${shortTiles()}</div></section>`:""}
   <section>${head("Three ways to use the music")}${tiersHTML()}</section>`;
   const x=$("#introX"); if(x) x.onclick=()=>{ store.set("velora_intro_seen",true); $("#intro").remove(); };
@@ -586,12 +708,12 @@ function tiersHTML(){ return `<div class="tiers">
   <div class="tier"><h3>Premium</h3><div class="price">${esc(PRICES.sub.price)}</div><div class="muted small">${esc(PRICES.sub.per)}</div><ul><li>Rent any song while subscribed</li><li>Radio and songs without ads</li><li>Every category, every new release</li><li>Cancel anytime</li></ul><button type="button" class="btn blue" data-sub>Start Premium${demoTag}</button></div>
  </div>${DEMO?'<p class="muted small">Example prices and terms.</p>':""}`; }
 
-// Search: the categories ("Browse all") and every song; typing filters, in English or Arabic.
+// Search: the categories ("Browse all") and every song; typing filters by title, artist, genre, mood or lyric.
 let searchQ = "";
 function searchView(params){
   if(params.get("q")!==null) searchQ=params.get("q").slice(0,80);
   main.innerHTML=`<h1 class="pagetitle">Search</h1>
-  <div class="sbox">${icon("search")}<label for="libq" class="sr">Search songs</label><input id="libq" type="search" autocomplete="off" maxlength="80" enterkeyhint="search" placeholder="Songs, categories, moods, lyrics · ابحث بالعربي" value="${esc(searchQ)}"></div>
+  <div class="sbox">${icon("search")}<label for="libq" class="sr">Search songs</label><input id="libq" type="search" autocomplete="off" maxlength="80" enterkeyhint="search" placeholder="Songs, artists, genres, moods, lyrics" value="${esc(searchQ)}"></div>
   <div id="sres" aria-live="polite"></div>`;
   const lq=$("#libq"); lq.addEventListener("input",e=>{ searchQ=e.target.value; $("#q").value=searchQ; drawSearch(); });
   drawSearch();
@@ -601,25 +723,42 @@ function drawSearch(){
   const box=$("#sres"); if(!box) return;
   ROWS={}; rowN=0;
   if(!norm(searchQ)){
-    box.innerHTML=`<h2 class="sh">Browse all</h2><div class="browse">${USED.map(btile).join("")}</div>
+    const act=ARTISTS.filter(a=>songsBy(a).length);
+    box.innerHTML=`<h2 class="sh">Browse all</h2><div class="browse">${BROWSE.map(btile).join("")}</div>${act.length?`<h2 class="sh">Artists</h2><div class="hrow arow">${act.map(artistTile).join("")}</div>`:""}
     <h2 class="sh">All songs <span class="muted small">${S.length}</span></h2>${rows(S,"All songs")}`;
     return;
   }
   const r=search(searchQ);
-  box.innerHTML = (r.cats.length?`<div class="chips" style="margin-top:14px">${r.cats.map(c=>`<a class="chip cat-chip" href="${catLink(c)}" style="--st:${safeColor(c.color)}">${esc(c.name)} <span lang="ar" dir="rtl">${esc(c.ar)}</span> · ${songsIn(c).length}</a>`).join("")}</div>`:"")
+  box.innerHTML = (r.artists.length?`<div class="hrow arow" style="margin-top:14px">${r.artists.map(artistTile).join("")}</div>`:"")
+    + (r.cats.length?`<div class="chips" style="margin-top:14px">${r.cats.map(c=>`<a class="chip cat-chip" href="${catLink(c)}" style="--st:${safeColor(c.color)}">${esc(c.name)} · ${songsIn(c).length}</a>`).join("")}</div>`:"")
     + (r.songs.length?`<div class="muted small" style="margin:10px 0 8px">${plural(r.songs.length,"song")}${r.lyricHit.size?" · some found in the lyrics":""}</div>${rows(r.songs,"Search: "+searchQ)}`
-    : `<p class="muted" style="margin-top:16px">No songs match “${esc(searchQ)}”. Try a category like Sensual, Romantic, Pop, Trend, or in Arabic: حسي، رومانسي، ترند، ثوري.</p>`);
+    : r.artists.length||r.cats.length ? "" : `<p class="muted" style="margin-top:16px">No results for “${esc(searchQ)}”. Try a song title, an artist, or a word like ${HOME.slice(0,3).map(c=>esc(c.name)).join(", ")}.</p>`);
+}
+const artistTile = a => `<a class="atile" href="${artistLink(a)}"><span class="atile-img" style="${artistArt(a)}"></span><b>${esc(a.name)}</b><small>Artist</small></a>`;
+function artistView(id){
+  const a=artistById(id); if(!a){ notFound("Artist"); return; }
+  const list=songsBy(a), cats=[...new Set(list.map(s=>s.genre))], latest=list.slice().sort((x,y)=>String(y.created||y.published||"").localeCompare(String(x.created||x.published||"")));
+  main.innerHTML=`<section class="ahead" style="${artistArt(a)}"><div class="ahead-in"><h1>${esc(a.name)}</h1>${a.tagline?`<div class="ahead-tag">${esc(a.tagline)}</div>`:""}</div></section>
+  <div class="muted small" style="margin-top:12px">${plural(list.length,"song")} · ${cats.map(esc).join(", ")}</div>
+  <div class="ghead-actions"><button type="button" class="round-play" id="aPlay" aria-label="Play ${esc(a.name)}">${icon("play")}</button><button type="button" class="icon-btn" id="aShuffle" aria-label="Shuffle ${esc(a.name)}">${icon("shuffle")}</button><button type="button" class="btn ghost sm" id="aShare">${icon("share")}Share</button></div>
+  <section>${head("Popular")}${rows(list,a.name,true)}</section>
+  ${latest.length?`<section>${head("Releases")}${hrow(latest,a.name+" · releases")}</section>`:""}
+  <section>${head("About")}<div class="about-card"><div class="about-img" style="${artistArt(a)}"></div><div class="about-body"><b>${esc(a.name)}</b><small>${plural(list.length,"song")} on Velora</small>${a.bio?`<p>${esc(a.bio)}</p>`:""}${Array.isArray(a.facts)&&a.facts.length?`<dl class="afacts">${a.facts.map(f=>`<dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd>`).join("")}</dl>`:""}</div></div></section>
+  <section>${head("Credits")}<div class="panel" style="margin-top:0">${creditRow({name:a.name,roles:["Main Artist"]})}${creditRow({name:CREATOR,roles:["Lyricist","Song design","Producer"]})}${creditRow({name:"Suno",roles:["Music generation (AI-assisted)"]})}</div></section>`;
+  $("#aPlay").onclick=()=>{ if(list.length) playFrom(list, list[0], a.name, 0, openNP); };
+  $("#aShuffle").onclick=()=>{ const l=shuffled(list); if(l.length) playFrom(l, l[0], a.name+" · shuffle", 0, openNP); };
+  $("#aShare").onclick=()=>shareLink(a.name+" on Velora", pageLink(artistLink(a)));
 }
 const notFound = what => { main.innerHTML=`<h1 class="pagetitle">${what} not found</h1><p class="muted">It may have moved.</p><a class="btn primary" href="#/">Back to Home</a>`; };
 function genreView(id){
   const c=catById(id); if(!c){ notFound("Category"); return; }
   const list=songsIn(c), total=list.reduce((a,s)=>a+(s.duration||0),0);
   main.innerHTML=`${pills(c.id)}
-  <section class="ghead" style="--st:${safeColor(c.color)}"><div class="muted small">Category</div><h1>${esc(c.name)}</h1><div class="ghead-ar" lang="ar" dir="rtl">${esc(c.ar)}</div>
+  <section class="ghead" style="--st:${safeColor(c.color)}"><div class="muted small">${kindLabel(c)}</div><h1>${esc(c.name)}</h1>
    <div class="muted small">${plural(list.length,"song")} · ${Math.round(total/60)} min${list.some(s=>s.explicit)?" · some songs have explicit lyrics":""}</div>
    <div class="ghead-actions"><button type="button" class="round-play" id="gPlay" aria-label="Play ${esc(c.name)}">${icon("play")}</button><button type="button" class="icon-btn" id="gShuffle" aria-label="Shuffle ${esc(c.name)}">${icon("shuffle")}</button><button type="button" class="btn ghost sm" data-station="${esc(c.id)}">${icon("radio")}${esc(c.name)} Radio</button></div></section>
   ${rows(list,c.name,true)}
-  <section>${head("Other categories")}<div class="browse">${USED.filter(x=>x!==c).map(btile).join("")}</div></section>`;
+  <section>${head("More to explore")}<div class="browse">${BROWSE.filter(x=>x!==c).map(btile).join("")}</div></section>`;
   $("#gPlay").onclick=()=>{ if(list.length) playFrom(list, list[0], c.name, 0, openNP); };
   $("#gShuffle").onclick=()=>{ const l=shuffled(list); if(l.length) playFrom(l, l[0], c.name+" · shuffle", 0, openNP); };
 }
@@ -627,9 +766,9 @@ function song(id){
   const s=byId(id); if(!s){ notFound("Song"); return; }
   const d=s.duration, c=catByName(s.genre), secs=s.sections||[], more=S.filter(x=>x!==s && catsOf(s).some(k=>inCat(x,k)));
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
-   <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1>${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
-   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Released"}</b>${esc(s.created||s.published||"–")}</div></div>
-   <div class="row"><button type="button" class="btn primary" data-play="${esc(s.id)}" data-np>${icon("play")}Play full song</button><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button>${s.video||s.clip?`<button type="button" class="btn ghost" data-video="${esc(s.id)}">Watch video</button>`:""}</div>
+   <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1>${artistOf(s)?`<div class="song-artist"><a href="${artistLink(artistOf(s))}">${esc(artistOf(s).name)}</a></div>`:""}${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
+   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}${s.subgenre?`<div class="fact"><b>Style</b>${esc(s.subgenre)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Added"}</b>${esc(s.created||s.published||"–")}</div></div>
+   <div class="row"><button type="button" class="btn primary" data-play="${esc(s.id)}" data-np>${icon("play")}Play full song</button><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button>${s.video||s.clip?`<button type="button" class="btn ghost" data-video="${esc(s.id)}">Watch video</button>`:""}<button type="button" class="btn ghost" data-share="${esc(s.id)}">${icon("share")}Share</button></div>
    <div class="panel"><h3>Lyrics</h3>${hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${esc(s.id)}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics coming soon.</p>`}</div>
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Tap to jump there.</p>
     <div class="schedule">${secs.map((x,j)=>`<button type="button" class="slot tap" data-play="${esc(s.id)}" data-at="${+x.start||0}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((secs[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>
@@ -644,7 +783,7 @@ function radioView(){
   ${tl.length>1?`<section>${head("Coming up")}<div class="rows">${tl.slice(1).map(e=>`<div class="srow static"><span class="srow-n wide">${fmtClock(e.startsAt)}</span>${srowMeta(e.song)}</div>`).join("")}</div></section>`:""}
   <section>${head("Today on the radio",`Station time: ${esc(TZ.split("/").pop().replace(/_/g," "))}`)}
   <div class="schedule" style="max-width:640px">${RADIO.map(r=>`<div class="slot ${r===now?"live":""}"><span>${String(r.from%24).padStart(2,"0")}:00–${String(r.to%24).padStart(2,"0")}:00 · <b>${esc(r.name)}</b>${r===now?' <em class="livetag">on air</em>':""}</span><span class="muted">${r.cats.map(esc).join(" + ")}</span></div>`).join("")}</div></section>
-  <section>${head("Stations","Pick a mood. These play just for you.")}<div class="hrow st-row">${USED.map(station).join("")}</div></section>`;
+  <section>${head("Stations","Pick a mood. These play just for you.")}<div class="hrow st-row">${HOME.map(station).join("")}</div></section>`;
 }
 function videosView(){
   const wide=S.filter(s=>s.clip), shorts=S.filter(s=>s.video);
@@ -708,6 +847,8 @@ document.addEventListener("click",e=>{
   const cn=e.target.closest("[data-close-np]"); if(cn){ e.preventDefault(); closeM(); const h=cn.getAttribute("href"); if(npOpen) closeNP(false, h); else location.hash=h; return; }
   const v=e.target.closest("[data-video]"); if(v){ e.preventDefault(); const s=byId(v.dataset.video); if(s) openVideo(s, v.hasAttribute("data-wide")); return; }
   const st=e.target.closest("[data-station]"); if(st){ e.preventDefault(); startStation(catById(st.dataset.station)); return; }
+  const sh=e.target.closest("[data-share]"); if(sh){ e.preventDefault(); const s=byId(sh.dataset.share); if(s) openShare(s); return; }
+  const cr=e.target.closest("[data-credits]"); if(cr){ e.preventDefault(); const s=byId(cr.dataset.credits); if(s) openCredits(s); return; }
   const l=e.target.closest("[data-lic]"); if(l){ e.preventDefault(); openLicense(byId(l.dataset.lic), l.dataset.pre||"rent"); return; }
   const mo=e.target.closest("[data-more]"); if(mo){ const k=mo.dataset.more, r=ROWS[k]; if(r){ r.shown+=PAGE; const box=document.getElementById("rows-"+k); if(box) box.innerHTML=rowsInner(k, mo.hasAttribute("data-numbered")); } return; }
   // Tap a song anywhere: it plays and its full screen opens (cover, lyrics, video, license).
@@ -727,7 +868,7 @@ function route(){
   if(npOpen) closeNP(true);
   closeM();
   ROWS={}; rowN=0;
-  const navPath = path.startsWith("/song") || path.startsWith("/genre") || path==="/library" ? "/search" : path;
+  const navPath = path.startsWith("/song") || path.startsWith("/genre") || path.startsWith("/artist") || path==="/library" ? "/search" : path;
   document.querySelectorAll(".topnav a").forEach(a=>{ const on=a.getAttribute("href")==="#"+navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   document.querySelectorAll(".tabbar [data-tab]").forEach(a=>{ const on=a.dataset.tab===navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account"};
@@ -735,6 +876,7 @@ function route(){
   if(path==="/") home(); else if(path==="/search"||path==="/library") searchView(params);
   else if(path.startsWith("/song/")){ const id=decode(path.split("/")[2]); song(id); const s=byId(id); if(s) title=s.title; }
   else if(path.startsWith("/genre/")){ const id=decode(path.split("/")[2]); genreView(id); const c=catById(id); if(c) title=c.name; }
+  else if(path.startsWith("/artist/")){ const id=decode(path.split("/")[2]); artistView(id); const a=artistById(id); if(a) title=a.name; }
   else if(path==="/radio") radioView(); else if(path==="/videos") videosView(); else if(path==="/pricing") pricing(); else if(path==="/verify") verify(params);
   else if(path==="/account") accountView();
   else if(path==="/stream"){ home(); startStream(); } else home();

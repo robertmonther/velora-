@@ -56,7 +56,7 @@ async def main():
             await pg.screenshot(path=f"{SHOTS}/01-home.png"); await pg.screenshot(path=f"{SHOTS}/02-home-full.png", full_page=True)
 
             # 2. Tap a song: it plays and the player opens with lyrics
-            await pg.click(".hrow .tile >> nth=0"); await pg.wait_for_timeout(2200)
+            await pg.click('.hrow .tile[data-song="rm-0006"] >> nth=0'); await pg.wait_for_timeout(2200)
             s = await state(pg)
             check("tapping a song plays it and opens the player", s["np"] and not s["paused"] and s["t"] > 0.5, str(s))
             await pg.click("#npBest"); await pg.wait_for_timeout(1500)
@@ -78,16 +78,42 @@ async def main():
             ok = await pg.evaluate("location.hash.startsWith('#/verify') && !!document.querySelector('#vr .cert') && !document.querySelector('#np').classList.contains('open')")
             check("the certificate can be verified", ok)
 
-            # 3. Search in Arabic and English
-            for q, want in (("حسي", 5), ("رومانسي", 2), ("ترند", 5), ("barefoot", 1)):
-                await pg.goto(BASE + "#/search?q=" + q); await pg.wait_for_timeout(350)
+            # 3. Search like Spotify: a mood, a genre, a collection, "explicit", "video", a title, an artist
+            cat = json.loads(open(os.path.join(ROOT, "data", "catalogue.json"), encoding="utf-8").read())["songs"]
+            tagged = lambda t: sum(1 for x in cat if x["genre"] == t or t in x.get("tags", []))
+            for q, want in (("sensual", tagged("Sensual")), ("romantic", tagged("Romantic")), ("slowed", tagged("Slowed")), ("anthem", tagged("Arena Anthems")),
+                            ("r&b", tagged("R&B / Soul")), ("explicit", sum(1 for x in cat if x.get("explicit"))), ("video", sum(1 for x in cat if x.get("video"))),
+                            ("barefoot", 1), ("jazz", 0)):
+                await pg.goto(BASE + "#/search?q=" + q.replace("&", "%26")); await pg.wait_for_timeout(350)
                 n = await pg.evaluate("document.querySelectorAll('#sres .srow').length")
-                check(f"search '{q}' finds {want} song(s)", n == want, str(n))
+                check(f"search '{q}' finds {want} song(s)", n == want and want != 1 or (want == 1 and n == 1), str(n))
+            await pg.goto(BASE + "#/search?q=sensual"); await pg.wait_for_timeout(350)
             await pg.screenshot(path=f"{SHOTS}/05-search.png")
+            await pg.goto(BASE + "#/search?q=voluptra"); await pg.wait_for_timeout(350)
+            a = await pg.evaluate("({artist: document.querySelectorAll('#sres .atile').length, songs: document.querySelectorAll('#sres .srow').length})")
+            check("search 'voluptra' finds the artist and the artist's songs", a["artist"] == 1 and a["songs"] >= 1, str(a))
+            # artist page, credits and the share card
+            await pg.click("#sres .atile"); await pg.wait_for_timeout(500)
+            a = await pg.evaluate("({h: location.hash, name: (document.querySelector('.ahead h1')||{}).textContent, rows: document.querySelectorAll('main .lrow').length, about: !!document.querySelector('.about-card')})")
+            check("the artist page shows the name, the songs and About", a["h"] == "#/artist/voluptra" and a["name"] == "VOLUPTRA" and a["rows"] >= 1 and a["about"], str(a))
+            await pg.screenshot(path=f"{SHOTS}/05b-artist.png", full_page=True)
+            await pg.click("main .lrow >> nth=0"); await pg.wait_for_timeout(1200)
+            await pg.click("[data-credits]"); await pg.wait_for_timeout(300)
+            cr = await pg.evaluate("document.querySelector('#mBody').textContent")
+            check("credits list the artist, the writer and Suno", "VOLUPTRA" in cr and "Robert Monther" in cr and "Suno" in cr, cr[:120])
+            await pg.keyboard.press("Escape"); await pg.wait_for_timeout(200)
+            await pg.click("#npShare"); await pg.wait_for_timeout(900)
+            sh = await pg.evaluate("""() => { const c=document.querySelector('#shareCv'); if(!c) return {ok:false}; const d=c.getContext('2d').getImageData(540,900,1,1).data; return {ok:true, tabs: document.querySelectorAll('[data-shtab]').length, painted: d[3]>0, lyricsTab: !document.querySelector('[data-shtab=lyrics]').disabled}; }""")
+            check("share opens a ready card with Song and Lyrics", sh.get("ok") and sh["tabs"] == 2 and sh["painted"] and sh["lyricsTab"], str(sh))
+            await pg.click("[data-shtab=lyrics]"); await pg.wait_for_timeout(300); await pg.click(".pickline >> nth=3"); await pg.wait_for_timeout(400)
+            picked = await pg.evaluate("document.querySelectorAll('.pickline.on').length")
+            check("share: lyric lines can be picked", picked == 2, str(picked))
+            await pg.screenshot(path=f"{SHOTS}/05c-share-lyrics.png")
+            await pg.keyboard.press("Escape"); await pg.wait_for_timeout(200); await pg.keyboard.press("Escape"); await pg.wait_for_timeout(300)
 
             # 4. Every page: no sideways scrolling at a narrow phone width, no errors
             small = await new_page(b, 360, 740)
-            for path in ("#/", "#/search", "#/genre/explicit-sensual", "#/song/rm-0007", "#/radio", "#/videos", "#/pricing", "#/verify", "#/account", "#/genre/nope", "#/song/nope"):
+            for path in ("#/", "#/search", "#/genre/sensual", "#/genre/anthems", "#/artist/voluptra", "#/song/rm-0007", "#/song/rm-0020", "#/radio", "#/videos", "#/pricing", "#/verify", "#/account", "#/genre/nope", "#/song/nope"):
                 await small.goto(BASE + path); await small.wait_for_timeout(400)
                 over = await small.evaluate("document.documentElement.scrollWidth - window.innerWidth")
                 tiny = await small.evaluate("""() => [...document.querySelectorAll('main button, main a.btn, main a.pill, .tabbar a, .tabbar button')].filter(e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height<32 && !e.classList.contains('ll'); }).length""")
@@ -121,7 +147,7 @@ async def main():
             cfg = open(os.path.join(ROOT, "config.js"), encoding="utf-8").read()
             cfg = cfg.replace("enabled: false,", "enabled: true,").replace("streamEvery: 4,", "streamEvery: 1,").replace("audio: [],", 'audio: [{ id: "t", title: "Test message", audio: "media/audio/song-06-barefoot.mp3", link: "#/pricing" }],').replace("banners: {}", 'banners: { home: { text: "Test banner", link: "#/radio" } }')
             await ad.route("**/config.js*", lambda route: route.fulfill(body=cfg, content_type="application/javascript"))
-            await ad.goto(BASE + "#/genre/trend"); await ad.wait_for_timeout(600)
+            await ad.goto(BASE + "#/genre/anthems"); await ad.wait_for_timeout(600)
             await ad.click(".rows .srow >> nth=0"); await ad.wait_for_timeout(1500)
             first = await state(ad)
             await ad.evaluate("(() => { const a=document.querySelector('#audio'); a.currentTime = a.duration - 1.2; })()"); await ad.wait_for_timeout(3500)
@@ -146,7 +172,16 @@ async def main():
             pw = await evil.evaluate("({p: window.__pwned === 1, imgs: document.querySelectorAll('main img, #np img, script:not([src])').length})")
             check("hostile song data and addresses can't inject code", not pw["p"] and pw["imgs"] == 0, str(pw))
 
-            # 8. Desktop
+            # 8. English only: no Arabic letters in anything the site serves
+            arabic = []
+            for dirpath, dirs, files in os.walk(ROOT):
+                dirs[:] = [d for d in dirs if d not in (".git", "media", "tests", "node_modules", "vendor")]
+                for f in files:
+                    if f.endswith((".js", ".html", ".css", ".json", ".md", ".sql")):
+                        if re.search(r"[\u0600-\u06FF]", open(os.path.join(dirpath, f), encoding="utf-8").read()): arabic.append(f)
+            check("English only: no Arabic text in the site files", not arabic, str(arabic))
+
+            # 9. Desktop
             dk = await new_page(b, 1366, 860, mobile=False)
             await dk.goto(BASE); await dk.wait_for_timeout(900)
             over = await dk.evaluate("document.documentElement.scrollWidth - window.innerWidth")

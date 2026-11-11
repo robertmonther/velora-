@@ -19,15 +19,17 @@ window.VELORA_CONFIG = {
   },
 
   /* Velora Radio: one station, the same for every listener. It follows the clock of stationTimeZone.
-     Each slot plays songs from the listed categories. Hours run 2 to 26 (26 = 2 at night). */
+     Each slot plays songs from the listed categories (a genre, a mood or a collection from data/catalogue.json).
+     adult: false leaves out adult (sensual) songs in that slot; explicit: false leaves out explicit lyrics.
+     Hours run 2 to 26 (26 = 2 at night). */
   stationTimeZone: "Europe/Amsterdam",
   radio: [
-    { from: 6,  to: 10, name: "Morning Light",  cats: ["Pop", "Romantic", "Soft Sensual"] },
-    { from: 10, to: 14, name: "Rise Up",        cats: ["Trend (Arena)"] },
-    { from: 14, to: 18, name: "Afternoon Fire", cats: ["Trend (Arena)", "Pop"] },
-    { from: 18, to: 22, name: "Golden Evening", cats: ["Romantic", "Soft Sensual", "Pop"] },
-    { from: 22, to: 26, name: "After Dark",     cats: ["Soft Sensual", "Explicit Sensual"] },
-    { from: 2,  to: 6,  name: "Late Night",     cats: ["Explicit Sensual"] }
+    { from: 6,  to: 10, name: "Morning Light",  cats: ["Pop", "R&B / Soul"], adult: false },
+    { from: 10, to: 14, name: "Rise Up",        cats: ["Arena Anthems", "Empowering"], adult: false },
+    { from: 14, to: 18, name: "Afternoon Fire", cats: ["Arena Anthems", "Pop"], adult: false },
+    { from: 18, to: 22, name: "Golden Evening", cats: ["Romantic", "Sensual"], explicit: false },
+    { from: 22, to: 26, name: "After Dark",     cats: ["Sensual"] },
+    { from: 2,  to: 6,  name: "Late Night",     cats: ["Sensual", "Slowed"] }
   ],
 
   /* Ads: OFF. Nothing is shown or played until enabled is true AND a spot or banner is listed.
