@@ -1,9 +1,10 @@
-"""A stand-in for the Velora server (Supabase), for the upload checks only.
+"""A stand-in for the Velora server (Supabase) and for the payment provider, for the checks only.
 
 It serves the site's files and answers the same addresses the real server has, under /__supa/:
-sign-in, the owner setup, the server functions, and file storage. It keeps everything in memory and
-applies the same main rules as supabase/schema.sql (who may upload, what Publish checks), so the
-upload page can be walked through from start to finish without touching the real project.
+sign-in, the owner setup, the server functions, file storage, and the shop (starting a payment, a stand-in
+payment page, licenses, Premium). It keeps everything in memory and applies the same main rules as
+supabase/schema.sql (who may upload, what Publish checks, who gets a license), so the site can be walked
+through from start to finish without touching the real project or a real payment provider.
 
     python3 tests/fake_backend.py <site folder> <port>
 """
@@ -18,7 +19,9 @@ from server import H
 P = "/__supa"
 SETUP_CODE = "TEST-CODE-1234"
 LOCK = threading.Lock()
-DB = {"users": {}, "tokens": {}, "artists": {}, "songs": {}, "records": [], "files": {}, "setup_used": False, "next": 1001, "log": [], "mail": []}
+DB = {"users": {}, "tokens": {}, "artists": {}, "songs": {}, "records": [], "files": {}, "setup_used": False, "next": 1001, "log": [], "mail": [],
+      # the shop (payments): closed by default, like the real one
+      "shop": {"open": False, "currency": "eur", "rent": 900, "buy": 4900, "premium": 1400, "rent_days": 30}, "licenses": [], "premium": {}, "checkouts": {}, "hook_delay": 0.0}
 def new_code(): return "%06d" % random.randrange(1000000)
 def send_mail(usr, kind, key):
     usr[key] = new_code(); DB["mail"].append({"to": usr["email"], "kind": kind, "code": usr[key]})
@@ -52,6 +55,39 @@ def add_record(song, kind, title, artist, holder, details):
     r = {"id": len(DB["records"]) + 1, "song_id": song, "kind": kind, "at": at, "title": title, "artist": artist, "holder": holder, "details": details, "prev": prev, "hash": h}
     DB["records"].append(r); return r
 
+# ---------- The shop: what supabase/schema.sql and the two payment functions do, in memory ----------
+USE = {"rent": "One piece of content on one channel, published within {d} days of purchase. Content published in time may stay online.",
+       "buy": "Unlimited content on the buyer's own channels, for life. Not exclusive.",
+       "premium": "Content published on the member's own channels while Premium is active. Content published in that time may stay online."}
+def iso(t=None): return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t if t is not None else time.time())) + "+00:00"
+def is_member(uid): return bool(uid) and DB["premium"].get(uid, {}).get("until", 0) > time.time()
+def lic_json(l, public=False):
+    st = l["status"]
+    if public and st == "active" and l["type"] == "premium" and not is_member(l.get("user")): st = "membership ended"
+    return {"id": l["id"], "song_id": l["song_id"], "song_title": l["song_title"], "type": l["type"], "buyer_name": l["buyer_name"], "allowed_use": l["allowed_use"],
+            "issued_at": l["issued_at"], "valid_until": l["valid_until"], "status": st}
+def real_title(song_id, fallback):
+    sg = DB["songs"].get(song_id)
+    return (sg["title"] + (f" ({sg['version']})" if sg.get("version") else "")) if sg and sg.get("status") in ("published", "unlisted") else fallback
+def new_license(kind, song_id, title, name, user=None, email=None, ref=None, amount=None):
+    old = next((l for l in DB["licenses"] if ref and l.get("ref") == ref), None)
+    if old: return old                                   # the same payment told twice gives the same license
+    l = {"id": "VL-%s-%s" % (time.strftime("%Y", time.gmtime()), uuid.uuid4().hex[:10].upper()), "song_id": song_id, "song_title": real_title(song_id, re.sub(r"[<>\x00-\x1f]", "", title or "").strip()[:160] or None),
+         "type": kind, "buyer_name": re.sub(r"[<>\x00-\x1f]", "", name or "").strip()[:120] or ("Premium member" if kind == "premium" else "Licensee"), "allowed_use": USE[kind].format(d=DB["shop"]["rent_days"]),
+         "issued_at": iso(), "valid_until": iso(time.time() + DB["shop"]["rent_days"] * 86400) if kind == "rent" else None, "status": "active",
+         "user": user, "email": (email or "").strip().lower() or None, "ref": ref, "amount": amount}
+    DB["licenses"].append(l); return l
+def settle(sid):
+    """What the payment webhook does once the provider says "paid"."""
+    c = DB["checkouts"].get(sid)
+    if not c or c.get("done"): return
+    c["done"] = True
+    if c["kind"] == "premium": DB["premium"][c["user"]] = {"until": time.time() + 32 * 86400, "customer": "cus_test_" + c["user"][:8]}
+    else: new_license(c["kind"], c["song_id"], c["song_title"], c["buyer_name"] or c.get("paid_name") or "", c.get("user"), c.get("paid_email"), sid, DB["shop"][c["kind"]])
+def page(title, body):
+    return ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>" + title + "</title>"
+            "<body style='font:16px system-ui;max-width:420px;margin:40px auto;padding:0 16px'><p style='color:#777'>Stand-in payment provider (tests only)</p>" + body).encode()
+
 class Err(Exception):
     def __init__(self, msg, status=400, code="P0001"): self.msg, self.status, self.code = msg, status, code
 
@@ -65,9 +101,27 @@ def rpc(fn, args, u):
     if fn == "song_record":
         s = DB["songs"].get(args.get("p_song"))       # the public record never carries the name of the uploaded file
         return [dict(r, details={k: v for k, v in r["details"].items() if k != "original_name"}) for r in DB["records"] if s and s["status"] == "published" and r["song_id"] == s["id"]]
+    if fn == "shop_info": return dict(DB["shop"])
+    if fn == "claim_purchase":
+        ref = str(args.get("p_ref") or ""); l = next((x for x in DB["licenses"] if len(ref) >= 20 and x.get("ref") == ref), None)
+        return lic_json(l) if l else None
+    if fn == "verify_license":
+        want = str(args.get("license_id") or "").strip().upper(); l = next((x for x in DB["licenses"] if x["id"] == want), None)
+        return lic_json(l, True) if l else None
+    if fn in ("record_purchase", "record_premium", "record_refund", "premium_customer"): raise Err("permission denied for function " + fn, 401, "42501")
     if not u: raise Err("permission denied for function " + fn, 401, "42501")
-    if fn == "my_profile": return {"role": u["role"], "display_name": u["name"] or None, "premium": False}
-    if fn == "my_licenses": return []
+    if fn == "my_profile": return {"role": u["role"], "display_name": u["name"] or None, "premium": is_member(u["id"])}
+    if fn == "my_licenses": return [lic_json(l) for l in reversed(DB["licenses"]) if l.get("user") == u["id"]]
+    if fn == "link_my_purchases":
+        mine = [l for l in DB["licenses"] if not l.get("user") and l.get("email") == u["email"] and u.get("confirmed", True)]
+        for l in mine: l["user"] = u["id"]
+        return len(mine)
+    if fn == "premium_license":
+        sid = str(args.get("p_song") or "")
+        if not re.fullmatch(r"(rm|vs)-[0-9]{4,}", sid): raise Err("That song is not known.")
+        if not is_member(u["id"]): raise Err("Premium is not active on this account.", 400, "42501")
+        old = next((l for l in DB["licenses"] if l.get("user") == u["id"] and l["song_id"] == sid and l["type"] == "premium"), None)
+        return lic_json(old or new_license("premium", sid, args.get("p_title"), u["name"], u["id"], u["email"]))
     if fn == "set_my_name":
         n = re.sub(r"[<>\x00-\x1f]", "", str(args.get("p_name") or "")).strip()[:80]
         if not n: raise Err("Write a name.")
@@ -179,6 +233,64 @@ class Fake(H):
                 if len(b.get("password") or "") < 12: return self._send(400, {"ok": False, "error": "Use a password of 12 characters or more."})
                 add_user(b["email"], b["password"], "owner", (b.get("name") or "").strip()); DB["setup_used"] = True
                 return self._send(200, {"ok": True})
+            if path == "/functions/v1/checkout":             # the same answers as supabase/functions/checkout
+                b = json.loads(raw or b"{}"); kind = str(b.get("kind") or ""); home = f"http://{self.headers.get('Host')}"
+                if kind not in ("rent", "buy", "premium", "manage"): return self._send(400, {"ok": False, "error": "Choose rent, buy or Premium."})
+                if not DB["shop"]["open"] and kind != "manage": return self._send(200, {"ok": False, "closed": True})
+                if kind in ("rent", "buy"):
+                    if not re.fullmatch(r"(rm|vs)-[0-9]{4,}", str(b.get("song_id") or "")) or not str(b.get("song_title") or "").strip(): return self._send(400, {"ok": False, "error": "That song is not known."})
+                    if b.get("consent") is not True: return self._send(400, {"ok": False, "error": "Tick the box about immediate delivery to continue."})
+                back = urlparse(str(b.get("return_url") or ""))
+                if f"{back.scheme}://{back.netloc}" != home: return self._send(400, {"ok": False, "error": "This site address is not set up for payments."})
+                if kind in ("premium", "manage") and not u: return self._send(401, {"ok": False, "error": "Sign in or create an account first: Premium belongs to an account.", "needAccount": True})
+                ret = home + back.path
+                if kind == "manage":
+                    if not DB["premium"].get(u["id"], {}).get("customer"): return self._send(404, {"ok": False, "error": "There is no Premium payment on this account."})
+                    return self._send(200, {"ok": True, "url": f"{home}{P}/__portal?user={u['id']}&back={ret}"})
+                sid = "cs_test_" + uuid.uuid4().hex + uuid.uuid4().hex
+                DB["checkouts"][sid] = {"kind": kind, "song_id": b.get("song_id"), "song_title": b.get("song_title"), "buyer_name": re.sub(r"[<>\x00-\x1f]", "", str(b.get("buyer_name") or "")).strip()[:120],
+                                        "user": u["id"] if u else None, "return": ret, "body": b, "signed_in": bool(u)}
+                return self._send(200, {"ok": True, "url": f"{home}{P}/__pay?session={sid}"})
+            if path == "/__pay":            # the provider's payment page
+                sid = (q.get("session") or [""])[0]; c = DB["checkouts"].get(sid)
+                if not c: return self._send(404, page("No such payment", "<p>No such payment.</p>"), "text/html")
+                what = "Premium, every month" if c["kind"] == "premium" else ("Rent: " if c["kind"] == "rent" else "Usage rights: ") + (c["song_title"] or "")
+                cancel = c["return"] + ("#/pricing" if c["kind"] == "premium" else "#/song/" + str(c["song_id"]))
+                return self._send(200, page("Pay", f"<h1 id=what></h1><p id=sum>{DB['shop'][c['kind']] / 100:.2f} {DB['shop']['currency'].upper()}</p>"
+                    f"<form method=get action='{P}/__paid'><input type=hidden name=session value='{sid}'><p><input name=email id=email value='buyer@example.test'></p><p><input name=name id=name value='Paying Name'></p>"
+                    f"<button id=pay>Pay</button></form><p><a id=cancel href='{cancel}'>Cancel</a></p><script>document.getElementById('what').textContent={json.dumps(what)}</script>"), "text/html")
+            if path == "/__paid":           # paid: the provider tells the server (after hook_delay seconds) and sends the buyer back
+                sid = (q.get("session") or [""])[0]; c = DB["checkouts"].get(sid)
+                if not c: return self._send(404, page("No such payment", "<p>No such payment.</p>"), "text/html")
+                c["paid_email"] = (q.get("email") or [""])[0]; c["paid_name"] = (q.get("name") or [""])[0]
+                if DB["hook_delay"] > 0:
+                    def later():
+                        with LOCK: settle(sid)
+                    threading.Timer(DB["hook_delay"], later).start()
+                else: settle(sid)
+                return self._send(302, b"", "text/plain", {"Location": f"{c['return']}?paid={sid}&kind={c['kind']}#/thanks"})
+            if path == "/__portal":         # the provider's page to manage or cancel Premium
+                uid = (q.get("user") or [""])[0]; back = (q.get("back") or [""])[0]
+                return self._send(200, page("Manage Premium", f"<h1>Premium</h1><p><a id=cancel href='{P}/__portal_cancel?user={uid}&back={back}'>Cancel Premium</a></p><p><a id=keep href='{back}#/account'>Back</a></p>"), "text/html")
+            if path == "/__portal_cancel":
+                uid = (q.get("user") or [""])[0]
+                if uid in DB["premium"]: DB["premium"][uid]["until"] = 0
+                return self._send(302, b"", "text/plain", {"Location": (q.get("back") or [""])[0] + "#/account"})
+            if path == "/__shop":           # for the checks only: open or close the shop, change a price, delay the provider's message
+                for k in ("rent", "buy", "premium", "rent_days"):
+                    if k in q: DB["shop"][k] = int(q[k][0])
+                if "open" in q: DB["shop"]["open"] = q["open"][0] == "1"
+                if "delay" in q: DB["hook_delay"] = float(q["delay"][0])
+                return self._send(200, dict(DB["shop"], delay=DB["hook_delay"]))
+            if path == "/__refund":         # for the checks only: a payment was refunded
+                l = next((x for x in DB["licenses"] if x["id"] == (q.get("id") or [""])[0]), None)
+                if l: l["status"] = "refunded"
+                return self._send(200, {"ok": bool(l)})
+            if path == "/__premium":        # for the checks only: switch Premium on or off for an account
+                usr = DB["users"].get((q.get("email") or [""])[0].lower())
+                if not usr: return self._send(404, {"message": "no"})
+                DB["premium"][usr["id"]] = {"until": time.time() + 30 * 86400 if (q.get("on") or ["1"])[0] == "1" else 0, "customer": "cus_test_" + usr["id"][:8]}
+                return self._send(200, {"ok": True})
             if path == "/auth/v1/token":
                 b = json.loads(raw or b"{}"); grant = (q.get("grant_type") or [""])[0]
                 if grant == "password":
@@ -252,7 +364,8 @@ class Fake(H):
                 return self._send(200, data, ctype, {"Accept-Ranges": "bytes"})
             if path == "/__state":       # for the checks only
                 return self._send(200, {"songs": [{k: v for k, v in s.items() if k != "payload"} | {"payload": s.get("payload")} for s in DB["songs"].values()], "artists": list(DB["artists"].values()), "records": DB["records"],
-                                        "files": {k: [len(v[0]), v[1]] for k, v in DB["files"].items()}, "users": [{"email": x["email"], "role": x["role"], "name": x["name"]} for x in DB["users"].values()]})
+                                        "files": {k: [len(v[0]), v[1]] for k, v in DB["files"].items()}, "users": [{"email": x["email"], "role": x["role"], "name": x["name"], "id": x["id"]} for x in DB["users"].values()],
+                                        "licenses": DB["licenses"], "checkouts": list(DB["checkouts"].values()), "premium": {k: v["until"] > time.time() for k, v in DB["premium"].items()}})
             if path == "/__file":
                 f = DB["files"].get((q.get("name") or [""])[0]); return self._send(200, f[0], f[1]) if f else self._send(404, {"message": "no"})
             if path == "/__mail":           # the last email "sent" to an address (for the checks only)
@@ -262,6 +375,8 @@ class Fake(H):
                 if not usr: return self._send(404, {"message": "no"})
                 usr["confirmed"] = True; se = session(usr)
                 return self._send(200, {"hash": f"#access_token={se['access_token']}&expires_in=3600&refresh_token={se['refresh_token']}&token_type=bearer&type={kind}"})
+            if path == "/__add_user":       # for the checks only: an account that is already confirmed
+                add_user((q.get("email") or [""])[0], (q.get("password") or ["a-good-password"])[0], "listener", (q.get("name") or [""])[0]); return self._send(200, {"ok": True})
             if path == "/__add_listener":
                 add_user("listener@example.test", "listener-pass-123", "listener", "A Listener"); return self._send(200, {"ok": True})
             return self._send(404, {"message": "not found: " + path})

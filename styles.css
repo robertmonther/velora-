@@ -521,3 +521,26 @@ body.ad-on .np-extra{visibility:hidden}
 .legallist{display:grid;gap:10px;max-width:720px}
 .legalcard{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:var(--text);margin:0}
 .legalcard:focus-visible,.legalnav a:focus-visible{outline:2px solid var(--pink);outline-offset:3px}
+
+/* ---------- Paid licenses: the payment window, certificates, the thanks page ---------- */
+.cert.off{filter:saturate(.45)}
+.certbad{color:#a13a30;font-weight:700}
+.cert .certbad{margin-top:4px}
+.slot .certbad{color:#f0b3ac}
+a.slot.tap{text-decoration:none}
+.verdict{display:flex;align-items:center;gap:8px;font-weight:800;margin:0 0 10px}
+.verdict svg{width:20px;height:20px;flex:none}
+.verdict.ok{color:#9fd3a8}
+.verdict.bad{color:#f0b3ac}
+.certrow .btn svg{width:18px;height:18px}
+#lic .field{margin:4px 0 12px}
+#lic p.note{margin:0 0 12px}
+#lic .note a,.note a{color:var(--pink)}
+/* "Print or save as PDF": only the certificate goes on the page. */
+@media print{
+  body.printcert *{visibility:hidden !important}
+  body.printcert .cert,body.printcert .cert *{visibility:visible !important}
+  body.printcert .cert{position:fixed;left:0;top:0;right:0;margin:0;filter:none}
+  body.printcert .modal-back{background:none}
+  body.printcert .modal{max-height:none;overflow:visible;border:0;background:none}
+}

@@ -200,5 +200,41 @@ window.VeloraBackend = (function () {
     return B.mediaUrl(path);
   };
   B.licenses = async function () { try { const d = await B.rpc("my_licenses"); return Array.isArray(d) ? d : []; } catch (e) { return []; } };
+
+  /* ---------- The shop (payments). Everything here stays quiet while the shop is closed on the server. ---------- */
+  /* Is the shop open, and what does the server charge (in cents)? Asked once per visit; null when it can't be reached. */
+  let shopP = null;
+  B.shop = function () {
+    if (!enabled) return Promise.resolve(null);
+    if (!shopP) shopP = B.open("shop_info").then(d => (d && typeof d === "object" ? d : null)).catch(() => { shopP = null; return null; });
+    return shopP;
+  };
+  /* Start a payment: { kind: "rent" | "buy", song_id, song_title, buyer_name, consent: true } or { kind: "premium" };
+     { kind: "manage" } opens the provider's page where a member cancels Premium. Answers the address of the provider's page.
+     The error carries code "closed" (payments are off) or "account" (sign in first). */
+  B.checkout = async function (body) {
+    const headers = { "Content-Type": "application/json", apikey: key };
+    if (client) { try { const g = await client.auth.getSession(), t = g && g.data && g.data.session && g.data.session.access_token; if (t) headers.Authorization = "Bearer " + t; } catch (e) {} }
+    let r, j = {};
+    try { r = await fetch(url + "/functions/v1/checkout", { method: "POST", headers, body: JSON.stringify(Object.assign({ return_url: here() }, body)) }); }
+    catch (e) { throw new Error(plain(e)); }
+    try { j = (await r.json()) || {}; } catch (e) {}
+    if (j.closed) throw fail("Payments are not open yet.", "closed");
+    if (j.needAccount) throw fail(j.error || "Sign in first.", "account");
+    // Only the provider's own https address (or, in the tests, the stand-in on this computer) is followed.
+    const okUrl = local ? /^http:\/\/(localhost|127\.0\.0\.1):\d+\// : /^https:\/\//;
+    if (!r.ok || !j.ok || !okUrl.test(String(j.url || ""))) throw new Error(j.error || "The payment could not be started (" + r.status + ").");
+    return j.url;
+  };
+  /* The license of a finished payment (null while the provider's message is still on its way). */
+  B.claim = ref => B.open("claim_purchase", { p_ref: String(ref || "") });
+  /* What the public register says about a license number (null = unknown). */
+  B.verify = id => B.open("verify_license", { license_id: String(id || "") });
+  /* Premium member: the certificate for one song. */
+  B.premiumLicense = (song, title) => B.rpc("premium_license", { p_song: String(song || ""), p_title: String(title || "") });
+  /* Licenses bought without signing in, paid with this account's confirmed email, move into the account. */
+  B.linkPurchases = async function () { try { return Number(await B.rpc("link_my_purchases")) || 0; } catch (e) { return 0; } };
+  /* Read the profile again (after a payment, Premium may have just started). */
+  B.reload = async function () { await B.init(); const got = await client.auth.getSession(); await refresh(got && got.data ? got.data.session : null); return B; };
   return B;
 })();

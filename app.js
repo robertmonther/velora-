@@ -41,7 +41,10 @@ const store = {
 };
 const CREATOR = "Robert Monther"; // rights holder (lyrics and song design); never shown as a singer
 const PAL = [["#5b7a99","#2a3646"],["#b0524a","#3b1f1d"],["#e0a9b0","#5a3a40"]];
-const PRICES = CFG.prices, RADIO = CFG.radio, DEMO = CFG.demo!==false, demoTag = DEMO?" (demo)":"";
+const PRICES = CFG.prices, RADIO = CFG.radio, DEMO = CFG.demo!==false;
+// The shop: null until the server says it is open (Backend.shop). While it is closed, paying is a demo (demo:true) or off.
+let SHOP = null;
+const shopOpen = () => !!(SHOP && SHOP.open===true), payDemo = () => DEMO && !shopOpen(), dTag = () => payDemo() ? " (demo)" : "";
 
 // Seeded shuffle: the same seed always gives the same order (used for "today" rows and the radio schedule).
 function seededShuffle(list, seed){
@@ -714,15 +717,32 @@ function openShare(s){
   drawShare();
 }
 
-// ---------- License / checkout (demo: nothing is charged, records stay in this browser) ----------
+// ---------- License / checkout ----------
+// Three states. Shop open on the server: real payment at the provider, then the certificate (thanksView).
+// Shop closed and config demo:true: the demo below (nothing is charged, records stay in this browser).
+// Shop closed and demo:false: a short "opens soon" note.
 const LIC_TEXT = {
-  rent:"Use in your videos and posts while the rental is active.",
+  rent:"For one video or post, published within that time. Once published it may stay online.",
   buy:"Non-exclusive. You keep the right to use it forever. The song stays in the Velora catalogue.",
   excl:"Only on request. The song can be taken out of the catalogue for new buyers if you ask.",
-  sub:"Rent any song while subscribed."
+  sub:"Every song, for content you publish while you are a member."
 };
+const LIC_NAME = { rent:"Rent", buy:"Usage rights", premium:"Premium", exclusive:"Exclusive" };
+const money = (cents,cur) => { const v=(+cents||0)/100, c=String(cur||"eur").toUpperCase();
+  try{ return new Intl.NumberFormat("en-IE",{style:"currency",currency:c,minimumFractionDigits:v%1?2:0,maximumFractionDigits:2}).format(v); }catch(e){ return (v%1?v.toFixed(2):String(v))+" "+c; } };
+// The server's prices replace the example ones as soon as the shop is open.
+function applyShop(d){
+  if(!d || d.open!==true || shopOpen()) return;
+  SHOP=d;
+  PRICES.rent.price=money(d.rent,d.currency); PRICES.rent.per=`${d.rent_days} days, one channel`;
+  PRICES.buy.price=money(d.buy,d.currency); PRICES.sub.price=money(d.premium,d.currency);
+  const bn=$(".demo-banner"); if(bn) bn.remove();          // real payments are on: nothing may say "demo" any more
+  if(/^#\/?(pricing)?$/.test(location.hash) && !npOpen && $("#modal").hidden) route(true);
+}
 function openLicense(song, preset="rent"){
   if(!song) return; if(!PRICES[preset]) preset="rent";
+  if(shopOpen()){ openPay(song, preset); return; }
+  if(!DEMO){ openModal(`<h2 id="mTitle">Licensing opens soon</h2><p>Paying for a license is not switched on yet. Every song already plays in full, for free.</p><button type="button" class="btn" id="mDone">Close</button>`); $("#mDone").onclick=closeM; return; }
   openModal(`
   <h2 id="mTitle">${preset==="sub"?"Start Premium":`License “${esc(song.title)}”`}</h2>
   <p class="muted small">${esc(song.genre)} · ${esc(song.mood)} · ${fmt(song.duration)} · ID ${esc(song.id)}</p>
@@ -732,13 +752,58 @@ function openLicense(song, preset="rent"){
    </div>
    <div class="note"><b>About exclusivity.</b> Buying usage rights is non-exclusive: other people can license the same song, and it stays in the catalogue. If you need it to be yours alone, choose Exclusive and we will contact you; the song is removed for new buyers only when you ask.</div>
    <div class="paybar">
-     <span class="muted small">${DEMO?"Demo checkout. Nothing is charged.":"Secure checkout."}</span>
-     <button class="btn primary" type="submit">Pay${demoTag}</button>
+     <span class="muted small">Demo checkout. Nothing is charged.</span>
+     <button class="btn primary" type="submit">Pay (demo)</button>
    </div>
   </form>`);
   $("#lic").onsubmit = e => { e.preventDefault(); const t=new FormData(e.target).get("t");
-    if(t==="excl"){ openModal(`<h2 id="mTitle">Exclusive request sent${demoTag}</h2><p>In the real site, your request for “${esc(song.title)}” goes to the rights holder, who replies by email. Nothing was charged.</p><button type="button" class="btn" id="mDone">Close</button>`); $("#mDone").onclick=closeM; return; }
+    if(t==="excl"){ openModal(`<h2 id="mTitle">Exclusive request sent (demo)</h2><p>In the real site, your request for “${esc(song.title)}” goes to the rights holder, who replies by email. Nothing was charged.</p><button type="button" class="btn" id="mDone">Close</button>`); $("#mDone").onclick=closeM; return; }
     showCert(song, PRICES[t]?t:"rent"); };
+}
+// The real license window: choose, tick the delivery box, and go to the payment provider's page.
+function openPay(song, preset){
+  const member=Backend.premium, kinds=member?["rent","buy","excl"]:["rent","buy","excl","sub"], mail=String((CFG.business||{}).email||"");
+  if(!kinds.includes(preset)) preset="rent";
+  openModal(`
+  <h2 id="mTitle">${preset==="sub"?"Start Premium":`License “${esc(song.title)}”`}</h2>
+  <p class="muted small">${esc(song.genre)} · ${esc(song.mood)} · ${fmt(song.duration)} · ID ${esc(song.id)}</p>
+  ${member?`<div class="note" id="memBox"><b>Included in your Premium.</b> Get the license certificate for this song now.<div class="row" style="margin-top:10px"><button type="button" class="btn primary sm" id="memGet">Get the license</button></div><p class="formmsg" id="memMsg" role="alert"></p></div>`:""}
+  <form id="lic">
+   <div class="opts" role="radiogroup" aria-label="License type">
+    ${kinds.map(k=>`<label class="opt"><input type="radio" name="t" value="${k}" ${k===preset?"checked":""}><div><b>${esc(PRICES[k].label)} · ${esc(PRICES[k].price)}</b><span class="muted small">${esc(PRICES[k].per)}. ${LIC_TEXT[k]}</span></div></label>`).join("")}
+   </div>
+   <div id="payBuy">
+    <div class="field"><label for="licName">Name on the license <span class="muted">(optional)</span></label><input id="licName" type="text" maxlength="120" autocomplete="name" value="${esc(Backend.name||"")}" placeholder="You, your channel or your company"></div>
+    <label class="tick agree"><input type="checkbox" id="licOk"><span>Deliver my license right after I pay. I understand that I then lose my 14-day right to withdraw. <a href="#/sales" target="_blank" rel="noopener">Terms of sale</a> · <a href="#/license" target="_blank" rel="noopener">License terms</a></span></label>
+   </div>
+   <p class="note" id="paySub" hidden>Premium belongs to an account and renews every month until you cancel, which you can do in your account at any time. You keep your 14-day right to withdraw. <a href="#/sales" target="_blank" rel="noopener">Terms of sale</a></p>
+   <p class="note" id="payExcl" hidden>Exclusive rights are agreed one by one. ${mail?`Write to <a href="mailto:${esc(mail)}?subject=${encodeURIComponent("Exclusive rights: "+song.title+" ("+song.id+")")}">${esc(mail)}</a> and name the song.`:"Our contact address is listed on the “Who we are” page before sales open."} Buying usage rights is non-exclusive: the song stays in the catalogue.</p>
+   <p class="formmsg" id="licMsg" role="alert"></p>
+   <div class="paybar">
+     <span class="muted small">You pay on our payment provider's secure page.</span>
+     <button class="btn primary" type="submit" id="licPay">Pay</button>
+   </div>
+  </form>`);
+  const form=$("#lic"), msg=$("#licMsg"), btn=$("#licPay"), kindOf=()=>new FormData(form).get("t")||"rent";
+  const paint=()=>{ const t=kindOf(); $("#payBuy").hidden=!(t==="rent"||t==="buy"); $("#paySub").hidden=t!=="sub"; $("#payExcl").hidden=t!=="excl"; btn.hidden=t==="excl";
+    btn.textContent = t==="sub" ? `Start Premium · ${PRICES.sub.price} a month` : `Pay ${PRICES[t]?PRICES[t].price:""}`; msg.textContent=""; };
+  // Only a change of the license type redraws: nothing may move under a finger that is on its way to the tick box.
+  form.onchange=e=>{ if(e.target.name==="t") paint(); else if(e.target.id==="licOk" && e.target.checked) msg.textContent=""; }; paint();
+  const leave=addr=>{ btn.disabled=true; btn.textContent="Opening the payment page…"; location.href=addr; };
+  form.onsubmit=async e=>{ e.preventDefault(); const t=kindOf(); msg.textContent=""; if(t==="excl") return;
+    if(t==="sub" && !Backend.user){ premiumDoor(song); return; }
+    if(t!=="sub" && !$("#licOk").checked){ msg.textContent="Tick the box above to continue: it lets us deliver your license at once."; $("#licOk").focus(); return; }
+    btn.disabled=true;
+    try{ leave(await Backend.checkout(t==="sub" ? {kind:"premium"} : {kind:t, song_id:song.id, song_title:song.title, buyer_name:$("#licName").value.trim(), consent:true})); }
+    catch(err){ btn.disabled=false; if(err.code==="account"){ premiumDoor(song); return; } msg.textContent=err.message; } };
+  const mg=$("#memGet"); if(mg) mg.onclick=async()=>{ mg.disabled=true; $("#memMsg").textContent="";
+    try{ const l=await Backend.premiumLicense(song.id, song.title); if(l && l.id){ rememberLicense(l); certModal(l, true); } else throw new Error("That did not work. Try again."); }
+    catch(err){ mg.disabled=false; if($("#memMsg")) $("#memMsg").textContent=err.message; } };
+}
+// Premium belongs to an account: sign in (or create one) inside the window, then go on to the payment.
+function premiumDoor(song){
+  openModal(`<h2 id="mTitle">Start Premium</h2><p class="muted small">Premium belongs to an account. Sign in or create one, then you go on to the payment.</p><div id="premAuth"></div>`);
+  authPanel($("#premAuth"), ()=>{ if(Backend.user){ if(Backend.premium){ closeM(); toast("Premium is already active on this account."); } else openPay(song,"sub"); } });
 }
 async function hash(str){ try{ const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)); return [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,"0")).join(""); }catch(e){ let h=0; for(const c of str) h=(h*31+c.charCodeAt(0))>>>0; return h.toString(16).padStart(8,"0").repeat(8);} }
 function licenseId(){
@@ -748,17 +813,67 @@ function licenseId(){
 }
 const longDate = v => { const d=new Date(v); return isNaN(d) ? "–" : d.toLocaleDateString("en-GB",{dateStyle:"long"}); };
 const longDateTime = v => { const d=new Date(v); return isNaN(d) ? "–" : d.toLocaleString("en-GB",{dateStyle:"long",timeStyle:"short"}); };
+// The demo certificate (nothing was paid; it lives in this browser only).
 async function showCert(song,t){
   const now=new Date(), lic=licenseId(), made=song.created||song.published;
   const fp=await hash([lic,song.id,song.title,made,t,now.toISOString()].join("|"));
   const all=store.list("velora_licenses"); all.push({lic,song:song.id,title:song.title,type:PRICES[t].label,issued:now.toISOString(),songDate:made,fp}); store.set("velora_licenses",all.slice(-50));
-  openModal(`<h2 id="mTitle">You're licensed${demoTag}</h2>
-  <div class="cert"><h3>Velora License Certificate</h3>${DEMO?'<div class="small">Example certificate. Not a real license.</div>':""}
+  openModal(`<h2 id="mTitle">You're licensed (demo)</h2>
+  <div class="cert"><h3>Velora License Certificate</h3><div class="small">Example certificate. Not a real license.</div>
   <dl><dt>License ID</dt><dd><b>${esc(lic)}</b></dd><dt>Song</dt><dd>${esc(song.title)} (${esc(song.id)})</dd><dt>Type</dt><dd>${esc(PRICES[t].label)}</dd>
   <dt>Issued</dt><dd>${longDateTime(now)}</dd><dt>Song created</dt><dd>${longDate(made)}</dd>
   <dt>Rights holder</dt><dd>${holderOf(song)}</dd><dt>Fingerprint</dt><dd class="mono">${esc(fp.slice(0,32))}…</dd></dl></div>
   <div class="row" style="margin-top:14px"><a class="btn primary" href="#/verify?id=${encodeURIComponent(lic)}" id="mVerify">Verify this license</a><button type="button" class="btn" id="mDone">Close</button></div>`);
   $("#mDone").onclick=closeM; $("#mVerify").onclick=e=>{ e.preventDefault(); closeM(); const h="#/verify?id="+encodeURIComponent(lic); if(npOpen) closeNP(false, h); else location.hash=h; };
+}
+// ---------- Real licenses (written by the server after a payment) ----------
+const licBad = l => l.status==="active" ? "" : l.status==="refunded" ? "Refunded. This license is no longer valid." : l.status==="revoked" ? "Withdrawn. This license is no longer valid."
+  : "The Premium membership has ended. Content published while it ran stays covered; new content is not.";
+function certHTML(l){
+  const s=byId(l.song_id), bad=licBad(l);
+  return `<div class="cert${bad?" off":""}"><h3>Velora License Certificate</h3>${bad?`<div class="small certbad" role="status">${esc(bad)}</div>`:""}
+  <dl><dt>License ID</dt><dd><b>${esc(l.id)}</b></dd><dt>Song</dt><dd>${esc(s?s.title:(l.song_title||"Song"))} (${esc(l.song_id)})</dd><dt>Type</dt><dd>${esc(LIC_NAME[l.type]||l.type)}</dd>
+  <dt>Licensed to</dt><dd>${esc(l.buyer_name||"")}</dd><dt>Covers</dt><dd>${esc(l.allowed_use||"")}</dd>
+  <dt>Issued</dt><dd>${longDateTime(l.issued_at)}</dd>${l.valid_until?`<dt>Publish by</dt><dd>${longDate(l.valid_until)}</dd>`:""}
+  <dt>Rights holder</dt><dd>${s?holderOf(s):esc(CREATOR)}</dd></dl></div>`;
+}
+// What a buyer can do with a license: get the song file, check the number, keep the page.
+function certActions(l){
+  const s=byId(l.song_id), ok=l.status==="active";
+  return `<div class="row certrow" style="margin-top:14px">${ok&&s&&s.audio?`<button type="button" class="btn primary" data-getsong="${esc(s.id)}">${icon("download")}Download the song</button>`:""}<a class="btn" href="#/verify?id=${encodeURIComponent(l.id)}" data-close-np>Check this number</a><button type="button" class="btn ghost" data-print>Print or save as PDF</button></div>`;
+}
+function certModal(l, fresh){
+  openModal(`<h2 id="mTitle">${fresh?"You're licensed":"Your license"}</h2>${certHTML(l)}${certActions(l)}<p class="muted small" style="margin:12px 0 0">Keep the license number: anyone can check it on the “Verify a license” page.</p>`);
+}
+// Licenses bought on this device (number and song only), so a buyer without an account finds them again.
+function rememberLicense(l){ const all=store.list("velora_bought").filter(x=>x && x.id!==l.id); all.push({id:l.id, song:l.song_id, title:l.song_title||"", at:l.issued_at}); store.set("velora_bought", all.slice(-50)); }
+// The song file for a license holder. Same site or the file server: saved as a file; elsewhere it opens in a new tab.
+async function getSong(id){
+  const s=byId(id); if(!s||!s.audio) return; const src=url(s.audio), name=(s.title||s.id).replace(/[^\w\- ]+/g,"").trim().slice(0,80)+".mp3";
+  toast("Getting the song file…");
+  try{ const r=await fetch(src); if(!r.ok) throw new Error("no"); const blob=await r.blob(), a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 60000); }
+  catch(e){ const a=document.createElement("a"); a.href=src; a.download=name; a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
+}
+// Back from the payment provider: show the license (or Premium) as soon as the provider's message has arrived.
+function thanksView(params){
+  const ref=(params.get("ref")||"").slice(0,200), kind=params.get("kind")||"";
+  if(!Backend.enabled || !/^[A-Za-z0-9_]{20,200}$/.test(ref)){ main.innerHTML=`<h1 class="pagetitle">Thank you</h1><p class="muted">There is no payment to show here.</p><a class="btn" href="#/">Back to the music</a>`; return; }
+  main.innerHTML=`<h1 class="pagetitle">Thank you</h1><div id="thx" aria-live="polite" style="max-width:640px"><p class="muted" role="status">Your payment went through. One moment: your ${kind==="premium"?"Premium":"license"} is being prepared…</p></div>`;
+  const box=$("#thx"), alive=()=>box.isConnected && location.hash.startsWith("#/thanks"); let tries=0;
+  const late=again=>{ box.innerHTML=`<div class="note">Your payment went through, and the confirmation is still on its way to us. This usually takes less than a minute. Nothing is lost: keep this page open.</div><div class="row" style="margin-top:12px"><button type="button" class="btn primary" id="thxAgain">Check again</button></div>`;
+    $("#thxAgain").onclick=()=>{ tries=0; box.innerHTML=`<p class="muted" role="status">Checking…</p>`; again(); }; };
+  if(kind==="premium"){
+    const tick=async()=>{ if(!alive()) return; try{ await Backend.reload(); }catch(e){} if(!alive()) return;
+      if(Backend.premium){ box.innerHTML=`<div class="panel"><h3>Premium is active</h3><p>Every song is now included: open a song, choose “License”, and get its certificate. You can manage or cancel Premium in your account.</p><div class="row"><a class="btn primary" href="#/search">Pick a song</a><a class="btn" href="#/account">Your account</a></div></div>`; return; }
+      if(!Backend.user){ box.innerHTML=`<p>Your payment went through. Sign in to see your Premium.</p><div id="thxAuth"></div>`; authPanel($("#thxAuth"), ()=>{ if(alive()){ box.innerHTML=`<p class="muted" role="status">Checking…</p>`; tick(); } }); return; }
+      if(++tries<24) setTimeout(tick, 2500); else late(tick); };
+    tick(); return;
+  }
+  const tick=async()=>{ if(!alive()) return; let l=null; try{ l=await Backend.claim(ref); }catch(e){} if(!alive()) return;
+    if(l && l.id){ rememberLicense(l);
+      box.innerHTML=`<p>Your license is ready. ${Backend.user?"It is also listed in your account.":"Keep the license number. If you create an account with the email address you paid with, your licenses are listed there."}</p>${certHTML(l)}${certActions(l)}<div class="row" style="margin-top:18px"><a class="btn ghost" href="#/song/${encodeURIComponent(l.song_id)}">Back to the song</a></div>`; return; }
+    if(++tries<30) setTimeout(tick, 2000); else late(tick); };
+  tick();
 }
 
 // ---------- Building blocks for the pages ----------
@@ -818,8 +933,8 @@ function openVideo(s, wide){
 function tiersHTML(){ return `<div class="tiers">
   <div class="tier"><h3>Rent a track</h3><div class="price">${esc(PRICES.rent.price)}</div><div class="muted small">${esc(PRICES.rent.per)}</div><ul><li>One song, one channel</li><li>Perfect for a single video or campaign</li><li>Dated certificate</li></ul><a class="btn" href="#/search">Pick a song</a></div>
   <div class="tier feat-tier"><h3>Buy usage rights</h3><div class="price">${esc(PRICES.buy.price)}</div><div class="muted small">${esc(PRICES.buy.per)}</div><ul><li>Use it forever, non-exclusive</li><li>The song stays in the catalogue</li><li>Exclusive available on request</li><li>Dated certificate</li></ul><a class="btn primary" href="#/search">Pick a song</a></div>
-  <div class="tier"><h3>Premium</h3><div class="price">${esc(PRICES.sub.price)}</div><div class="muted small">${esc(PRICES.sub.per)}</div><ul><li>Rent any song while subscribed</li><li>Radio and songs without ads</li><li>Every category, every new release</li><li>Cancel anytime</li></ul><button type="button" class="btn blue" data-sub>Start Premium${demoTag}</button></div>
- </div>${DEMO?'<p class="muted small">Example prices and terms.</p>':""}`; }
+  <div class="tier"><h3>Premium</h3><div class="price">${esc(PRICES.sub.price)}</div><div class="muted small">${esc(PRICES.sub.per)}</div><ul><li>Every song, for content you publish while a member</li><li>Radio and songs without ads</li><li>Every category, every new release</li><li>Cancel anytime</li></ul><button type="button" class="btn blue" data-sub>Start Premium${dTag()}</button></div>
+ </div>${payDemo()?'<p class="muted small">Example prices and terms.</p>':""}`; }
 
 // Search: the categories ("Browse all") and every song; typing filters by title, artist, genre, mood or lyric.
 let searchQ = "";
@@ -928,15 +1043,26 @@ function videosView(){
 function pricing(){ main.innerHTML=`<h1 class="pagetitle">Pricing</h1><p class="muted">Three simple ways to use the music.</p>${tiersHTML()}
  <div class="row-head" style="margin-top:28px"><h2>Questions</h2></div><div class="faq">
  <details open><summary>If I buy a song, is it only mine?</summary><p>No, buying usage rights is non-exclusive. The song stays in the Velora catalogue and others can license it too. If you need it to be yours alone, request Exclusive rights and the song will be removed for new buyers only when you ask.</p></details>
- <details><summary>What does renting cover?</summary><p>Use in your videos and posts on one channel while the rental is active.${DEMO?" Example terms.":""}</p></details>
+ <details><summary>What does renting cover?</summary><p>One piece of content on one channel, published within the rental time. Once it is published in time it may stay online.${payDemo()?" Example terms.":` The full text is in the <a href="#/license">License terms</a>.`}</p></details>
  <details><summary>How do I prove I have a license?</summary><p>Every license comes with a dated certificate and an ID anyone can check on the <a href="#/verify">Verify page</a>.</p></details>
  <details><summary>Is the radio free?</summary><p>Yes. The radio and full-song listening are free. Premium is for using the songs in your own videos, and for listening without ads once ads start.</p></details>
  <details><summary>Who makes the music?</summary><p>${esc(CREATOR)} writes the lyrics, concepts and song design, and produces the music with Suno (AI-assisted).</p></details></div>`; }
 function verify(params){
-  const id=(params.get("id")||"").slice(0,40);
-  main.innerHTML=`<h1 class="pagetitle">Verify a license</h1><p class="muted">Enter a license ID to see its record and date.</p><form id="vf" class="row" style="max-width:560px"><div class="field" style="flex:1;margin:0"><label for="vid" class="sr">License ID</label><input id="vid" maxlength="40" autocomplete="off" autocapitalize="characters" placeholder="VL-2026-XXXXXXXX" value="${esc(id)}"></div><button class="btn primary">Verify</button></form><div id="vr" style="margin-top:18px;max-width:640px" aria-live="polite"></div>`;
-  const run=()=>{ const v=$("#vid").value.trim().toUpperCase(); const rec=store.list("velora_licenses").find(r=>r && r.lic===v);
-    $("#vr").innerHTML= !v?"": rec?`<div class="cert"><h3>Valid license${demoTag}</h3><dl><dt>License ID</dt><dd>${esc(rec.lic)}</dd><dt>Song</dt><dd>${esc(rec.title)} (${esc(rec.song)})</dd><dt>Type</dt><dd>${esc(rec.type)}</dd><dt>Issued</dt><dd>${longDateTime(rec.issued)}</dd><dt>Song created</dt><dd>${longDate(rec.songDate)}</dd></dl></div>`:`<div class="note">No license found with that ID.${DEMO?" In this preview, licenses are only stored in the browser that made them.":""}</div>`; };
+  const id=(params.get("id")||"").slice(0,40), mine=store.list("velora_bought").filter(x=>x && typeof x.id==="string").slice(-10).reverse();
+  main.innerHTML=`<h1 class="pagetitle">Verify a license</h1><p class="muted">Enter a license ID to see its record and date.</p><form id="vf" class="row" style="max-width:560px"><div class="field" style="flex:1;margin:0"><label for="vid" class="sr">License ID</label><input id="vid" maxlength="40" autocomplete="off" autocapitalize="characters" placeholder="VL-2026-XXXXXXXX" value="${esc(id)}"></div><button class="btn primary">Verify</button></form><div id="vr" style="margin-top:18px;max-width:640px" aria-live="polite"></div>
+  ${mine.length?`<div class="panel" style="max-width:640px"><h3>Bought on this device</h3><div class="schedule">${mine.map(x=>{ const sg=byId(x.song); return `<a class="slot tap" href="#/verify?id=${encodeURIComponent(x.id)}"><span><b>${esc(sg?sg.title:(x.title||x.song||""))}</b></span><span class="muted">${esc(x.id)}</span></a>`; }).join("")}</div></div>`:""}`;
+  const box=$("#vr"), none=extra=>`<div class="note">No license found with that ID.${extra||""}</div>`;
+  const run=async()=>{ const v=$("#vid").value.trim().toUpperCase(); if(!v){ box.innerHTML=""; return; }
+    const rec=store.list("velora_licenses").find(r=>r && r.lic===v);       // a demo license made in this browser
+    if(rec){ box.innerHTML=`<div class="cert"><h3>Valid license (demo)</h3><dl><dt>License ID</dt><dd>${esc(rec.lic)}</dd><dt>Song</dt><dd>${esc(rec.title)} (${esc(rec.song)})</dd><dt>Type</dt><dd>${esc(rec.type)}</dd><dt>Issued</dt><dd>${longDateTime(rec.issued)}</dd><dt>Song created</dt><dd>${longDate(rec.songDate)}</dd></dl></div>`; return; }
+    if(!/^VL-[0-9]{4}-[A-Z0-9]{8,24}$/.test(v)){ box.innerHTML=`<div class="note">A license ID looks like VL-2026-AB12CD34EF.</div>`; return; }
+    if(!Backend.enabled){ box.innerHTML=none(payDemo()?" In this preview, licenses are only stored in the browser that made them.":""); return; }
+    box.innerHTML=`<p class="muted" role="status">Checking the register…</p>`;
+    let l=null, down=false; try{ l=await Backend.verify(v); }catch(e){ down=true; }
+    const now=$("#vid"); if(!box.isConnected || !now || now.value.trim().toUpperCase()!==v) return;
+    box.innerHTML = down ? `<div class="note">The license register can't be reached right now. Try again in a moment.</div>`
+      : l && l.id ? `<p class="verdict ${l.status==="active"?"ok":"bad"}">${l.status==="active"?icon("check")+"Valid license":"Not valid any more"}</p>${certHTML(l)}`
+      : none(payDemo()?" In this preview, demo licenses are only stored in the browser that made them.":""); };
   $("#vf").onsubmit=e=>{e.preventDefault();run();}; if(id) run();
 }
 // ---------- Sign-in, the account page and Settings ----------
@@ -1028,7 +1154,7 @@ function authPanel(box, done, opts){
   };
   if(opts.start==="join" && canJoin) join(); else signIn();
 }
-const privacyPanel = () => `<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently, ${AGE_GATE?"your answer to the age question":"your choice about explicit songs"}${DEMO?" and the demo licenses you made":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
+const privacyPanel = () => `<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently, ${AGE_GATE?"your answer to the age question":"your choice about explicit songs"}${payDemo()?" and the demo licenses you made":shopOpen()?" and the numbers of the licenses bought on it":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
 const wireWipe = () => { const w=$("#wipe"); if(w) w.onclick=()=>{ store.wipe(); applyAge(); toast("Cleared."); route(true); }; };
 function accountView(){
   if(!Backend.enabled){
@@ -1046,18 +1172,23 @@ function accountView(){
       authPanel($("#acctAuth"), again); return;
     }
     if(note && !note.error && note.type!=="recovery") toast("Your email is confirmed. You are signed in.");
+    if(shopOpen()) await Backend.linkPurchases();      // bought before signing in, with this email: now in the account
     const lic=await Backend.licenses(); if(!$("#acct")) return;
     const isOwner=Backend.role==="owner";
     box.innerHTML=`${note&&note.type==="recovery"&&!note.error?`<div class="panel auth" id="newPw"><h3>Choose a new password</h3><p class="small">You came from the email. Set your new password now.</p>
       <form id="npForm">${pwField("np1",`New password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}<button class="btn primary" type="submit">Save the new password</button><p class="formmsg" role="alert"></p></form></div>`:""}
     <div class="panel"><h3 id="acName">${esc(Backend.name||u.email||"Signed in")}</h3><p class="small">${esc(u.email)} · ${isOwner?"Owner":Backend.canUpload()?"Creator":"Listener"}${Backend.premium?" · Premium":""}</p>
       <div class="row">${Backend.canUpload()?`<a class="btn primary sm" href="#/upload">${icon("upload")}Upload a song</a><a class="btn sm" href="#/studio">My songs</a>`:""}<button type="button" class="btn ghost sm" id="so">Sign out</button></div></div>
-    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map(l=>{ const sg=byId(l.song_id); return `<div class="slot"><span><b>${esc(sg?sg.title:l.song_id)}</b> · ${esc(l.type)}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></div>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>
+    ${Backend.premium?`<div class="panel"><h3>Premium</h3><p class="small">Premium is active: every song is included. It renews every month until you cancel.</p><div class="row"><button type="button" class="btn sm" id="premManage">Manage or cancel Premium</button></div><p class="formmsg" id="premMsg" role="alert"></p></div>`:""}
+    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map((l,i)=>{ const sg=byId(l.song_id); return `<button type="button" class="slot tap" data-mylic="${i}"><span><b>${esc(sg?sg.title:(l.song_title||l.song_id))}</b> · ${esc(LIC_NAME[l.type]||l.type)}${l.status&&l.status!=="active"?` · <span class="certbad">${esc(l.status)}</span>`:""}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></button>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>
     <div class="panel auth"><h3>Account settings</h3>
       <form id="nmForm"><div class="field"><label for="acNm">Your name</label><input id="acNm" type="text" required maxlength="80" autocomplete="name" value="${esc(Backend.name)}"></div><button class="btn sm" type="submit">Save the name</button><p class="formmsg" role="alert"></p></form>
       <form id="pwForm" style="margin-top:18px">${pwField("acPw",`New password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}<button class="btn sm" type="submit">Change the password</button><p class="formmsg" role="alert"></p></form>
       ${isOwner?"":`<button type="button" class="linkbtn danger" id="delAcc">Delete my account</button>`}</div>`;
     $("#so").onclick=()=>{ linkNote=null; Backend.signOut().then(()=>toast("Signed out.")); };
+    box.querySelectorAll("[data-mylic]").forEach(b=>{ b.onclick=()=>{ const l=lic[+b.dataset.mylic]; if(l) certModal(l, false); }; });
+    const pm=$("#premManage"); if(pm) pm.onclick=async()=>{ pm.disabled=true; $("#premMsg").textContent="";
+      try{ location.href=await Backend.checkout({kind:"manage"}); }catch(err){ pm.disabled=false; if($("#premMsg")) $("#premMsg").textContent = err.code==="closed" ? "This page is not available right now. Write to us and we cancel it for you." : err.message; } };
     const form=(sel,f)=>{ const fm=$(sel); if(!fm) return; fm.onsubmit=async e=>{ e.preventDefault(); const btn=fm.querySelector("button[type=submit]"), msg=fm.querySelector(".formmsg"); btn.disabled=true; msg.textContent="";
       try{ await f(fm,msg); }catch(err){ if(msg.isConnected) msg.textContent=err.message; } finally{ btn.disabled=false; } }; };
     const newPw=async(input,msg)=>{ const pw=input.value; if(pw.length<MIN_PW){ msg.textContent=`Use ${MIN_PW} characters or more.`; return false; } await Backend.setPassword(pw); input.value=""; return true; };
@@ -1182,6 +1313,8 @@ document.addEventListener("click",e=>{
   const rc=e.target.closest("[data-record]"); if(rc){ e.preventDefault(); const s=byId(rc.dataset.record); if(s) openRecord(s); return; }
   const cr=e.target.closest("[data-credits]"); if(cr){ e.preventDefault(); const s=byId(cr.dataset.credits); if(s) openCredits(s); return; }
   const l=e.target.closest("[data-lic]"); if(l){ e.preventDefault(); openLicense(byId(l.dataset.lic), l.dataset.pre||"rent"); return; }
+  const gs=e.target.closest("[data-getsong]"); if(gs){ e.preventDefault(); getSong(gs.dataset.getsong); return; }
+  if(e.target.closest("[data-print]")){ e.preventDefault(); document.body.classList.add("printcert"); const done=()=>{ document.body.classList.remove("printcert"); window.removeEventListener("afterprint",done); }; window.addEventListener("afterprint",done); setTimeout(done,60000); window.print(); return; }
   const mo=e.target.closest("[data-more]"); if(mo){ const k=mo.dataset.more, r=ROWS[k]; if(r){ r.shown+=PAGE; const box=document.getElementById("rows-"+k); if(box) box.innerHTML=rowsInner(k, mo.hasAttribute("data-numbered")); } return; }
   // Tap a song anywhere: it plays and its full screen opens (cover, lyrics, video, license).
   const t=e.target.closest("[data-song]"); if(t){ e.preventDefault(); const s=byId(t.dataset.song); if(!s) return; const row=ROWS[t.dataset.list]||{list:[s],label:s.genre};
@@ -1211,14 +1344,14 @@ function route(keep){
   const navPath = path.startsWith("/song") || path.startsWith("/genre") || path.startsWith("/artist") || path==="/library" ? "/search" : path;
   document.querySelectorAll(".topnav a").forEach(a=>{ const on=a.getAttribute("href")==="#"+navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   document.querySelectorAll(".tabbar [data-tab]").forEach(a=>{ const on=a.dataset.tab===navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account","/settings":"Settings","/upload":"Upload a song","/studio":"My songs"};
+  const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account","/settings":"Settings","/upload":"Upload a song","/studio":"My songs","/thanks":"Thank you"};
   let title=names[navPath]||"";
   if(path==="/") home(); else if(path==="/search"||path==="/library") searchView(params);
   else if(path.startsWith("/song/")){ const id=decode(path.split("/")[2]); song(id); const s=byId(id); if(s) title=s.title; }
   else if(path.startsWith("/genre/")){ const id=decode(path.split("/")[2]); genreView(id); const c=catById(id); if(c) title=c.name; }
   else if(path.startsWith("/artist/")){ const id=decode(path.split("/")[2]); artistView(id); const a=artistById(id); if(a) title=a.name; }
   else if(path==="/radio") radioView(); else if(path==="/videos") videosView(); else if(path==="/pricing") pricing(); else if(path==="/verify") verify(params);
-  else if(path==="/account") accountView(); else if(path==="/settings") settingsView();
+  else if(path==="/account") accountView(); else if(path==="/settings") settingsView(); else if(path==="/thanks") thanksView(params);
   else if(LEGAL.has(path)) legalView(path);
   else if(path==="/upload"||path==="/studio") studioView(path, params);
   else if(path==="/stream"){ home(); startStream(); } else home();
@@ -1227,6 +1360,13 @@ function route(keep){
   if(keep!==true) window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",()=>route());
+// Back from the payment provider: its checkout reference arrives as ?paid=…; move it into the thanks page's address.
+(function(){ let q; try{ q=new URLSearchParams(location.search); }catch(e){ return; }
+  const ref=q.get("paid")||""; if(!ref) return;
+  const kind=/^(rent|buy|premium)$/.test(q.get("kind")||"") ? q.get("kind") : "";
+  const to="#/thanks?ref="+encodeURIComponent(ref.slice(0,200))+(kind?"&kind="+kind:"");
+  try{ history.replaceState(null,"",location.pathname+to); }catch(e){ location.hash=to; } })();
+if(Backend.enabled && Backend.shop) Backend.shop().then(applyShop).catch(()=>{});
 if(Backend.linkInAddress && Backend.linkInAddress()){          // back from a link in an email: take the sign-in over first
   main.innerHTML=`<p class="muted" role="status">One moment…</p>`;
   Backend.fromLink().then(n=>{ linkNote=n; route(); }).catch(()=>route());

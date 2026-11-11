@@ -20,6 +20,7 @@ CORS = {"access-control-allow-origin": "*", "access-control-allow-headers": "*",
 async def empty_backend(route):
     if route.request.method == "OPTIONS": await route.fulfill(status=204, headers=CORS)
     elif "/rest/v1/rpc/public_catalogue" in route.request.url: await route.fulfill(status=200, headers={**CORS, "content-type": "application/json"}, body='{"complete":true,"songs":[],"artists":[]}')
+    elif "/rest/v1/rpc/shop_info" in route.request.url: await route.fulfill(status=200, headers={**CORS, "content-type": "application/json"}, body='{"open":false,"currency":"eur","rent":900,"buy":4900,"premium":1400,"rent_days":30}')
     else: await route.fulfill(status=404, headers={**CORS, "content-type": "application/json"}, body='{"message":"not in the stand-in"}')
 
 def check(name, ok, detail=""):

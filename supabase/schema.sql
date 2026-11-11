@@ -8,7 +8,8 @@
 --  1. Visitors (no account) read only what is published, through public_catalogue().
 --  2. Nobody writes to a table directly. Every change goes through a function in this file,
 --     which checks who is asking and what they send.
---  3. Money and rights (premium, licenses) are written only by the server.
+--  3. Money and rights (Premium, licenses) are written only by the server, after the payment provider confirms a payment.
+--     The shop is one row (private.shop) and starts closed.
 --  4. Ownership records are append-only. They can't be changed or deleted, and each one carries the
 --     fingerprint of the one before it, so an edit or a gap would show.
 --  5. Uploaded files live in the storage bucket "media", each account in its own folder; files can be
@@ -29,21 +30,35 @@ create table public.profiles (
 create table public.entitlements (
   user_id uuid primary key references auth.users (id) on delete cascade,
   premium_until timestamptz,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  provider_customer text check (provider_customer is null or char_length(provider_customer) <= 200)   -- the provider's customer number, to cancel later
 );
 
+-- A license is written only by the server after a payment (or for a Premium member). It can belong to no account:
+-- bought without signing in, or kept after its account was deleted.
 create table public.licenses (
   id text primary key check (id ~ '^VL-[0-9]{4}-[A-Z0-9]{8,}$'),
-  user_id uuid not null references auth.users (id) on delete restrict,
+  user_id uuid references auth.users (id) on delete set null,
   song_id text not null check (song_id ~ '^(rm|vs)-[0-9]{4,}$'),
   type text not null check (type in ('rent', 'buy', 'exclusive', 'premium')),
   buyer_name text not null check (char_length(buyer_name) between 1 and 120),
   allowed_use text not null check (char_length(allowed_use) <= 400),
   issued_at timestamptz not null default now(),
-  valid_until timestamptz,
-  payment_ref text
+  valid_until timestamptz,                        -- rent: the last day to publish the content
+  payment_ref text,                               -- the provider's checkout reference; the buyer comes back with it
+  buyer_email text check (buyer_email is null or char_length(buyer_email) <= 254),
+  song_title text check (song_title is null or char_length(song_title) <= 160),
+  status text not null default 'active' check (status in ('active', 'refunded', 'revoked')),
+  amount_cents integer check (amount_cents is null or amount_cents >= 0),
+  currency text check (currency is null or currency ~ '^[a-z]{3}$'),
+  consent_at timestamptz,                         -- when the buyer agreed to immediate delivery (EU withdrawal rule)
+  provider_ref text                               -- the provider's payment id, for refunds
 );
 create index licenses_user_idx on public.licenses (user_id, issued_at desc);
+create unique index licenses_payment_ref_key on public.licenses (payment_ref) where payment_ref is not null;
+create unique index licenses_premium_one on public.licenses (user_id, song_id) where type = 'premium';
+create index licenses_guest_email_idx on public.licenses (buyer_email) where user_id is null;
+create index licenses_provider_ref_idx on public.licenses (provider_ref) where provider_ref is not null;
 
 -- ---------- Artists and songs ----------
 create table public.artists (
@@ -126,6 +141,20 @@ create table private.owner_setup (
   owner_id uuid
 );
 
+-- ---------- The shop ----------
+-- One row. Closed until the business is registered and the payment provider is set up (docs/GO-LIVE.md).
+-- Prices are in cents and are what the server charges; the site shows these once the shop is open.
+create table private.shop (
+  id integer primary key default 1 check (id = 1),
+  open boolean not null default false,
+  currency text not null default 'eur' check (currency ~ '^[a-z]{3}$'),
+  rent_cents integer not null default 900 check (rent_cents >= 50),
+  buy_cents integer not null default 4900 check (buy_cents >= 50),
+  premium_cents integer not null default 1400 check (premium_cents >= 50),
+  rent_days integer not null default 30 check (rent_days between 1 and 365)
+);
+insert into private.shop (id) values (1);
+
 -- ---------- Who may read what ----------
 alter table public.profiles enable row level security;
 alter table public.entitlements enable row level security;
@@ -134,6 +163,7 @@ alter table public.artists enable row level security;
 alter table public.songs enable row level security;
 alter table public.ownership_records enable row level security;
 alter table private.owner_setup enable row level security;
+alter table private.shop enable row level security;
 
 revoke all on public.profiles, public.entitlements, public.licenses, public.artists, public.songs, public.ownership_records from anon, authenticated;
 revoke all on sequence public.song_number from anon, authenticated;
@@ -250,14 +280,6 @@ language sql stable security definer set search_path = '' as $$
   where r.song_id = p_song and s.status = 'published';
 $$;
 
--- Everyone: check a license number (only what a certificate shows).
-create function public.verify_license(license_id text)
-returns table (id text, song_id text, type text, buyer_name text, issued_at timestamptz, valid_until timestamptz)
-language sql stable security definer set search_path = '' as $$
-  select l.id, l.song_id, l.type, l.buyer_name, l.issued_at, l.valid_until
-  from public.licenses l where l.id = upper(license_id);
-$$;
-
 -- Signed in: who am I. (The four "my ..." read functions run with the caller's own rights:
 -- the row rules above already let a person read their own rows.)
 create function public.my_profile() returns json
@@ -271,7 +293,8 @@ $$;
 
 create function public.my_licenses() returns json
 language sql stable security invoker set search_path = '' as $$
-  select coalesce(json_agg(json_build_object('id', l.id, 'song_id', l.song_id, 'type', l.type, 'issued_at', l.issued_at, 'valid_until', l.valid_until) order by l.issued_at desc), '[]'::json)
+  select coalesce(json_agg(json_build_object('id', l.id, 'song_id', l.song_id, 'song_title', l.song_title, 'type', l.type, 'buyer_name', l.buyer_name,
+           'allowed_use', l.allowed_use, 'issued_at', l.issued_at, 'valid_until', l.valid_until, 'status', l.status) order by l.issued_at desc), '[]'::json)
   from public.licenses l where l.user_id = (select auth.uid());
 $$;
 
@@ -553,17 +576,183 @@ begin
   return 'ok';
 end $$;
 
+-- ---------- The shop: paid licenses and Premium ----------
+-- What a certificate shows (never the buyer's email or the amount).
+create function private.license_json(l public.licenses) returns json
+language sql stable set search_path = '' as $$
+  select json_build_object('id', l.id, 'song_id', l.song_id, 'song_title', l.song_title, 'type', l.type, 'buyer_name', l.buyer_name,
+    'allowed_use', l.allowed_use, 'issued_at', l.issued_at, 'valid_until', l.valid_until, 'status', l.status);
+$$;
+
+-- The sentence on the certificate. The full terms are the site's License terms page.
+create function private.allowed_use(p_type text, p_days integer) returns text
+language sql immutable set search_path = '' as $$
+  select case p_type
+    when 'rent' then 'One piece of content on one channel, published within ' || p_days || ' days of purchase. Content published in time may stay online.'
+    when 'buy' then 'Unlimited content on the buyer''s own channels, for life. Not exclusive.'
+    when 'premium' then 'Content published on the member''s own channels while Premium is active. Content published in that time may stay online.'
+    else 'By written agreement.' end;
+$$;
+
+-- Everyone: is the shop open, and what does it charge (in cents).
+create function public.shop_info() returns json
+language sql stable security definer set search_path = '' as $$
+  select json_build_object('open', s.open, 'currency', s.currency, 'rent', s.rent_cents, 'buy', s.buy_cents, 'premium', s.premium_cents, 'rent_days', s.rent_days)
+  from private.shop s where s.id = 1;
+$$;
+
+-- The payment webhook only: a paid rent or buy becomes one license. The same payment told twice gives the same license.
+create function public.record_purchase(p jsonb) returns json
+language plpgsql security definer set search_path = '' as $$
+declare
+  sh private.shop; l public.licenses; v_user uuid; v_real text; tries integer := 0;
+  v_kind text := p->>'kind'; v_song text := p->>'song_id'; v_ref text := nullif(left(btrim(coalesce(p->>'payment_ref', '')), 200), '');
+  v_name text := nullif(left(btrim(regexp_replace(coalesce(p->>'buyer_name', ''), '[[:cntrl:]<>]', '', 'g')), 120), '');
+  v_title text := nullif(left(btrim(regexp_replace(coalesce(p->>'song_title', ''), '[[:cntrl:]<>]', '', 'g')), 160), '');
+  v_email text := nullif(lower(left(btrim(coalesce(p->>'buyer_email', '')), 254)), '');
+  v_cur text := nullif(lower(btrim(coalesce(p->>'currency', ''))), '');
+  v_consent timestamptz; v_amount integer;
+begin
+  if v_kind is null or v_kind not in ('rent', 'buy') then raise exception 'Unknown purchase.'; end if;
+  if v_song is null or v_song !~ '^(rm|vs)-[0-9]{4,}$' then raise exception 'Unknown song.'; end if;
+  if v_ref is null then raise exception 'A payment reference is needed.'; end if;
+  select * into l from public.licenses where payment_ref = v_ref;
+  if found then return private.license_json(l); end if;
+  select * into sh from private.shop where id = 1;
+  begin v_user := nullif(p->>'user_id', '')::uuid; exception when others then v_user := null; end;
+  if v_user is not null and not exists (select 1 from auth.users u where u.id = v_user) then v_user := null; end if;
+  begin v_consent := nullif(p->>'consent_at', '')::timestamptz; exception when others then v_consent := null; end;
+  begin v_amount := nullif(p->>'amount_cents', '')::integer; exception when others then v_amount := null; end;
+  if v_amount is not null and v_amount < 0 then v_amount := null; end if;
+  if v_cur is not null and v_cur !~ '^[a-z]{3}$' then v_cur := null; end if;
+  -- An uploaded song is named as the catalogue names it, whatever the browser sent.
+  select left(s.title || case when s.version is not null then ' (' || s.version || ')' else '' end, 160) into v_real
+  from public.songs s where s.id = v_song and s.status <> 'draft';
+  loop
+    begin
+      insert into public.licenses (id, user_id, buyer_email, song_id, song_title, type, buyer_name, allowed_use, valid_until, amount_cents, currency, consent_at, payment_ref, provider_ref)
+      values ('VL-' || to_char(now() at time zone 'UTC', 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)),
+              v_user, v_email, v_song, coalesce(v_real, v_title), v_kind, coalesce(v_name, 'Licensee'), private.allowed_use(v_kind, sh.rent_days),
+              case when v_kind = 'rent' then now() + make_interval(days => sh.rent_days) end,
+              v_amount, v_cur, v_consent, v_ref, nullif(left(btrim(coalesce(p->>'provider_ref', '')), 200), ''))
+      returning * into l;
+      exit;
+    exception when unique_violation then
+      select * into l from public.licenses where payment_ref = v_ref;
+      if found then exit; end if;
+      tries := tries + 1; if tries > 5 then raise; end if;
+    end;
+  end loop;
+  return private.license_json(l);
+end $$;
+
+-- The payment webhook only: Premium for an account until a date. mode "extend" never shortens; "set" ends it at that time.
+create function public.record_premium(p jsonb) returns json
+language plpgsql security definer set search_path = '' as $$
+declare v_user uuid; v_until timestamptz; v_mode text := coalesce(p->>'mode', 'extend'); e public.entitlements;
+        v_cust text := nullif(left(btrim(coalesce(p->>'customer', '')), 200), '');
+begin
+  begin v_user := (p->>'user_id')::uuid; v_until := (p->>'until')::timestamptz; exception when others then raise exception 'Bad Premium message.'; end;
+  if v_user is null or v_until is null then raise exception 'Bad Premium message.'; end if;
+  if not exists (select 1 from auth.users u where u.id = v_user) then return json_build_object('user_id', v_user, 'premium_until', null, 'unknown', true); end if;
+  insert into public.entitlements (user_id, premium_until, updated_at, provider_customer) values (v_user, v_until, now(), v_cust)
+  on conflict (user_id) do update set updated_at = now(),
+    provider_customer = coalesce(excluded.provider_customer, public.entitlements.provider_customer),
+    premium_until = case when v_mode = 'set' then excluded.premium_until
+                         else greatest(coalesce(public.entitlements.premium_until, excluded.premium_until), excluded.premium_until) end
+  returning * into e;
+  return json_build_object('user_id', e.user_id, 'premium_until', e.premium_until);
+end $$;
+
+-- The checkout function only: the provider's customer number of a member (to open the page where Premium is cancelled).
+create function public.premium_customer(p_user uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select e.provider_customer from public.entitlements e where e.user_id = p_user;
+$$;
+
+-- The payment webhook only: a payment was refunded in full, so its license no longer counts.
+create function public.record_refund(p jsonb) returns integer
+language plpgsql security definer set search_path = '' as $$
+declare v_pay text := nullif(btrim(coalesce(p->>'provider_ref', '')), ''); v_ref text := nullif(btrim(coalesce(p->>'payment_ref', '')), ''); n integer;
+begin
+  if v_pay is null and v_ref is null then return 0; end if;
+  update public.licenses l set status = 'refunded'
+  where l.status = 'active' and ((v_pay is not null and l.provider_ref = v_pay) or (v_ref is not null and l.payment_ref = v_ref));
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- Everyone: after paying, the buyer comes back with the provider's reference (long and unguessable) and gets the license.
+create function public.claim_purchase(p_ref text) returns json
+language sql stable security definer set search_path = '' as $$
+  select private.license_json(l) from public.licenses l where char_length(coalesce(p_ref, '')) >= 20 and l.payment_ref = p_ref;
+$$;
+
+-- Signed in: licenses bought without an account, paid with my confirmed email address, become mine.
+create function public.link_my_purchases() returns integer
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := (select auth.uid()); em text; n integer;
+begin
+  if uid is null then return 0; end if;
+  select lower(u.email) into em from auth.users u where u.id = uid and u.email_confirmed_at is not null;
+  if em is null then return 0; end if;
+  update public.licenses l set user_id = uid where l.user_id is null and l.buyer_email = em;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- Signed in with Premium: the certificate for one song (one per song and account).
+create function public.premium_license(p_song text, p_title text) returns json
+language plpgsql security definer set search_path = '' as $$
+declare
+  uid uuid := (select auth.uid()); sh private.shop; l public.licenses; v_name text; v_real text;
+  v_title text := nullif(left(btrim(regexp_replace(coalesce(p_title, ''), '[[:cntrl:]<>]', '', 'g')), 160), '');
+begin
+  if uid is null then raise exception 'Sign in first.' using errcode = '28000'; end if;
+  if p_song is null or p_song !~ '^(rm|vs)-[0-9]{4,}$' then raise exception 'That song is not known.' using errcode = '22023'; end if;
+  if not exists (select 1 from public.entitlements e where e.user_id = uid and e.premium_until > now()) then
+    raise exception 'Premium is not active on this account.' using errcode = '42501'; end if;
+  select * into sh from private.shop where id = 1;
+  select p.display_name into v_name from public.profiles p where p.id = uid;
+  select left(s.title || case when s.version is not null then ' (' || s.version || ')' else '' end, 160) into v_real
+  from public.songs s where s.id = p_song and s.status <> 'draft';
+  insert into public.licenses (id, user_id, buyer_email, song_id, song_title, type, buyer_name, allowed_use)
+  values ('VL-' || to_char(now() at time zone 'UTC', 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)),
+          uid, (select lower(u.email) from auth.users u where u.id = uid), p_song, coalesce(v_real, v_title), 'premium',
+          coalesce(nullif(btrim(v_name), ''), 'Premium member'), private.allowed_use('premium', sh.rent_days))
+  on conflict do nothing;
+  select * into l from public.licenses where user_id = uid and song_id = p_song and type = 'premium';
+  if not found then raise exception 'That did not work. Try again.'; end if;
+  return private.license_json(l);
+end $$;
+
+-- Everyone: check a license number (only what a certificate shows). A Premium license counts while the membership runs.
+create function public.verify_license(license_id text) returns json
+language sql stable security definer set search_path = '' as $$
+  select json_build_object('id', l.id, 'song_id', l.song_id, 'song_title', l.song_title, 'type', l.type, 'buyer_name', l.buyer_name, 'allowed_use', l.allowed_use,
+    'issued_at', l.issued_at, 'valid_until', l.valid_until,
+    'status', case when l.status <> 'active' then l.status
+                   when l.type = 'premium' and not exists (select 1 from public.entitlements e where e.user_id = l.user_id and e.premium_until > now()) then 'membership ended'
+                   else 'active' end)
+  from public.licenses l where l.id = upper(btrim(coalesce(license_id, '')));
+$$;
+
 -- ---------- Who may call what ----------
 revoke all on function public.public_catalogue(), public.song_record(text), public.verify_license(text), public.my_profile(), public.my_licenses(),
   public.my_artists(), public.save_artist(jsonb), public.reserve_song(), public.publish_song(jsonb), public.my_songs(),
   public.my_records(text), public.set_song_listed(text, boolean), public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text),
-  public.set_my_name(text), public.delete_my_account() from public, anon, authenticated;
-grant execute on function public.public_catalogue(), public.song_record(text), public.verify_license(text) to anon, authenticated;
-grant execute on function public.set_my_name(text), public.delete_my_account() to authenticated;
+  public.set_my_name(text), public.delete_my_account(), public.shop_info(), public.record_purchase(jsonb), public.record_premium(jsonb),
+  public.record_refund(jsonb), public.claim_purchase(text), public.link_my_purchases(), public.premium_license(text, text), public.premium_customer(uuid)
+  from public, anon, authenticated;
+grant execute on function public.public_catalogue(), public.song_record(text), public.verify_license(text), public.shop_info(), public.claim_purchase(text) to anon, authenticated;
+grant execute on function public.set_my_name(text), public.delete_my_account(), public.link_my_purchases(), public.premium_license(text, text) to authenticated;
 grant execute on function public.my_profile(), public.my_licenses(), public.my_artists(), public.save_artist(jsonb), public.reserve_song(),
   public.publish_song(jsonb), public.my_songs(), public.my_records(text), public.set_song_listed(text, boolean) to authenticated;
-grant execute on function public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text) to service_role;
-revoke all on function private.handle_new_user(), private.no_change(), private.hex64(text) from public;
+-- The server's own key only: the owner setup and the two payment functions.
+grant execute on function public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text),
+  public.record_purchase(jsonb), public.record_premium(jsonb), public.record_refund(jsonb), public.premium_customer(uuid) to service_role;
+revoke all on function private.handle_new_user(), private.no_change(), private.hex64(text), private.license_json(public.licenses),
+  private.allowed_use(text, integer) from public;
 
 -- ---------- File storage ----------
 -- One public bucket. Everyone can open a file whose address they have; listing is not possible.

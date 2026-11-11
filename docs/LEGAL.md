@@ -38,10 +38,12 @@ Written 11 Nov 2026. **These are drafts by Claude, who is not a lawyer.** They a
 3. The payment provider confirms in writing that the catalogue is fine for them.
 4. A contact email that is read, for complaints, withdrawals and reports.
 5. Prices final, including VAT; invoices (ask the accountant: VAT on digital sales to other EU countries).
-6. The confirmation email after a purchase repeats the withdrawal consent.
+6. The confirmation email after a purchase repeats the withdrawal consent. (The tick box, the stored consent time and the certificate are built; this email waits for the site's own email sender, see `GO-LIVE.md`.)
 7. When other creators can upload (phase 2): terms for creators, a report form with a written decision each time, a way for the uploader to answer, and a rule for repeat offenders (EU Digital Services Act).
 
 ## Questions for the IP lawyer (one session)
+
+How payments work is in `PAYMENTS.md`.
 
 1. **What do I own?** The music and voices come from Suno, the lyrics and song design are mine. In the Netherlands and the EU, what protection does each song have, and how should the license terms say it?
 2. **Suno's terms.** I get commercial-use rights for songs made and downloaded while subscribed. Does that cover licensing the songs to other people (rent, buy, subscription) and granting an exclusive license?
@@ -53,3 +55,5 @@ Written 11 Nov 2026. **These are drafts by Claude, who is not a lawyer.** They a
 8. **AI labelling.** Is a synthetic singing voice a "deep fake" under Article 50 of the AI Act? Is the disclosure under "Credits" enough?
 9. **Explicit songs and sensual covers.** Any age-related duty for a music site in the Netherlands or the EU? Anything to watch for the app stores?
 10. **Withdrawal.** Is one tick box with both statements enough for song licenses? Do I need a "withdraw" button for Premium?
+11. **Premium and the first 14 days.** The Premium checkout does not ask the member to request an immediate start, so a member who withdraws in the first 14 days gets everything back. Keep it like that, or add the request and charge for the days used?
+12. **Records.** A license stays in the register after its account is deleted (name, email, amount, dates). Is that covered by the duty to keep sales records, and for how long?
