@@ -544,3 +544,14 @@ a.slot.tap{text-decoration:none}
   body.printcert .modal-back{background:none}
   body.printcert .modal{max-height:none;overflow:visible;border:0;background:none}
 }
+
+/* ---------- Inside the phone app (app/ folder) ---------- */
+/* The status bar lies over the page: keep the top bar and the pages below it. */
+html.native body{padding-top:env(safe-area-inset-top)}
+html.native body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--bg);z-index:60}
+html.native .topbar{top:env(safe-area-inset-top)}
+html.native .demo-banner,html.native #shSave{display:none}
+/* No licensing or Premium inside the app (store rules); the website has them. */
+html.nosales [data-lic],html.nosales [data-sub],html.nosales #miniLicense,html.nosales #miniLicIcon,html.nosales #npLicense,html.nosales #npLicTop,
+html.nosales a[href="#/pricing"],html.nosales .tiers{display:none !important}
+@media (max-width:900px){html.nosales .tabbar{grid-template-columns:repeat(4,1fr)}}

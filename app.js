@@ -27,9 +27,18 @@ const byId = id => ALL.find(s=>s.id===id);
 const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(c||"") ? c : "#5b7a99";
 // Links from settings may only be https addresses or pages of this site.
 const safeLink = u => /^(https:\/\/|#\/)/.test(u||"") ? u : "";
+// Inside the phone app (the app/ folder, Capacitor) the pages run from the app itself, not from a web address.
+const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==="function" && window.Capacitor.isNativePlatform());
 // Media is served from the GitHub repo through the jsDelivr CDN when hosted, and from the local folder on localhost.
-const LOCAL = /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
-const MEDIA_BASE = LOCAL ? "" : `https://cdn.jsdelivr.net/gh/${CFG.mediaRepo}@${CFG.mediaRev}/`;
+// config.js mediaFrom:"site" = from the site's own folder (after the move to our own hosting); the app then uses siteUrl.
+const LOCAL = !NATIVE && /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
+const SITE = /^https:\/\/[^\s"'<>]+$/.test(CFG.siteUrl||"") ? String(CFG.siteUrl).replace(/\/+$/,"")+"/" : "";
+const CDN = `https://cdn.jsdelivr.net/gh/${CFG.mediaRepo}@${CFG.mediaRev}/`;
+const MEDIA_BASE = CFG.mediaFrom==="site" ? (NATIVE ? (SITE||CDN) : "") : (LOCAL ? "" : CDN);
+// Licensing and Premium live on the website. Inside the phone app they stay out (store rules) unless config.js app.sales is true.
+const SALES = !NATIVE || !!(CFG.app && CFG.app.sales===true);
+if(NATIVE) document.documentElement.classList.add("native");
+if(!SALES) document.documentElement.classList.add("nosales");
 const url = p => /^https:\/\//.test(p) ? p : MEDIA_BASE + String(p).replace(/^\/+/,"");
 const cssUrl = p => `url('${encodeURI(url(p)).replace(/['()]/g,c=>"%"+c.charCodeAt(0).toString(16))}')`;
 // Browser storage can be missing, blocked or edited by hand: never let it break the page.
@@ -428,9 +437,10 @@ function openCredits(s){
   openModal(`<h2 id="mTitle">${esc(s.title)}</h2><p class="muted small" style="margin-top:-6px">${subOf(s)}</p>${groups.map(g=>`<h3 class="cgroup">${esc(g)}</h3>${list.filter(c=>(c.group||"Credits")===g).map(creditRow).join("")}`).join("")}<p class="muted small" style="margin:16px 0 0">Source: Velora catalogue · ID ${esc(s.id)}</p>`);
 }
 function licenseCard(s){
+  if(!SALES) return "";
   return `<div class="np-card"><div class="card-h">${icon("tag")}<span>Use this song in your videos</span></div>
     <div class="lic-row"><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button></div>
-    <p class="muted small" style="margin:0">${DEMO?"Example prices. ":""}Every license comes with a dated certificate.</p></div>`;
+    <p class="muted small" style="margin:0">${payDemo()?"Example prices. ":""}Every license comes with a dated certificate.</p></div>`;
 }
 function aboutCard(s){
   const cats=catsOf(s);
@@ -649,8 +659,12 @@ $("#drawer").addEventListener("click",e=>{
 });
 
 // ---------- Share (a ready card, like Spotify: the song, or lyric lines you pick) ----------
-const pageLink = hashPath => location.href.split("#")[0] + hashPath;
+// A link to a page of the site. Inside the phone app that is the website's address (config.js siteUrl); "" while it has none.
+const pageLink = hashPath => NATIVE ? (SITE ? SITE+hashPath : "") : location.href.split("#")[0] + hashPath;
+// The phone's own share sheet (the app carries a small share plugin; Android's web view has no share of its own).
+const nativeShare = (title, link) => window.Capacitor.nativePromise("Share","share", link ? {title, text:title, url:link, dialogTitle:"Share"} : {title, text:title, dialogTitle:"Share"});
 async function shareLink(title, link){
+  if(NATIVE){ try{ await nativeShare(title, link); }catch(e){ if(link){ try{ await navigator.clipboard.writeText(link); toast("Link copied."); }catch(e2){} } } return; }
   try{ if(navigator.share){ await navigator.share({title, text:title, url:link}); return; } }catch(e){ if(e && e.name==="AbortError") return; }
   try{ await navigator.clipboard.writeText(link); toast("Link copied."); }catch(e){ toast(link); }
 }
@@ -689,13 +703,14 @@ async function drawShare(){
 function openShare(s){
   const L=hasLyrics(s), start = L ? Math.max(0, current===s ? lastLyr : 0) : 0;
   share={s, tab:"song", bg:0, lines:new Set(L?[start]:[])};
+  const link0=pageLink("#/song/"+encodeURIComponent(s.id));
   openModal(`<h2 id="mTitle">Share</h2>
    <canvas id="shareCv" class="share-cv" width="1080" height="1920" role="img" aria-label="Share card for ${esc(s.title)}"></canvas>
    <div class="seg" role="tablist" aria-label="What to share"><button type="button" role="tab" aria-selected="true" class="on" data-shtab="song">Song</button><button type="button" role="tab" aria-selected="false" data-shtab="lyrics"${L?"":" disabled"}>Lyrics</button></div>
    <div class="swatches" role="group" aria-label="Background">${[0,1,2].map(i=>`<button type="button" class="swatch${i===0?" on":""}" data-shbg="${i}" aria-label="Background ${i+1}" style="background:${i===2?"#121214":i===1?`linear-gradient(${themeOf(s).top},#121214)`:themeOf(s).top}"></button>`).join("")}</div>
    <div class="share-pick" id="sharePick" hidden><p class="muted small" style="margin:0 0 6px">Tap the lines you want (up to 5).</p>${L?s.lyrics.map((l,i)=>`<button type="button" class="pickline${i===start?" on":""}" data-shline="${i}" aria-pressed="${i===start}">${esc(l[1])}</button>`).join(""):""}</div>
-   <div class="share-actions"><button type="button" class="btn primary" id="shGo">${icon("share")}Share</button><button type="button" class="btn" id="shCopy">Copy link</button><button type="button" class="btn ghost" id="shSave">Save image</button></div>`);
-  const link=pageLink("#/song/"+encodeURIComponent(s.id)), body=$("#mBody");
+   <div class="share-actions"><button type="button" class="btn primary" id="shGo">${icon("share")}Share</button>${link0?`<button type="button" class="btn" id="shCopy">Copy link</button>`:""}<button type="button" class="btn ghost" id="shSave">Save image</button></div>`);
+  const link=link0, body=$("#mBody");
   body.onclick=async e=>{
     const tb=e.target.closest("[data-shtab]"); if(tb && !tb.disabled){ share.tab=tb.dataset.shtab; body.querySelectorAll("[data-shtab]").forEach(b=>{ const on=b===tb; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); }); const pk=$("#sharePick"); pk.hidden=share.tab!=="lyrics"; if(!pk.hidden){ const on=pk.querySelector(".pickline.on"); if(on) pk.scrollTop=Math.max(0,on.offsetTop-pk.clientHeight/3); } drawShare(); return; }
     const bg=e.target.closest("[data-shbg]"); if(bg){ share.bg=+bg.dataset.shbg; body.querySelectorAll(".swatch").forEach(b=>b.classList.toggle("on",b===bg)); drawShare(); return; }
@@ -705,6 +720,7 @@ function openShare(s){
     if(e.target.closest("#shCopy")){ try{ await navigator.clipboard.writeText(link); toast("Link copied."); }catch(err){ toast(link); } return; }
     const go=e.target.closest("#shGo"), save=e.target.closest("#shSave"); if(!go && !save) return;
     const title=s.title+" · "+(artistOf(s)||{name:"Velora"}).name;
+    if(NATIVE && go && !(navigator.canShare && navigator.share)){ try{ await nativeShare(title, link); }catch(err){} return; }   // Android app: the phone's share sheet, text and link
     let blob=null; try{ blob=await new Promise(res=>$("#shareCv").toBlob(res,"image/png")); }catch(err){ share.art=false; await drawShare(); try{ blob=await new Promise(res=>$("#shareCv").toBlob(res,"image/png")); }catch(e2){} }
     if(save){ if(!blob){ toast("The image isn't ready."); return; } const a=document.createElement("a"), u=URL.createObjectURL(blob); a.href=u; a.download="velora-"+s.id+".png"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); return; }
     try{
@@ -740,7 +756,7 @@ function applyShop(d){
   if(/^#\/?(pricing)?$/.test(location.hash) && !npOpen && $("#modal").hidden) route(true);
 }
 function openLicense(song, preset="rent"){
-  if(!song) return; if(!PRICES[preset]) preset="rent";
+  if(!song || !SALES) return; if(!PRICES[preset]) preset="rent";
   if(shopOpen()){ openPay(song, preset); return; }
   if(!DEMO){ openModal(`<h2 id="mTitle">Licensing opens soon</h2><p>Paying for a license is not switched on yet. Every song already plays in full, for free.</p><button type="button" class="btn" id="mDone">Close</button>`); $("#mDone").onclick=closeM; return; }
   openModal(`
@@ -902,7 +918,7 @@ function onAirHTML(){
 function home(){
   if(!S.length){ main.innerHTML=`<h1 class="pagetitle">Velora</h1><p class="muted">The songs are on their way.</p>`; return; }
   const today=dayShuffle(S), pick=today.find(s=>!isAdult(s))||today[0], rec=recents(), base=rec[0]||today[1]||pick, kPick=reg(today,"Today's pick");
-  const intro = store.get("velora_intro_seen",false) ? "" : `<section class="intro" id="intro"><div><b>Full songs you can use in your videos.</b><span>Listen free. Rent a song from ${esc(PRICES.rent.price)} or buy the rights; every license comes with a certificate.</span></div><div class="intro-actions"><a class="btn sm primary" href="#/pricing">How it works</a><button type="button" class="btn sm ghost" id="introX">Got it</button></div></section>`;
+  const intro = !SALES || store.get("velora_intro_seen",false) ? "" : `<section class="intro" id="intro"><div><b>Full songs you can use in your videos.</b><span>Listen free. Rent a song from ${esc(PRICES.rent.price)} or buy the rights; every license comes with a certificate.</span></div><div class="intro-actions"><a class="btn sm primary" href="#/pricing">How it works</a><button type="button" class="btn sm ghost" id="introX">Got it</button></div></section>`;
   main.innerHTML = `
   ${pills(null)}${intro}
   <section class="feat">
@@ -918,7 +934,7 @@ function home(){
   <section><div class="morelike"><span class="ml-cover" style="${coverStyle(base)}"></span><div><div class="muted small">More like</div><h2>${esc(base.title)}</h2></div></div>${hrow(suggestions(base,8),"More like "+base.title)}</section>
   ${HOME.map(c=>`<section>${head(esc(c.name),plural(songsIn(c).length,"song"),`<a class="showall" href="${catLink(c)}" aria-label="Show all ${esc(c.name)}">Show all</a>`)}${hrow(songsIn(c),c.name)}</section>`).join("")}
   ${S.some(s=>s.video||s.clip)?`<section>${head("Videos","",`<a class="showall" href="#/videos" aria-label="Show all videos">Show all</a>`)}<div class="hrow vrow">${shortTiles()}</div></section>`:""}
-  <section>${head("Three ways to use the music")}${tiersHTML()}</section>`;
+  ${SALES?`<section>${head("Three ways to use the music")}${tiersHTML()}</section>`:""}`;
   const x=$("#introX"); if(x) x.onclick=()=>{ store.set("velora_intro_seen",true); $("#intro").remove(); };
 }
 // Vertical shorts and wide (16:9) music videos. Wide videos are ready in the code; add "clip" to a song to show one.
@@ -1274,7 +1290,7 @@ if(Backend.enabled){
 // ---------- Upload pages (studio.js is loaded only when someone opens them) ----------
 let studioP=null;
 const loadScript = src => new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=()=>rej(new Error("load")); document.head.appendChild(el); });
-const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, mediaOf:p=>url(p), longDateTime:v=>longDateTime(v),
+const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, mediaOf:p=>url(p), longDateTime:v=>longDateTime(v), pageLink, shareLink,
   artists:()=>ARTISTS, songs:()=>ALL, addSongs:d=>mergeRemote(d,true), stopMusic:()=>{ try{ audio.pause(); }catch(e){} }, go:h=>{ location.hash=h; } };
 // The legal pages (terms, license terms, sale, privacy, content rules, who we are) load only when opened.
 const LEGAL = new Set(["/legal","/terms","/license","/sales","/privacy","/content","/imprint"]);
@@ -1346,6 +1362,7 @@ function route(keep){
   document.querySelectorAll(".tabbar [data-tab]").forEach(a=>{ const on=a.dataset.tab===navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account","/settings":"Settings","/upload":"Upload a song","/studio":"My songs","/thanks":"Thank you"};
   let title=names[navPath]||"";
+  if(!SALES && (path==="/pricing"||path==="/thanks")){ location.replace("#/"); return; }      // the phone app has no shop
   if(path==="/") home(); else if(path==="/search"||path==="/library") searchView(params);
   else if(path.startsWith("/song/")){ const id=decode(path.split("/")[2]); song(id); const s=byId(id); if(s) title=s.title; }
   else if(path.startsWith("/genre/")){ const id=decode(path.split("/")[2]); genreView(id); const c=catById(id); if(c) title=c.name; }

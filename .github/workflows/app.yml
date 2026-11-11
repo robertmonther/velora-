@@ -1,0 +1,58 @@
+# Builds the phone app from the app/ folder, for free, on GitHub's own machines.
+#  - Android: a test file (APK) that installs on any Android phone. It is attached to the pre-release "android-test".
+#  - iPhone: only checks that the Xcode project builds (for the simulator). A file that installs on a real iPhone
+#    needs Apple's paid developer account and its signing keys, which this repo does not have.
+# Runs when something in app/ changes (or this file). To get a fresh build after site changes: edit app/BUILD.
+name: App test builds
+on:
+  push:
+    branches: [upload-studio, main]
+    paths: ["app/**", ".github/workflows/app.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci --no-audit --no-fund
+      - run: node build-www.mjs
+      - run: npx cap sync android
+      - name: Build the test APK
+        working-directory: app/android
+        run: chmod +x gradlew && ./gradlew --no-daemon assembleDebug
+      - name: Name the file
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/velora-android-test.apk" && ls -la "$RUNNER_TEMP/velora-android-test.apk"
+      - uses: actions/upload-artifact@v4
+        with: { name: velora-android-test, path: "${{ runner.temp }}/velora-android-test.apk", retention-days: 30 }
+      - name: Put it where a phone can download it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-test --yes --cleanup-tag || true
+          gh release create android-test "$RUNNER_TEMP/velora-android-test.apk" --prerelease --target "$GITHUB_SHA" \
+            --title "Android test build (for testing, not for the public)" \
+            --notes "A test version of the app, built from commit $GITHUB_SHA. It is not signed for the Play Store. On an Android phone: download the .apk file, open it, and allow the install."
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund
+      - run: node build-www.mjs
+      - run: npx cap sync ios
+      - name: Check that the iPhone project builds (simulator, unsigned)
+        working-directory: app/ios/App
+        run: xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO build | tail -n 40

@@ -1,0 +1,11 @@
+{
+  "appId": "app.velora.test",
+  "appName": "Velora",
+  "webDir": "www",
+  "backgroundColor": "#121214",
+  "android": { "backgroundColor": "#121214" },
+  "ios": { "backgroundColor": "#121214", "contentInset": "never" },
+  "plugins": {
+    "SystemBars": { "insetsHandling": "native", "style": "DARK", "initialViewportFitValueHint": "cover" }
+  }
+}

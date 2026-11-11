@@ -565,8 +565,8 @@ window.VeloraStudio = (function () {
       <div class="row center"><button type="button" class="btn ghost" id="dAgain">${icon("upload")}Upload another song</button><a class="btn ghost" href="#/studio">My songs</a></div></div>`;
   }
   function wireDone() {
-    const s = st.pub.song, link = location.href.split("#")[0] + "#/song/" + encodeURIComponent(s.id);
-    $("#dShare").onclick = async () => { try { if (navigator.share) { await navigator.share({ title: s.title, url: link }); return; } await navigator.clipboard.writeText(link); ctx.toast("Link copied."); } catch (e) { if (!e || e.name !== "AbortError") ctx.toast(link); } };
+    const s = st.pub.song, link = ctx.pageLink("#/song/" + encodeURIComponent(s.id));
+    $("#dShare").onclick = () => ctx.shareLink(s.title, link);
     $("#dAgain").onclick = () => { cleanup(); st = fresh(); st.uid = ctx.Backend.user.id; render(); window.scrollTo(0, 0); };
   }
 

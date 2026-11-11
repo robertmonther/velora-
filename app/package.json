@@ -1,0 +1,21 @@
+{
+  "name": "velora-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The Velora site wrapped as an Android and iPhone app (Capacitor). See README.md.",
+  "scripts": {
+    "www": "node build-www.mjs",
+    "sync": "node build-www.mjs && cap sync",
+    "icons": "capacitor-assets generate --iconBackgroundColor '#121214' --iconBackgroundColorDark '#121214' --splashBackgroundColor '#121214' --splashBackgroundColorDark '#121214'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capacitor/share": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0"
+  }
+}

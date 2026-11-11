@@ -7,6 +7,19 @@ window.VELORA_CONFIG = {
   mediaRepo: "robertmonther/velora-",
   mediaRev: "782d21f7c4ec31fae8e351f8639d25903e9a243e",
 
+  /* Where the songs, covers and videos are loaded from.
+     "" (today) = this GitHub repo through the jsDelivr CDN.
+     "site" = the site's own media folder (after the move to our own hosting, once the media folder is uploaded there). */
+  mediaFrom: "",
+
+  /* The site's public address, for example "https://example.com". Empty until it has one.
+     The phone app uses it for the links people share (and for media when mediaFrom is "site"). */
+  siteUrl: "",
+
+  /* The phone app (the app/ folder). sales:false = licensing and Premium are not offered inside the app;
+     people listen there and license on the website. The stores have their own payment rules: see app/README.md. */
+  app: { sales: false },
+
   /* true while prices and checkout are examples: shows the preview banner and "(demo)" labels. */
   demo: true,
 
