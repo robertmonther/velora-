@@ -7,6 +7,7 @@ upload page can be walked through from start to finish without touching the real
 
     python3 tests/fake_backend.py <site folder> <port>
 """
+import random
 import base64, hashlib, json, os, re, sys, threading, time, uuid
 from email.parser import BytesParser
 from http.server import ThreadingHTTPServer
@@ -17,7 +18,10 @@ from server import H
 P = "/__supa"
 SETUP_CODE = "TEST-CODE-1234"
 LOCK = threading.Lock()
-DB = {"users": {}, "tokens": {}, "artists": {}, "songs": {}, "records": [], "files": {}, "setup_used": False, "next": 1001, "log": []}
+DB = {"users": {}, "tokens": {}, "artists": {}, "songs": {}, "records": [], "files": {}, "setup_used": False, "next": 1001, "log": [], "mail": []}
+def new_code(): return "%06d" % random.randrange(1000000)
+def send_mail(usr, kind, key):
+    usr[key] = new_code(); DB["mail"].append({"to": usr["email"], "kind": kind, "code": usr[key]})
 
 def b64(d): return base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
 def token_for(u):
@@ -64,6 +68,15 @@ def rpc(fn, args, u):
     if not u: raise Err("permission denied for function " + fn, 401, "42501")
     if fn == "my_profile": return {"role": u["role"], "display_name": u["name"] or None, "premium": False}
     if fn == "my_licenses": return []
+    if fn == "set_my_name":
+        n = re.sub(r"[<>\x00-\x1f]", "", str(args.get("p_name") or "")).strip()[:80]
+        if not n: raise Err("Write a name.")
+        u["name"] = n; return n
+    if fn == "delete_my_account":
+        if u["role"] == "owner": raise Err("The owner account cannot be deleted from the site.", 400, "42501")
+        if any(x["owner"] == u["id"] for x in DB["songs"].values()): raise Err("This account has uploaded songs, so it cannot be deleted from the site. Write to us and we close it for you.", 400, "42501")
+        for k in [k for k, a in DB["artists"].items() if a["owner"] == u["id"]]: del DB["artists"][k]
+        del DB["users"][u["email"]]; return "deleted"
     if fn == "my_artists": return [{"id": a["id"], "name": a["name"], "tagline": a.get("tagline"), "bio": a.get("bio"), "color": a.get("color"), "image": a.get("image_path"), "songs": sum(1 for s in DB["songs"].values() if s.get("artist_id") == a["id"] and s["status"] == "published")} for a in DB["artists"].values() if a["owner"] == u["id"]]
     if fn == "my_songs": return [{"id": s["id"], "status": s["status"], "title": s["title"] + (f" ({s['version']})" if s.get("version") else ""), "artist": DB["artists"][s["artist_id"]]["name"], "art": s["cover_path"], "duration": s["duration"], "published_at": s["published_at"], "explicit": s["explicit"], "adult": s["adult"], "record": 1} for s in DB["songs"].values() if s["owner"] == u["id"] and s["status"] != "draft"]
     if fn == "my_records": return [dict(r) for r in DB["records"] if r["song_id"] == args.get("p_song") and DB["songs"].get(r["song_id"], {}).get("owner") == u["id"]]
@@ -171,10 +184,40 @@ class Fake(H):
                 if grant == "password":
                     usr = DB["users"].get((b.get("email") or "").lower())
                     if not usr or usr["password"] != b.get("password"): return self._send(400, {"code": 400, "error_code": "invalid_credentials", "msg": "Invalid login credentials"})
+                    if not usr.get("confirmed", True): return self._send(400, {"code": 400, "error_code": "email_not_confirmed", "msg": "Email not confirmed"})
                     return self._send(200, session(usr))
                 if grant == "refresh_token":
                     usr = by_id((b.get("refresh_token") or "")[3:])
                     return self._send(200, session(usr)) if usr else self._send(400, {"code": 400, "error_code": "refresh_token_not_found", "msg": "Invalid Refresh Token"})
+            if path == "/auth/v1/signup":                      # a new account: not confirmed until the email's link or code is used
+                b = json.loads(raw or b"{}"); em = (b.get("email") or "").strip().lower(); pw = b.get("password") or ""
+                if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", em): return self._send(400, {"code": 400, "error_code": "validation_failed", "msg": "Unable to validate email address: invalid format"})
+                if len(pw) < 6: return self._send(422, {"code": 422, "error_code": "weak_password", "msg": "Password should be at least 6 characters."})
+                old = DB["users"].get(em)
+                if old and old.get("confirmed", True): return self._send(200, dict(user_json(old), identities=[]))       # like the real server: no hint, no email
+                usr = old or add_user(em, pw, "listener", re.sub(r"[<>\x00-\x1f]", "", ((b.get("data") or {}).get("display_name") or "")).strip()[:80])
+                usr["password"] = pw; usr["confirmed"] = False; send_mail(usr, "signup", "code")
+                return self._send(200, dict(user_json(usr), email_confirmed_at=None, confirmation_sent_at="2026-11-11T10:00:00Z", identities=[{"id": usr["id"], "provider": "email"}]))
+            if path == "/auth/v1/verify":                      # the code from an email
+                b = json.loads(raw or b"{}"); usr = DB["users"].get((b.get("email") or "").strip().lower()); kind = b.get("type"); key = "rcode" if kind == "recovery" else "code"
+                if kind not in ("signup", "email", "recovery") or not usr or not usr.get(key) or usr[key] != str(b.get("token")):
+                    return self._send(403, {"code": 403, "error_code": "otp_expired", "msg": "Token has expired or is invalid"})
+                usr[key] = None; usr["confirmed"] = True; return self._send(200, session(usr))
+            if path == "/auth/v1/resend":
+                b = json.loads(raw or b"{}"); usr = DB["users"].get((b.get("email") or "").strip().lower())
+                if usr and not usr.get("confirmed", True): send_mail(usr, "signup", "code")
+                return self._send(200, {})
+            if path == "/auth/v1/recover":
+                b = json.loads(raw or b"{}"); usr = DB["users"].get((b.get("email") or "").strip().lower())
+                if usr: send_mail(usr, "recovery", "rcode")
+                return self._send(200, {})
+            if path == "/auth/v1/user" and self.command == "PUT":
+                if not u: return self._send(401, {"code": 401, "msg": "no session"})
+                b = json.loads(raw or b"{}")
+                if "password" in b:
+                    if len(b["password"] or "") < 6: return self._send(422, {"code": 422, "error_code": "weak_password", "msg": "Password should be at least 6 characters."})
+                    u["password"] = b["password"]
+                return self._send(200, user_json(u))
             if path == "/auth/v1/user": return self._send(200, user_json(u)) if u else self._send(401, {"code": 401, "msg": "no session"})
             if path == "/auth/v1/logout": return self._send(204, b"", "text/plain")
             m = re.fullmatch(r"/rest/v1/rpc/([a-z_]+)", path)
@@ -212,6 +255,13 @@ class Fake(H):
                                         "files": {k: [len(v[0]), v[1]] for k, v in DB["files"].items()}, "users": [{"email": x["email"], "role": x["role"], "name": x["name"]} for x in DB["users"].values()]})
             if path == "/__file":
                 f = DB["files"].get((q.get("name") or [""])[0]); return self._send(200, f[0], f[1]) if f else self._send(404, {"message": "no"})
+            if path == "/__mail":           # the last email "sent" to an address (for the checks only)
+                m = [x for x in DB["mail"] if x["to"] == (q.get("to") or [""])[0].lower()]; return self._send(200, m[-1] if m else {})
+            if path == "/__link":           # what a link in an email brings back to the site (for the checks only)
+                usr = DB["users"].get((q.get("email") or [""])[0].lower()); kind = (q.get("type") or ["signup"])[0]
+                if not usr: return self._send(404, {"message": "no"})
+                usr["confirmed"] = True; se = session(usr)
+                return self._send(200, {"hash": f"#access_token={se['access_token']}&expires_in=3600&refresh_token={se['refresh_token']}&token_type=bearer&type={kind}"})
             if path == "/__add_listener":
                 add_user("listener@example.test", "listener-pass-123", "listener", "A Listener"); return self._send(200, {"ok": True})
             return self._send(404, {"message": "not found: " + path})

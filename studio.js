@@ -649,7 +649,7 @@ window.VeloraStudio = (function () {
         m.innerHTML = `<div class="st-intro"><h1 class="pagetitle">Upload your song</h1><p class="lead">Add a song to Velora in a few minutes: the file, the details, the lyrics that move with the music, the cover. It is live the moment you publish, with a dated record that it is yours.</p>
           <ul class="st-points"><li>${icon("check")}Synced lyrics, made here</li><li>${icon("check")}Mastering included</li><li>${icon("check")}Listed for good, with an ownership record</li></ul></div><div id="stAuth"></div>
           <p class="muted small" style="max-width:460px">Uploading is open to the owner's account for now. Accounts for other creators come later.</p>`;
-        ctx.authPanel(document.getElementById("stAuth"), () => { if (/^#\/(upload|studio)/.test(location.hash)) gate(then); });
+        ctx.authPanel(document.getElementById("stAuth"), () => { if (/^#\/(upload|studio)/.test(location.hash)) gate(then); }, { owner: true });
         return;
       }
       if (!B.canUpload()) { m.innerHTML = `<h1 class="pagetitle">Upload a song</h1><div class="panel"><h3>This account can't upload yet</h3><p class="muted small">Signed in as ${esc(B.user.email)}. Uploading is open to the owner's account for now; accounts for other creators come later.</p><button type="button" class="btn ghost sm" id="gOut">Sign out</button></div>`; document.getElementById("gOut").onclick = () => B.signOut().then(() => gate(then)); return; }

@@ -151,8 +151,10 @@ create policy "own records: read" on public.ownership_records for select to auth
 -- ---------- Helpers (private: not reachable through the API) ----------
 create function private.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
+declare n text := nullif(left(btrim(regexp_replace(coalesce(new.raw_user_meta_data->>'display_name', ''), '[[:cntrl:]<>]', '', 'g')), 80), '');
 begin
-  insert into public.profiles (id) values (new.id) on conflict (id) do nothing;
+  -- the name typed when the account was created (cleaned); the role always starts as listener
+  insert into public.profiles (id, display_name) values (new.id, n) on conflict (id) do nothing;
   return new;
 end $$;
 create trigger on_auth_user_created after insert on auth.users
@@ -272,6 +274,34 @@ language sql stable security invoker set search_path = '' as $$
   select coalesce(json_agg(json_build_object('id', l.id, 'song_id', l.song_id, 'type', l.type, 'issued_at', l.issued_at, 'valid_until', l.valid_until) order by l.issued_at desc), '[]'::json)
   from public.licenses l where l.user_id = (select auth.uid());
 $$;
+
+-- Signed in: change my name.
+create function public.set_my_name(p_name text) returns text
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := (select auth.uid());
+        n text := nullif(left(btrim(regexp_replace(coalesce(p_name, ''), '[[:cntrl:]<>]', '', 'g')), 80), '');
+begin
+  if uid is null then raise exception 'Sign in first.' using errcode = '28000'; end if;
+  if n is null then raise exception 'Write a name.' using errcode = '22023'; end if;
+  insert into public.profiles (id, display_name) values (uid, n) on conflict (id) do update set display_name = excluded.display_name;
+  return n;
+end $$;
+
+-- Signed in: delete my account for good. Not for the owner, and not for an account that has uploaded songs
+-- (their ownership records must stay; such an account is closed by hand).
+create function public.delete_my_account() returns text
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := (select auth.uid());
+begin
+  if uid is null then raise exception 'Sign in first.' using errcode = '28000'; end if;
+  if exists (select 1 from public.profiles p where p.id = uid and p.role = 'owner') then
+    raise exception 'The owner account cannot be deleted from the site.' using errcode = '42501'; end if;
+  if exists (select 1 from public.songs s where s.owner_id = uid) then
+    raise exception 'This account has uploaded songs, so it cannot be deleted from the site. Write to us and we close it for you.' using errcode = '42501'; end if;
+  delete from public.artists a where a.owner_id = uid;
+  delete from auth.users where id = uid;
+  return 'deleted';
+end $$;
 
 -- Uploader: my artist names.
 create function public.my_artists() returns json
@@ -526,8 +556,10 @@ end $$;
 -- ---------- Who may call what ----------
 revoke all on function public.public_catalogue(), public.song_record(text), public.verify_license(text), public.my_profile(), public.my_licenses(),
   public.my_artists(), public.save_artist(jsonb), public.reserve_song(), public.publish_song(jsonb), public.my_songs(),
-  public.my_records(text), public.set_song_listed(text, boolean), public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text) from public, anon, authenticated;
+  public.my_records(text), public.set_song_listed(text, boolean), public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text),
+  public.set_my_name(text), public.delete_my_account() from public, anon, authenticated;
 grant execute on function public.public_catalogue(), public.song_record(text), public.verify_license(text) to anon, authenticated;
+grant execute on function public.set_my_name(text), public.delete_my_account() to authenticated;
 grant execute on function public.my_profile(), public.my_licenses(), public.my_artists(), public.save_artist(jsonb), public.reserve_song(),
   public.publish_song(jsonb), public.my_songs(), public.my_records(text), public.set_song_listed(text, boolean) to authenticated;
 grant execute on function public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text) to service_role;

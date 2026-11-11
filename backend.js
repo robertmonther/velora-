@@ -41,6 +41,13 @@ window.VeloraBackend = (function () {
     const m = String((err && (err.message || err.error_description || err.msg)) || err || "");
     if (/invalid login credentials/i.test(m)) return "Wrong email or password.";
     if (/email not confirmed/i.test(m)) return "This email is not confirmed yet.";
+    if (/already registered|already been registered/i.test(m)) return "This email already has an account.";
+    if (/password should be at least|weak.?password/i.test(m)) return "Choose a longer password.";
+    if (/should be different from the old password/i.test(m)) return "Choose a password you have not used here before.";
+    if (/token has expired or is invalid|otp.?expired|invalid.*otp/i.test(m)) return "That code is not right, or it is too old. Ask for a new email.";
+    if (/only request this after/i.test(m)) return "Wait a minute before asking for another email.";
+    if (/email address.*(not authorized|is invalid)|error sending/i.test(m)) return "We can't send email to this address yet. Creating accounts opens to everyone soon.";
+    if (/signups? (not allowed|disabled)/i.test(m)) return "Creating accounts is switched off for now.";
     if (/rate limit|too many/i.test(m)) return "Too many tries. Wait a minute and try again.";
     if (/failed to fetch|networkerror|load failed/i.test(m)) return "Can't reach the server. Check your connection and try again.";
     if (/jwt|not authenticated|401/i.test(m)) return "You are signed out. Sign in again.";
@@ -78,12 +85,67 @@ window.VeloraBackend = (function () {
   B.remembered = remembered;
   B.canUpload = () => B.role === "owner" || B.role === "creator";
 
+  const fail = (e, code) => { const x = new Error(plain(e)); if (code) x.code = code; return x; };
+  const unconfirmed = e => !!e && (e.code === "email_not_confirmed" || /email not confirmed/i.test(e.message || ""));
+  const here = () => location.origin + location.pathname;            // where links in emails come back to
+  const mail = v => String(v || "").trim();
+
   B.signIn = async function (email, password) {
     await B.init();
-    const r = await client.auth.signInWithPassword({ email: String(email || "").trim(), password: String(password || "") });
-    if (r.error) throw new Error(plain(r.error));
+    const r = await client.auth.signInWithPassword({ email: mail(email), password: String(password || "") });
+    if (r.error) throw fail(r.error, unconfirmed(r.error) ? "unconfirmed" : "");
     await refresh(r.data ? r.data.session : null);
     return B.user;
+  };
+
+  /* Create an account. Answers "in" (signed in at once), "confirm" (an email is on its way) or "exists". */
+  B.signUp = async function (o) {
+    await B.init();
+    const r = await client.auth.signUp({ email: mail(o.email), password: String(o.password || ""), options: { data: { display_name: String(o.name || "").trim().slice(0, 80) }, emailRedirectTo: here() } });
+    if (r.error) throw fail(r.error);
+    const u = r.data && r.data.user, s = r.data && r.data.session;
+    if (s) { await refresh(s); return "in"; }
+    if (u && Array.isArray(u.identities) && !u.identities.length) return "exists";
+    return "confirm";
+  };
+  /* The code from the confirmation email (for emails that show one; the link in the email does the same). */
+  B.confirmEmail = async function (email, code) {
+    await B.init();
+    let r = await client.auth.verifyOtp({ email: mail(email), token: mail(code), type: "signup" });
+    if (r.error) r = await client.auth.verifyOtp({ email: mail(email), token: mail(code), type: "email" });
+    if (r.error) throw fail(r.error);
+    await refresh(r.data ? r.data.session : null); return B.user;
+  };
+  B.resend = async function (email) { await B.init(); const r = await client.auth.resend({ type: "signup", email: mail(email), options: { emailRedirectTo: here() } }); if (r.error) throw fail(r.error); };
+  B.sendReset = async function (email) { await B.init(); const r = await client.auth.resetPasswordForEmail(mail(email), { redirectTo: here() }); if (r.error) throw fail(r.error); };
+  B.resetWithCode = async function (email, code, password) {
+    await B.init();
+    const r = await client.auth.verifyOtp({ email: mail(email), token: mail(code), type: "recovery" });
+    if (r.error) throw fail(r.error);
+    const u = await client.auth.updateUser({ password: String(password || "") });
+    if (u.error) throw fail(u.error);
+    await refresh(r.data ? r.data.session : null); return B.user;
+  };
+  B.setPassword = async function (password) { await B.init(); const r = await client.auth.updateUser({ password: String(password || "") }); if (r.error) throw fail(r.error); };
+  B.setName = async function (name) { const d = await B.rpc("set_my_name", { p_name: String(name || "").trim() }); B.name = String(d || name || ""); notify(); return B.name; };
+  B.deleteAccount = async function () { await B.rpc("delete_my_account"); try { await client.auth.signOut({ scope: "local" }); } catch (e) {} await refresh(null); };
+
+  /* Arriving from a link in an email (confirm the address, or reset the password): the address then carries the
+     sign-in after "#", where the pages normally live. Take it over, clean the address, and say what the link was for. */
+  B.linkInAddress = () => !/^#\//.test(location.hash) && /(^#|&)(access_token|error_description|error_code)=/.test(location.hash);
+  B.fromLink = async function () {
+    if (!enabled || !B.linkInAddress()) return null;
+    const p = new URLSearchParams(location.hash.slice(1)), out = { type: p.get("type") || "", error: "" };
+    try { history.replaceState(null, "", location.pathname + location.search + "#/account"); } catch (e) { location.hash = "#/account"; }
+    const bad = (p.get("error_description") || "") + " " + (p.get("error_code") || "");
+    if (bad.trim()) { out.error = /expired|invalid|denied/i.test(bad) ? "That link is too old or was already used. Ask for a new email." : plain(p.get("error_description")); return out; }
+    try {
+      await B.init();
+      const r = await client.auth.setSession({ access_token: p.get("access_token") || "", refresh_token: p.get("refresh_token") || "" });
+      if (r.error) { out.error = plain(r.error); return out; }
+      await refresh(r.data ? r.data.session : null);
+    } catch (e) { out.error = plain(e); }
+    return out;
   };
   B.signOut = async function () {
     if (client) { try { await client.auth.signOut(); } catch (e) {} }

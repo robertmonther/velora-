@@ -499,3 +499,12 @@ body.ad-on .np-extra{visibility:hidden}
 .cert.rec dd{margin:2px 0 0;overflow-wrap:anywhere}
 .cert.rec dd.mono{line-height:1.5}
 @media (min-width:640px){.cert.rec dl{grid-template-columns:150px 1fr;gap:6px 12px;margin-top:12px}.cert.rec dt{margin-top:0;text-transform:none;font-size:inherit;font-weight:400;letter-spacing:0}.cert.rec dd{margin:0}}
+
+/* 11 Nov 2026: accounts for everyone */
+.authlinks{display:flex;flex-direction:column;align-items:flex-start;gap:0;margin-top:10px}
+.auth .authlinks .linkbtn{margin-top:0;padding:8px 0;text-align:left}
+.tick.agree{display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px;font-size:14px;line-height:1.5;color:#d9d2cb}
+.tick.agree input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--pink)}
+.tick.agree a{color:var(--pink)}
+.linkbtn.danger{color:#f0b3ac;padding-left:0;margin-top:16px}
+.auth form .btn.sm{margin-top:2px}

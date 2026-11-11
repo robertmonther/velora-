@@ -942,17 +942,75 @@ function verify(params){
 // ---------- Sign-in, the account page and Settings ----------
 // Sign-in is for the owner (and later for creators). Listening never needs an account.
 const pwField = (id,label,auto,min=8) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="password" required minlength="${min}" maxlength="200" autocomplete="${auto}"></div>`;
-function authPanel(box, done){
+// Sign in, create an account, confirm the email, forgotten password. opts.owner: also offer the one-time owner setup (the upload door).
+let linkNote = null;                       // set when the visitor arrives from a link in an email (see Backend.fromLink)
+const ACC = CFG.accounts || {}, MIN_PW = Math.max(8, ACC.minPassword || 10);
+function authPanel(box, done, opts){
+  opts = opts || {};
   if(!Backend.enabled){ box.innerHTML=`<div class="panel"><h3>Accounts open soon</h3><p class="muted small" style="margin:0">The account server is not connected yet. Listening works without an account.</p></div>`; return; }
+  const canJoin = ACC.signup !== false;
   const sharedNote = Backend.shared ? `<p class="muted small" style="margin:10px 0 0">On this test address you sign in again after a reload.</p>` : "";
-  const signIn = () => {
-    box.innerHTML=`<div class="panel auth"><h3>Sign in</h3><p class="muted small" style="margin-top:-4px">For the owner's account. Listening needs no account.</p>
-     <form id="si"><div class="field"><label for="em">Email</label><input id="em" type="email" required maxlength="254" autocomplete="username" inputmode="email"></div>${pwField("pw","Password","current-password")}
+  const emailField = (id, v) => `<div class="field"><label for="${id}">Email</label><input id="${id}" type="email" required maxlength="254" autocomplete="username" inputmode="email" value="${esc(v||"")}"></div>`;
+  const links = a => `<div class="authlinks">${a.map(([id,t])=>`<button type="button" class="linkbtn" id="${id}">${t}</button>`).join("")}</div>`;
+  // One form at a time: while it is sent the button waits; whatever goes wrong is said in plain words under it.
+  const send = (form, f) => { form.onsubmit = async e => { e.preventDefault(); const btn=form.querySelector("button[type=submit]"), msg=form.querySelector(".formmsg"); btn.disabled=true; msg.textContent="";
+    try{ await f(msg); }catch(err){ if(msg.isConnected) msg.textContent=err.message; } finally{ btn.disabled=false; } }; };
+  const signIn = (email) => {
+    box.innerHTML=`<div class="panel auth"><h3>Sign in</h3><p class="muted small" style="margin-top:-4px">Listening needs no account.</p>
+     <form id="si">${emailField("em", email)}${pwField("pw","Password","current-password",1)}
      <button class="btn primary" type="submit">Sign in</button><p id="siMsg" class="formmsg" role="alert"></p></form>
-     <button type="button" class="linkbtn" id="toSetup">First time here? Set up the owner account</button>${sharedNote}</div>`;
-    $("#toSetup").onclick=setup;
-    $("#si").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button[type=submit]"), msg=$("#siMsg"); b.disabled=true; msg.textContent="";
-      try{ await Backend.signIn($("#em").value, $("#pw").value); if(done) done(); }catch(err){ msg.textContent=err.message; } finally{ b.disabled=false; } };
+     ${links([["toForgot","Forgot your password?"]].concat(canJoin?[["toJoin","New here? Create an account"]]:[], opts.owner?[["toSetup","First time here? Set up the owner account"]]:[]))}${sharedNote}</div>`;
+    $("#toForgot").onclick=()=>forgot($("#em").value);
+    if($("#toJoin")) $("#toJoin").onclick=join;
+    if($("#toSetup")) $("#toSetup").onclick=setup;
+    send($("#si"), async () => { const em=$("#em").value.trim(), pw=$("#pw").value;
+      try{ await Backend.signIn(em, pw); }catch(err){ if(err.code==="unconfirmed"){ confirmStep(em, pw); return; } throw err; }
+      if(done) done(); });
+  };
+  const join = () => {
+    box.innerHTML=`<div class="panel auth"><h3>Create your account</h3><p class="muted small" style="margin-top:-4px">Free. It keeps your licenses in one place. Listening needs no account.</p>
+     <form id="ju"><div class="field"><label for="jnm">Your name</label><input id="jnm" type="text" required maxlength="80" autocomplete="name"></div>${emailField("jem")}
+     ${pwField("jpw",`Password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}
+     <label class="tick agree"><input type="checkbox" id="jok" required><span>I agree to the <a href="#/terms" target="_blank" rel="noopener">Terms of use</a> and have read the <a href="#/privacy" target="_blank" rel="noopener">Privacy policy</a>.</span></label>
+     <button class="btn primary" type="submit">Create account</button><p id="juMsg" class="formmsg" role="alert"></p></form>
+     ${links([["toSignIn","I already have an account: sign in"]])}${sharedNote}</div>`;
+    $("#toSignIn").onclick=()=>signIn($("#jem").value);
+    send($("#ju"), async msg => { const em=$("#jem").value.trim(), pw=$("#jpw").value;
+      if(pw.length<MIN_PW){ msg.textContent=`Use ${MIN_PW} characters or more.`; return; }
+      const r=await Backend.signUp({name:$("#jnm").value, email:em, password:pw});
+      if(r==="in"){ toast("Welcome to Velora."); if(done) done(); }
+      else if(r==="exists") msg.textContent="This email already has an account. Sign in, or reset the password.";
+      else confirmStep(em, pw); });
+  };
+  const confirmStep = (email, pw) => {
+    box.innerHTML=`<div class="panel auth"><h3>Confirm your email</h3><p class="small">We sent an email to <b>${esc(email)}</b>. Open it and tap the link, then come back here. If the email shows a code, enter it below.</p>
+     <form id="cf"><div class="field"><label for="ccode">Code from the email <span class="muted">(if it shows one)</span></label><input id="ccode" type="text" inputmode="numeric" maxlength="10" autocomplete="one-time-code" spellcheck="false"></div>
+     <button class="btn primary" type="submit">I confirmed: sign me in</button><p id="cfMsg" class="formmsg" role="alert"></p></form>
+     ${links([["reSend","Send the email again"],["toSignIn","Back to sign in"]])}</div>`;
+    $("#toSignIn").onclick=()=>signIn(email);
+    $("#reSend").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; try{ await Backend.resend(email); toast("Sent again. Look in your inbox."); }catch(err){ $("#cfMsg").textContent=err.message; } finally{ b.disabled=false; } };
+    send($("#cf"), async () => { const code=$("#ccode").value.trim();
+      if(code) await Backend.confirmEmail(email, code);
+      else { try{ await Backend.signIn(email, pw); }catch(err){ if(err.code==="unconfirmed") throw new Error("Not confirmed yet. Tap the link in the email first, or enter its code."); throw err; } }
+      toast("Welcome to Velora."); if(done) done(); });
+  };
+  const forgot = (email) => {
+    box.innerHTML=`<div class="panel auth"><h3>Reset your password</h3><p class="muted small" style="margin-top:-4px">Enter your email and we send you a message to choose a new password.</p>
+     <form id="fg">${emailField("fem", email)}<button class="btn primary" type="submit">Send the email</button><p id="fgMsg" class="formmsg" role="alert"></p></form>
+     ${links([["toSignIn","Back to sign in"]])}</div>`;
+    $("#toSignIn").onclick=()=>signIn($("#fem").value);
+    send($("#fg"), async () => { const em=$("#fem").value.trim(); await Backend.sendReset(em); resetStep(em); });
+  };
+  const resetStep = (email) => {
+    box.innerHTML=`<div class="panel auth"><h3>Choose a new password</h3><p class="small">If <b>${esc(email)}</b> has an account, an email is on its way. Tap its link to continue from there. Or, if the email shows a code, enter it here.</p>
+     <form id="rs"><div class="field"><label for="rcode">Code from the email</label><input id="rcode" type="text" required inputmode="numeric" maxlength="10" autocomplete="one-time-code" spellcheck="false"></div>
+     ${pwField("rpw",`New password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}
+     <button class="btn primary" type="submit">Save the new password</button><p id="rsMsg" class="formmsg" role="alert"></p></form>
+     ${links([["reSend","Send the email again"],["toSignIn","Back to sign in"]])}</div>`;
+    $("#toSignIn").onclick=()=>signIn(email);
+    $("#reSend").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; try{ await Backend.sendReset(email); toast("Sent again. Look in your inbox."); }catch(err){ $("#rsMsg").textContent=err.message; } finally{ b.disabled=false; } };
+    send($("#rs"), async msg => { const pw=$("#rpw").value; if(pw.length<MIN_PW){ msg.textContent=`Use ${MIN_PW} characters or more.`; return; }
+      await Backend.resetWithCode(email, $("#rcode").value, pw); toast("Password changed. You are signed in."); if(done) done(); });
   };
   const setup = () => {
     box.innerHTML=`<div class="panel auth"><h3>Set up the owner account</h3><p class="muted small" style="margin-top:-4px">This works once. It creates the account that can upload and manage the songs.</p>
@@ -961,18 +1019,16 @@ function authPanel(box, done){
      ${pwField("spw","Password <span class=\"muted\">(12 characters or more)</span>","new-password",12)}${pwField("spw2","Password again","new-password",12)}
      <div class="field"><label for="scode">Setup code</label><input id="scode" type="text" required maxlength="80" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"></div>
      <button class="btn primary" type="submit">Create the owner account</button><p id="suMsg" class="formmsg" role="alert"></p></form>
-     <button type="button" class="linkbtn" id="toSignIn">I already have the account: sign in</button>${sharedNote}</div>`;
-    $("#toSignIn").onclick=signIn;
-    $("#su").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button[type=submit]"), msg=$("#suMsg"); msg.textContent="";
-      const pw=$("#spw").value; if(pw!==$("#spw2").value){ msg.textContent="The two passwords are not the same."; return; }
+     ${links([["toSignIn","I already have the account: sign in"]])}${sharedNote}</div>`;
+    $("#toSignIn").onclick=()=>signIn();
+    send($("#su"), async msg => { const pw=$("#spw").value;
+      if(pw!==$("#spw2").value){ msg.textContent="The two passwords are not the same."; return; }
       if(pw.length<12){ msg.textContent="Use 12 characters or more."; return; }
-      b.disabled=true;
-      try{ await Backend.ownerSetup({name:$("#snm").value.trim(), email:$("#sem").value.trim(), password:pw, code:$("#scode").value.trim()}); await Backend.signIn($("#sem").value, pw); toast("The owner account is ready."); if(done) done(); }
-      catch(err){ msg.textContent=err.message; } finally{ b.disabled=false; } };
+      await Backend.ownerSetup({name:$("#snm").value.trim(), email:$("#sem").value.trim(), password:pw, code:$("#scode").value.trim()}); await Backend.signIn($("#sem").value, pw); toast("The owner account is ready."); if(done) done(); });
   };
-  signIn();
+  if(opts.start==="join" && canJoin) join(); else signIn();
 }
-const privacyPanel = () => `<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently, your answer to the age question${DEMO?" and the demo licenses you made":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
+const privacyPanel = () => `<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently, ${AGE_GATE?"your answer to the age question":"your choice about explicit songs"}${DEMO?" and the demo licenses you made":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
 const wireWipe = () => { const w=$("#wipe"); if(w) w.onclick=()=>{ store.wipe(); applyAge(); toast("Cleared."); route(true); }; };
 function accountView(){
   if(!Backend.enabled){
@@ -982,13 +1038,38 @@ function accountView(){
   }
   main.innerHTML=`<h1 class="pagetitle">Your account</h1><div id="acct" aria-live="polite"><p class="muted">One moment…</p></div>${privacyPanel()}`; wireWipe();
   Backend.init().then(async ()=>{
-    const box=$("#acct"); if(!box) return; const u=Backend.user;
-    if(!u){ authPanel(box, ()=>{ if(location.hash.startsWith("#/account")) accountView(); }); return; }
+    const box=$("#acct"); if(!box) return; const u=Backend.user, note=linkNote;
+    if(note && u && (note.error || note.type!=="recovery")) linkNote=null;       // a note stays while it still has something to say
+    const again=()=>{ if(location.hash.startsWith("#/account")) accountView(); };
+    if(!u){
+      box.innerHTML=`${note&&note.error?`<div class="panel"><p class="small" style="margin:0" role="alert">${esc(note.error)}</p></div>`:""}<div id="acctAuth"></div>`;
+      authPanel($("#acctAuth"), again); return;
+    }
+    if(note && !note.error && note.type!=="recovery") toast("Your email is confirmed. You are signed in.");
     const lic=await Backend.licenses(); if(!$("#acct")) return;
-    box.innerHTML=`<div class="panel"><h3>${esc(Backend.name||u.email||"Signed in")}</h3><p class="small">${esc(u.email)} · ${Backend.role==="owner"?"Owner":Backend.canUpload()?"Creator":"Listener"}${Backend.premium?" · Premium":""}</p>
+    const isOwner=Backend.role==="owner";
+    box.innerHTML=`${note&&note.type==="recovery"&&!note.error?`<div class="panel auth" id="newPw"><h3>Choose a new password</h3><p class="small">You came from the email. Set your new password now.</p>
+      <form id="npForm">${pwField("np1",`New password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}<button class="btn primary" type="submit">Save the new password</button><p class="formmsg" role="alert"></p></form></div>`:""}
+    <div class="panel"><h3 id="acName">${esc(Backend.name||u.email||"Signed in")}</h3><p class="small">${esc(u.email)} · ${isOwner?"Owner":Backend.canUpload()?"Creator":"Listener"}${Backend.premium?" · Premium":""}</p>
       <div class="row">${Backend.canUpload()?`<a class="btn primary sm" href="#/upload">${icon("upload")}Upload a song</a><a class="btn sm" href="#/studio">My songs</a>`:""}<button type="button" class="btn ghost sm" id="so">Sign out</button></div></div>
-    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map(l=>{ const sg=byId(l.song_id); return `<div class="slot"><span><b>${esc(sg?sg.title:l.song_id)}</b> · ${esc(l.type)}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></div>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>`;
-    $("#so").onclick=()=>Backend.signOut().then(()=>toast("Signed out."));
+    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map(l=>{ const sg=byId(l.song_id); return `<div class="slot"><span><b>${esc(sg?sg.title:l.song_id)}</b> · ${esc(l.type)}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></div>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>
+    <div class="panel auth"><h3>Account settings</h3>
+      <form id="nmForm"><div class="field"><label for="acNm">Your name</label><input id="acNm" type="text" required maxlength="80" autocomplete="name" value="${esc(Backend.name)}"></div><button class="btn sm" type="submit">Save the name</button><p class="formmsg" role="alert"></p></form>
+      <form id="pwForm" style="margin-top:18px">${pwField("acPw",`New password <span class="muted">(${MIN_PW} characters or more)</span>`,"new-password",MIN_PW)}<button class="btn sm" type="submit">Change the password</button><p class="formmsg" role="alert"></p></form>
+      ${isOwner?"":`<button type="button" class="linkbtn danger" id="delAcc">Delete my account</button>`}</div>`;
+    $("#so").onclick=()=>{ linkNote=null; Backend.signOut().then(()=>toast("Signed out.")); };
+    const form=(sel,f)=>{ const fm=$(sel); if(!fm) return; fm.onsubmit=async e=>{ e.preventDefault(); const btn=fm.querySelector("button[type=submit]"), msg=fm.querySelector(".formmsg"); btn.disabled=true; msg.textContent="";
+      try{ await f(fm,msg); }catch(err){ if(msg.isConnected) msg.textContent=err.message; } finally{ btn.disabled=false; } }; };
+    const newPw=async(input,msg)=>{ const pw=input.value; if(pw.length<MIN_PW){ msg.textContent=`Use ${MIN_PW} characters or more.`; return false; } await Backend.setPassword(pw); input.value=""; return true; };
+    form("#npForm", async(fm,msg)=>{ if(await newPw($("#np1"),msg)){ linkNote=null; toast("Password changed."); $("#newPw").remove(); } });
+    form("#pwForm", async(fm,msg)=>{ if(await newPw($("#acPw"),msg)) toast("Password changed."); });
+    form("#nmForm", async()=>{ const n=await Backend.setName($("#acNm").value); $("#acName").textContent=n; toast("Name saved."); });
+    const del=$("#delAcc"); if(del) del.onclick=()=>{
+      openModal(`<h2 id="mTitle">Delete your account?</h2><p>Your sign-in and your profile are removed for good. Licenses you bought stay valid: keep their certificates.</p>
+        <div class="row"><button type="button" class="btn primary" id="delYes">Delete my account</button><button type="button" class="btn ghost" id="delNo">Keep it</button></div><p id="delMsg" class="formmsg" role="alert"></p>`);
+      $("#delNo").onclick=closeM;
+      $("#delYes").onclick=async e=>{ e.currentTarget.disabled=true; try{ await Backend.deleteAccount(); closeM(); toast("Your account is deleted."); again(); }catch(err){ $("#delMsg").textContent=err.message; e.currentTarget.disabled=false; } };
+    };
   }).catch(err=>{ const box=$("#acct"); if(box) box.innerHTML=`<p class="muted">${esc(err && err.message || "Accounts are not reachable right now. Please try again later.")}</p>`; });
 }
 function settingsView(){
@@ -1110,6 +1191,7 @@ $("#q").addEventListener("input",e=>{ searchQ=e.target.value; if(!/^#\/(search|l
 const decode = s => { try{ return decodeURIComponent(s||""); }catch(e){ return ""; } };
 let lastPath="";
 function route(keep){
+  if(!location.hash.startsWith("#/account")) linkNote=null;
   const h=location.hash.slice(1)||"/"; const [path,qs]=h.split("?"); const params=new URLSearchParams(qs||"");
   if(npOpen) closeNP(true);
   closeM(); closeMenu();
@@ -1134,5 +1216,9 @@ function route(keep){
   document.querySelectorAll("#uploadBtn").forEach(b=>b.classList.toggle("on", path==="/upload"));
   if(keep!==true) window.scrollTo(0,0);
 }
-window.addEventListener("hashchange",()=>route()); route();
+window.addEventListener("hashchange",()=>route());
+if(Backend.linkInAddress && Backend.linkInAddress()){          // back from a link in an email: take the sign-in over first
+  main.innerHTML=`<p class="muted" role="status">One moment…</p>`;
+  Backend.fromLink().then(n=>{ linkNote=n; route(); }).catch(()=>route());
+} else route();
 })();
