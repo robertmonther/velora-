@@ -4,26 +4,34 @@ For a programmer, an investor or another AI reading the project for the first ti
 
 ## 1. Shape
 
-A static site: plain HTML, CSS and JavaScript, no framework, no build step, no server. Three scripts load in order: `config.js` (settings), `data/catalogue.js` (songs), `account.js` (optional accounts), `app.js` (everything else). Addresses are hash routes (`#/song/rm-0006`), so any static host works.
+A static site: plain HTML, CSS and JavaScript, no framework, no build step. Four scripts load in order: `config.js` (settings), `data/catalogue.js` (the bundled songs), `backend.js` (server calls, tiny until someone signs in), `app.js` (everything else). The upload pages (`studio.js`, `studio-audio.js`, `studio.css`, `data/taxonomy.js`) and the account library load only when someone opens them. Addresses are hash routes (`#/song/rm-0006`), so any static host works.
 
-Media (songs, covers, videos) loads from the GitHub repo through the jsDelivr CDN, pinned to one commit (`mediaRev`), and from the local folder on localhost.
+Bundled media (songs, covers, videos) loads from the GitHub repo through the jsDelivr CDN, pinned to one commit (`mediaRev`), and from the local folder on localhost.
+
+Since 11 Nov 2026 there is also a server: a Supabase project (database, sign-in, file storage) that holds the songs uploaded through the site. The site asks it once per visit for the published songs and adds them to the bundled ones. If the server can't be reached, the site works from the bundled catalogue alone.
 
 ## 2. What is real and what is a demo
 
 | Part | Today |
 | --- | --- |
-| Catalogue, search, player, lyrics, videos | Real |
+| Catalogue, search, player, lyrics, videos, artists, credits | Real |
+| Age gate for sensual and explicit songs | Real, remembered on the device. It is a question, not an identity check |
+| Uploading (owner's account), synced lyrics, mastering, ownership records | Real. Details in `UPLOAD-STUDIO.md` |
 | Radio | Real schedule, calculated in the browser from the clock. Every listener gets the same song at the same moment. It is not one audio stream from a server, so two phones can differ by a second or two |
 | Prices, checkout, certificates, Verify page | Demo. Nothing is charged; a "license" is a record in the visitor's own browser |
-| Accounts, Premium | Off. Code and database rules are written, not live, not tested against a real project |
+| Accounts for listeners, Premium | Not open. Only the owner's account exists; the tables for paid things are in the database, unused |
 | Ads | Off. The code path is tested with a fake spot (`tests/run.py`) |
-| Download protection | Weak. No download button and the save menu is blocked, but the files are public |
+| Download protection | Weak. No download button and the save menu is blocked, but the files open by address |
 
-## 3. Data model (`data/catalogue.json`)
+## 3. Data model
 
-`categories`: id, name, Arabic name, colour, search words. A song has one main category (`genre`), optional extra ones (`tags`), a mood, duration, BPM, key, `sections` (song parts with start seconds), `bestPart`, `lyrics` as `[seconds, line]`, `art`, optional `video` (vertical) and `clip` (wide), `explicit`, `created`.
+**Bundled songs** (`data/catalogue.json`): `categories` (every genre, mood and collection, with `kind`), `artists` (id, name, tagline, bio, image), and `songs`. A song has one musical `genre` and a `subgenre`, `tags` (its moods and collections), a main `mood`, `language`, `explicit`, `adult`, an `artist` id, duration, `sections` (song parts with start seconds), `bestPart`, `lyrics` as `[seconds, line]`, `art`, optional `video` (vertical) and `clip` (wide), `created`.
 
-`catalogue.js` is the same data wrapped as `window.VELORA_DATA=…` so the site also opens from a file. Today it is 31 KB for 11 songs. At 1,000 songs the lyrics should move to one small file per song, loaded when a song opens; lists already show 50 songs at a time.
+`catalogue.js` is the same data wrapped as `window.VELORA_DATA=…` so the site also opens from a file. At 1,000 songs the lyrics should move to one small file per song, loaded when a song opens; lists already show 50 songs at a time.
+
+**Uploaded songs** live in the server's `songs` table and arrive in the same shape, with a few more fields: `credits`, `ai` (what the AI made), `release` (label, publisher, ISRC, owner lines), `holder` and `record` (the ownership record). `app.js → cleanRemoteSong()` takes over plain data only and accepts media only from the site's own storage.
+
+A category shows in search when one song has it, on the browse page with two, and gets a home shelf, a station and a pill with three.
 
 ## 4. Radio
 
@@ -40,7 +48,9 @@ Later, for one true stream that also feeds YouTube and car apps: a small server 
 - **Content-Security-Policy** in `index.html`: scripts only from the site itself (no inline scripts, no third-party scripts); images and media only from the site and jsDelivr; connections only to the site and Supabase.
 - **No HTML from data:** every title, id, lyric line and address parameter passes through `esc()`; colours and links are checked; cover paths are encoded. `tests/run.py` loads a hostile song and hostile addresses and checks that nothing runs.
 - **No tracking, no cookies, no personal data.** The browser remembers recently played songs and demo licenses on the device (`localStorage`, keys starting with `velora_`); the Account page has a button that clears them.
-- **Accounts (planned):** sign-in by email link, no passwords. The browser only ever holds the public key. `supabase/schema.sql` turns on row-level security on every table: a person can read only their own rows; Premium status and licenses can be written only by the server (payment webhook), never from the browser. The public license check returns only what a certificate shows.
+- **Accounts:** only the owner's account exists, with email and password (12 characters or more). It is created once on the site with a setup code; the server keeps only that code's fingerprint. The browser only ever holds the public key. `supabase/schema.sql` turns on row-level security on every table: a person can read only their own rows, and nothing is written from the browser directly; every change goes through a server function that checks who is asking. Uploaded files can be added only to the uploader's own folder, only as MP3 or JPEG, and cannot be replaced once the song is published. On a shared test address (githack) the sign-in is kept in memory only.
+- **Ownership records** cannot be updated or deleted, and each carries the fingerprint of the one before it.
+- **Age gate:** one answer per device, kept in the browser. Adult songs never start by themselves before the answer.
 - **Limits of a static site:** a static host cannot send security headers such as HSTS or frame-ancestors; set them at the real host. Anything shown in the browser can be copied; the Premium flag in the browser only hides ads. Real rights (clean files, licenses) must be enforced on the server.
 - Before launch: a Strix security test (Robert's rule), and `noindex` comes off.
 
@@ -48,7 +58,7 @@ Later, for one true stream that also feeds YouTube and car apps: a small server 
 
 1. **Hosting decision:** a stable address (own domain) on a static host; songs in private storage with short-lived signed links.
 2. **Payments:** a provider that allows the explicit songs; a webhook that writes licenses and Premium into the database; VAT and business registration (see the Notion plan).
-3. **Accounts on:** create the Supabase project, apply `schema.sql`, set the address and public key in `config.js`, add the site address to Supabase's allowed redirect list, then test sign-in, sign-out and the rules.
+3. **Server for real use:** the free plan pauses after a week without visits and holds about 150 to 230 songs; decide on a paid plan or other storage before the full catalogue goes in (see `UPLOAD-STUDIO.md`, section 7). Switch off open sign-up until creator accounts are wanted.
 4. **Legal pages:** license terms, terms of sale, privacy, business details; the IP-lawyer questions in Notion.
 5. **Robert checks the lyrics** or supplies his own text.
 

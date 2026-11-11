@@ -229,6 +229,10 @@ async def main():
         im = Image.open(cp); ap = [k for k in st["files"] if "/artists/" in k]
         check("the cover is stored as a square JPEG; the artist photo too", im.format == "JPEG" and im.size == (1200, 1200) and len(ap) == 1 and st["artists"][0]["image_path"] == ap[0] and st["artists"][0]["tagline"] == "Only a test", f"{im.format} {im.size} {ap}")
 
+        again = await pg.evaluate("""async (path) => { const b = new Blob([new Uint8Array([1, 2, 3])], {type: 'audio/mpeg'}); try { const u = await VeloraBackend.upload(path, b, 'audio/mpeg'); return 'ok ' + u.slice(-20); } catch (e) { return 'error ' + e.message; } }""", apath)
+        same = hashlib.sha256(urllib.request.urlopen(API + "/__file?name=" + apath).read()).hexdigest() == rec["audio_sha256"]
+        check("sending a file that is already there is fine and never replaces it", again.startswith("ok ") and same, again)
+
         # ---- 10. live at once ----
         await pg.click(".st-done a.btn.primary"); await pg.wait_for_selector(".song-cover")
         page = await pg.inner_text("main")

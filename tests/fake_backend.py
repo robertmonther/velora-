@@ -194,6 +194,8 @@ class Fake(H):
                     return self._send(400, {"statusCode": "403", "error": "Unauthorized", "message": "new row violates row-level security policy"})
                 if ctype not in ("audio/mpeg", "image/jpeg"): return self._send(400, {"statusCode": "415", "error": "invalid_mime_type", "message": f"mime type {ctype} is not supported"})
                 if data is None or len(data) > 52428800: return self._send(400, {"statusCode": "413", "error": "Payload too large", "message": "The object exceeded the maximum allowed size"})
+                if name in DB["files"] and (self.headers.get("x-upsert") or "").lower() != "true":       # like the real storage: no silent replacing
+                    return self._send(400, {"statusCode": "409", "error": "Duplicate", "message": "The resource already exists"})
                 DB["files"][name] = (data, ctype)
                 return self._send(200, {"Key": "media/" + name, "Id": str(uuid.uuid4())})
             m = re.fullmatch(r"/storage/v1/object/public/media/(.+)", path)

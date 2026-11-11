@@ -131,8 +131,10 @@ window.VeloraBackend = (function () {
   /* Store a file in the signed-in uploader's own folder. Returns its public address. */
   B.upload = async function (path, blob, type) {
     await B.init();
-    const r = await client.storage.from("media").upload(path, blob, { contentType: type, upsert: true, cacheControl: "31536000" });
-    if (r.error) throw new Error(plain(r.error));
+    // Files are named after their own fingerprint and are never replaced. "Already there" on a second try means the same file is in place.
+    const r = await client.storage.from("media").upload(path, blob, { contentType: type, upsert: false, cacheControl: "31536000" });
+    const e = r.error, there = e && (String(e.statusCode) === "409" || e.status === 409 || /already exists|duplicate/i.test((e.message || "") + " " + (e.error || "")));
+    if (e && !there) throw new Error(plain(e));
     return B.mediaUrl(path);
   };
   B.licenses = async function () { try { const d = await B.rpc("my_licenses"); return Array.isArray(d) ? d : []; } catch (e) { return []; } };

@@ -429,7 +429,7 @@ function licenseCard(s){
 function aboutCard(s){
   const cats=catsOf(s);
   return `<div class="np-card"><div class="card-h"><span>About the song</span></div>
-    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}${s.subgenre?" · "+esc(s.subgenre):""}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
+    <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}${s.subgenre?" · "+esc(s.subgenre):""}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div>${s.bpm?`<div class="fact"><b>BPM</b>${esc(s.bpm)}</div>`:`<div class="fact"><b>Language</b>${esc(s.language||"–")}</div>`}${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
     ${cats.length>1?`<div class="chips" style="margin:0 0 12px">${cats.map(c=>`<a class="chip" href="${catLink(c)}" data-close-np>${esc(c.name)}</a>`).join("")}</div>`:""}
     <p class="small" style="margin:0 0 12px">${madeBy(s)}</p>
     <a class="btn ghost sm" href="#/song/${encodeURIComponent(s.id)}" data-close-np>Open the song page</a></div>`;
@@ -895,7 +895,7 @@ function song(id){
   const d=s.duration, c=catByName(s.genre), secs=s.sections||[], more=S.filter(x=>x!==s && catsOf(s).some(k=>inCat(x,k)));
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
    <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")}${s.mood && !catsOf(s).some(k=>k.name===s.mood)?" · "+esc(s.mood):""}</div><h1>${esc(s.title)}</h1>${artistOf(s)?`<div class="song-artist"><a href="${artistLink(artistOf(s))}">${esc(artistOf(s).name)}</a></div>`:""}${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
-   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}${s.subgenre?`<div class="fact"><b>Style</b>${esc(s.subgenre)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Added"}</b>${esc(s.created||s.published||"–")}</div></div>
+   <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div>${s.bpm?`<div class="fact"><b>BPM</b>${esc(s.bpm)}</div>`:`<div class="fact"><b>Language</b>${esc(s.language||"–")}</div>`}${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}${s.subgenre?`<div class="fact"><b>Style</b>${esc(s.subgenre)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Added"}</b>${esc(s.created||s.published||"–")}</div></div>
    <div class="row"><button type="button" class="btn primary" data-play="${esc(s.id)}" data-np>${icon("play")}Play full song</button><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button>${s.video||s.clip?`<button type="button" class="btn ghost" data-video="${esc(s.id)}">Watch video</button>`:""}<button type="button" class="btn ghost" data-share="${esc(s.id)}">${icon("share")}Share</button></div>
    <div class="panel"><h3>Lyrics</h3>${!playable(s)?`<p class="muted" style="margin-top:0">This song is for adults. The lyrics show once you confirm your age.</p><button type="button" class="btn sm" data-age>I'm 18 or older</button>`:hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${esc(s.id)}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics coming soon.</p>`}</div>
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Tap to jump there.</p>
@@ -1011,7 +1011,7 @@ function cleanRemoteSong(r){
   if(!r || typeof r.id!=="string" || typeof r.title!=="string" || !Backend.isMediaUrl(r.audio)) return null;
   const txt=(v,n)=>typeof v==="string"?v.slice(0,n):"", num=v=>Number.isFinite(+v)?+v:0;
   const s={ id:r.id.slice(0,40), title:r.title.slice(0,160), genre:txt(r.genre,60)||"Pop", subgenre:txt(r.subgenre,60), tags:Array.isArray(r.tags)?r.tags.filter(t=>typeof t==="string").slice(0,6).map(t=>t.slice(0,40)):[],
-    mood:txt(r.mood,40), language:txt(r.language,40), explicit:!!r.explicit, adult:!!r.adult, duration:num(r.duration), bpm:num(r.bpm)||undefined, key:txt(r.key,20)||undefined,
+    mood:txt(r.mood,40), language:txt(r.language,40), explicit:!!r.explicit, adult:!!r.adult, duration:Math.round(num(r.duration)), bpm:num(r.bpm)||undefined, key:txt(r.key,20)||undefined,
     audio:r.audio, art:Backend.isMediaUrl(r.art)?r.art:undefined, color:/^#[0-9a-f]{6}$/i.test(r.color||"")?r.color:undefined,
     sections:(Array.isArray(r.sections)?r.sections:[]).filter(x=>x && typeof x.name==="string").slice(0,40).map(x=>({name:x.name.slice(0,40), start:Math.max(0,num(x.start))})),
     bestPart:Math.max(0,num(r.bestPart)), created:txt(r.created,10)||undefined, published:txt(r.published,10)||undefined, artist:txt(r.artist,60)||undefined,
