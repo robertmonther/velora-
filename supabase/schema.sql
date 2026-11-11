@@ -81,6 +81,7 @@ create table public.songs (
   release_date date, created_on date,
   ai jsonb not null default '{}',
   mastered boolean not null default false, loudness jsonb,
+  release_info jsonb not null default '{}',      -- for stores later: label, publisher, ISRC, owner lines (as LANDR asks)
   holder text,
   priority integer not null default 0,           -- later: paid priority placement
   published_at timestamptz,
@@ -178,12 +179,20 @@ language sql stable security definer set search_path = '' as $$
     'lyrics', s.lyrics, 'lyricsSynced', s.lyrics_synced,
     'lyricsNote', case when s.lyrics is null then null when s.lyrics_synced then 'Lyrics from the artist.' else 'Lyrics from the artist; not timed to the music yet.' end,
     'created', s.created_on, 'published', (s.published_at at time zone 'UTC')::date,
-    'artist', s.artist_id, 'credits', s.credits, 'ai', s.ai, 'holder', s.holder,
+    'artist', s.artist_id, 'credits', s.credits, 'ai', s.ai, 'holder', s.holder, 'release', s.release_info,
     'record', (select json_build_object('id', r.id, 'at', r.recorded_at, 'hash', r.record_hash)
                from public.ownership_records r where r.song_id = s.id and r.kind = 'published' order by r.id limit 1)
   );
 $$;
 revoke all on function private.song_json(public.songs) from public;
+
+-- Is this stored file the sound or the cover of a song that is (or was) published? Such files can't be replaced.
+create function private.file_is_published(p_name text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.songs s where s.status <> 'draft' and (s.audio_path = p_name or s.cover_path = p_name));
+$$;
+revoke all on function private.file_is_published(text) from public;
+grant execute on function private.file_is_published(text) to authenticated, service_role;
 
 -- Add one ownership record. The fingerprint covers the record and the fingerprint before it.
 create function private.add_record(p_song text, p_owner uuid, p_kind text, p_title text, p_artist text, p_holder text, p_details jsonb)
@@ -233,7 +242,7 @@ $$;
 create function public.song_record(p_song text) returns json
 language sql stable security definer set search_path = '' as $$
   select coalesce(json_agg(json_build_object('id', r.id, 'kind', r.kind, 'at', r.recorded_at, 'title', r.title, 'artist', r.artist_name,
-           'holder', r.holder, 'details', r.details - 'audio_path' - 'cover_path', 'prev', r.prev_hash, 'hash', r.record_hash) order by r.id), '[]'::json)
+           'holder', r.holder, 'details', r.details - 'audio_path' - 'cover_path' - 'original_name', 'prev', r.prev_hash, 'hash', r.record_hash) order by r.id), '[]'::json)
   from public.ownership_records r
   join public.songs s on s.id = r.song_id
   where r.song_id = p_song and s.status = 'published';
@@ -347,6 +356,7 @@ declare
   v_featured jsonb := '[]';
   v_ai jsonb := '{}';
   v_loud jsonb := null;
+  v_rel jsonb := '{}';
   v_color text := nullif(coalesce(p->>'color', ''), '');
   v_release date := coalesce(nullif(p->>'release_date', '')::date, current_date);
   v_created date := nullif(p->>'created_on', '')::date;
@@ -411,6 +421,7 @@ begin
   if jsonb_typeof(p->'featured') = 'array' and jsonb_array_length(p->'featured') <= 10 and char_length((p->'featured')::text) <= 1200 then v_featured := p->'featured'; end if;
   if jsonb_typeof(p->'ai') = 'object' and char_length((p->'ai')::text) <= 600 then v_ai := p->'ai'; end if;
   if jsonb_typeof(p->'loudness') = 'object' and char_length((p->'loudness')::text) <= 400 then v_loud := p->'loudness'; end if;
+  if jsonb_typeof(p->'release') = 'object' and char_length((p->'release')::text) <= 1200 then v_rel := p->'release'; end if;
   if v_color is not null and v_color !~ '^#[0-9a-fA-F]{6}$' then v_color := null; end if;
   if v_created is not null and v_created > current_date then v_created := null; end if;
   select coalesce(nullif(btrim(pr.display_name), ''), 'The uploader') into v_holder from public.profiles pr where pr.id = uid;
@@ -422,7 +433,7 @@ begin
     best_part = greatest(0, least(coalesce((p->>'best_part')::numeric, 0), v_dur)),
     duration = v_dur, bpm = nullif(p->>'bpm', '')::integer, key = nullif(left(coalesce(p->>'key', ''), 20), ''),
     audio_path = v_audio, cover_path = v_cover, color = v_color, release_date = v_release, created_on = v_created,
-    ai = v_ai, mastered = coalesce((p->>'mastered')::boolean, false), loudness = v_loud, holder = v_holder,
+    ai = v_ai, mastered = coalesce((p->>'mastered')::boolean, false), loudness = v_loud, release_info = v_rel, holder = v_holder,
     published_at = now(), updated_at = now()
   where id = s.id returning * into s;
 
@@ -531,8 +542,10 @@ on conflict (id) do nothing;
 
 create policy "media: uploaders add to their own folder" on storage.objects for insert to authenticated
   with check (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text and private.can_upload((select auth.uid())));
+-- Replacing is only for a retry while the song is still a draft: once published, its sound and cover files are fixed.
 create policy "media: uploaders replace their own files" on storage.objects for update to authenticated
-  using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text and private.can_upload((select auth.uid())))
+  using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text and private.can_upload((select auth.uid()))
+         and not private.file_is_published(name))
   with check (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text and private.can_upload((select auth.uid())));
 create policy "media: uploaders see their own files" on storage.objects for select to authenticated
   using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text);

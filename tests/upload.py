@@ -33,7 +33,7 @@ def check(name, ok, detail=""):
 def state(): return json.loads(urllib.request.urlopen(API + "/__state").read())
 async def until(page, expr, timeout=30000):
     # the page forbids eval, so the condition is sent as a function
-    await page.wait_for_function("() => (" + expr + ")", timeout=timeout)
+    await page.wait_for_function("() => { try { return (" + expr + "); } catch (e) { return false; } }", timeout=timeout)
 def lufs_of(path):
     out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", path, "-af", "ebur128=peak=sample", "-f", "null", "-"], capture_output=True, text=True).stderr
     return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", out)[-1])
@@ -44,6 +44,8 @@ def fixtures():
     wav = os.path.join(TMP, "Fashionably_Late_slowed.wav"); mp3 = os.path.join(TMP, "tagged.mp3")
     if not os.path.exists(wav): subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "40", "-t", "45", "-i", src, "-ar", "48000", "-ac", "2", "-af", "volume=5dB", "-metadata", "title=Fashionably Late", "-metadata", "comment=made with a tool; created=2026-06-01T10:11:12Z; id=PRIVATE-ID-123", wav], check=True)
     if not os.path.exists(mp3): subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "40", "-t", "31", "-i", src, "-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3", "-metadata", "title=Tagged Song", "-metadata", "lyrics-eng=[Verse 1]\nFirst line here\nSecond line here", "-metadata", "comment=created=2026-09-19T08:00:00Z; id=PRIVATE-ID-456", mp3], check=True)
+    quiet = os.path.join(TMP, "quiet.wav")
+    if not os.path.exists(quiet): subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "40", "-t", "30", "-i", src, "-ar", "44100", "-ac", "2", "-af", "volume=-12dB", quiet], check=True)
     from PIL import Image, ImageDraw
     def img(name, w, h, fmt):
         p = os.path.join(TMP, name)
@@ -83,6 +85,12 @@ async def main():
         check("WAV details are read and the song is opened at 44.1 kHz", wtags["wav"] == {"channels": 2, "sampleRate": 48000, "bits": 16} and wtags["rate"] == 44100 and abs(wtags["dur"] - 45) < 0.1 and wtags["created"] == "2026-06-01", str(wtags))
         check(f"loudness matches ffmpeg's meter ({ref} LUFS)", abs(wtags["lufs"] - ref) < 0.4, f"{wtags['lufs']:.2f} vs {ref}")
 
+        quiet = await pg.evaluate("""async (u) => { const b = await (await fetch(u)).arrayBuffer(); const a = await VeloraAudio.decode(b); const before = VeloraAudio.loudness(VeloraAudio.channels(a), a.sampleRate);
+            const cl = a.getChannelData(0), cr = a.getChannelData(1); for (let k = 1; k <= 20; k++) { const at = Math.floor(k * a.sampleRate * 1.3); for (let i = 0; i < 220; i++) { const v = 0.9 * Math.sin(2 * Math.PI * 1000 * i / a.sampleRate); cl[at + i] = v; cr[at + i] = v; } }
+            const r = await VeloraAudio.master(a, {style: 'balanced', lufs: -14, peakDb: -1}); let max = 0; for (let i = 0; i < r.L.length; i++) { const v = Math.max(Math.abs(r.L[i]), Math.abs(r.R[i])); if (v > max) max = v; }
+            return {before: before.lufs, after: r.after.lufs, peak: 20 * Math.log10(max), limited: r.limited, gain: r.gainDb}; }""", "/tests/tmp/quiet.wav")
+        check("mastering lifts a quiet song to -14 LUFS and no sample passes -1 dB", quiet["before"] < -22 and abs(quiet["after"] + 14) < 0.7 and quiet["peak"] <= -0.999 and quiet["limited"], str(quiet))
+
         # ---- 1. the door: sign-in and the one-time owner setup ----
         await shot(pg, "door-signed-out")
         await pg.click("#toSetup"); await pg.fill("#snm", "Robert Monther"); await pg.fill("#sem", "owner@example.test"); await pg.fill("#spw", "a-long-password-1"); await pg.fill("#spw2", "a-long-password-1"); await pg.fill("#scode", "WRONG-CODE-0000")
@@ -120,6 +128,13 @@ async def main():
         check("credits start with the owner's name; the AI question is asked", c["lyr"] == "Robert Monther" and c["prod"] == "Robert Monther" and c["ai"] and c["tool"] == "Suno" and c["music"], str(c))
         await pg.click("#cAdd"); await pg.select_option("#cRole0", "Mixing"); await pg.fill("#cName0", "Mix Person")
         await shot(pg, "step3-credits-ai")
+        folded = await pg.evaluate("!document.querySelector('#cMore').open")
+        await pg.click("#cMore summary"); await pg.fill("#rLabel", "Test Label"); await pg.fill("#rIsrc", "NL-A01-26"); await pg.click("#stNext")
+        bad = await pg.inner_text("#stMsg"); still = await pg.evaluate("document.querySelector('#cMore').open && document.querySelector('#rLabel').value")
+        await pg.fill("#rIsrc", "nl-a01-26-00042")
+        own = await pg.evaluate("[document.querySelector('#rCO').value, document.querySelector('#rPO').value, document.querySelector('#rCY').placeholder]")
+        check("the store questions (label, publisher, owners, ISRC) are folded away, optional and checked", folded and "ISRC" in bad and still == "Test Label" and own == ["Robert Monther", "Robert Monther", "2026"], f"{folded} {bad} {still} {own}")
+        await shot(pg, "step3-release-details")
         await pg.click("#stNext"); await pg.wait_for_selector("#lText")
 
         # ---- 5. step 4: lyrics and syncing ----
@@ -174,6 +189,9 @@ async def main():
         # ---- 8. step 7: rights ----
         await pg.click("#stNext"); check("the rights boxes must be ticked", "Tick all three" in await pg.inner_text("#stMsg"))
         for i in ("#rOwn", "#rClean", "#rRec"): await pg.check(i)
+        await pg.click("[data-cov='1']"); await pg.click("#stNext"); cov = await pg.inner_text("#stMsg"); ticks = await pg.evaluate("document.querySelector('#rOwn').checked")
+        await pg.click("[data-cov='0']")
+        check("a cover of someone else's song is not accepted", "original songs only" in cov and ticks)
         await shot(pg, "step7-rights")
         await pg.click("#stNext"); await pg.wait_for_selector(".artistcard")
 
@@ -192,6 +210,7 @@ async def main():
               and pay["rights_confirmed"] is True and pay["ai"] == {"used": True, "music": True, "vocals": True, "lyrics": False, "artwork": False, "tool": "Suno"} and pay["mastered"] is True, json.dumps({k: v for k, v in song.items() if k != "payload"})[:400])
         ly = song["lyrics"]; secs = song["sections"]
         check("synced lyrics and song parts are saved", len(ly) == 6 and ly[0][1] == "You've been watching the doorway" and all(a[0] < b[0] for a, b in zip(ly, ly[1:])) and song["lyrics_synced"] and [x["name"] for x in secs] == ["Verse 1", "Chorus"] and secs[0]["start"] == 0, f"{ly} {secs}")
+        check("the release details are stored for stores later", pay["release"] == {"type": "single", "label": "Test Label", "isrc": "NLA012600042", "c_owner": "Robert Monther", "c_year": 2026, "p_owner": "Robert Monther", "p_year": 2026}, str(pay.get("release")))
         cr = {(c["name"], r) for c in pay["credits"] for r in c["roles"]}
         check("credits are saved in full", {("Test Artist", "Main Artist"), ("Guest One", "Featured Artist"), ("Robert Monther", "Lyricist"), ("Robert Monther", "Producer"), ("Mix Person", "Mixing")} <= cr and any(n == "Suno" and r.startswith("AI-made: music, voice") for n, r in cr), str(cr))
         rec = st["records"][0]["details"]
@@ -213,12 +232,20 @@ async def main():
         # ---- 10. live at once ----
         await pg.click(".st-done a.btn.primary"); await pg.wait_for_selector(".song-cover")
         page = await pg.inner_text("main")
-        check("the song page opens right after publishing", "Fashionably Late (Slowed)" in page and "Test Artist" in page and "Ownership record" in page, page[:300])
+        kick = [x.strip() for x in page.split("\n")[0].split("·")]
+        check("the song page opens right after publishing, with its ownership record", "Fashionably Late (Slowed)" in page and "Test Artist" in page and "Ownership record no. 1" in page and "rights holder Robert Monther" in page
+              and "Made with AI: the music and the voice (Suno)" in page and "Lyrics by Robert Monther" in page and len(kick) == len(set(kick)) == 3, page[:200])
         await shot(pg, "song-page-after-publish")
+        await pg.click("[data-record]"); await pg.wait_for_selector("#mBody .rec"); full = await pg.inner_text("#mBody")
+        check("anyone can open the full record: fingerprints, never the file name", rec["original_sha256"] in full and rec["audio_sha256"] in full and st["records"][0]["hash"] in full and "Fashionably_Late_slowed" not in full and "Published" in full, full[:300])
+        await shot(pg, "ownership-record", full=False)
+        await pg.keyboard.press("Escape")
         await pg.click("[data-play]"); await pg.wait_for_timeout(2500)
         pl = await pg.evaluate("(() => { const a=document.querySelector('#audio'); return {t:a.currentTime, paused:a.paused, src:a.currentSrc, np:document.querySelector('#np').classList.contains('open'), lines:document.querySelectorAll('#lyrBox .ll').length, lit: !!document.querySelector('#lyrBox .ll.on'), art: getComputedStyle(document.querySelector('#npArt')).backgroundImage.includes('/storage/v1/object/public/media/')}; })()")
         check("it plays from the server's storage, with its cover and lyrics that follow the music", pl["t"] > 1 and not pl["paused"] and "/storage/v1/object/public/media/" in pl["src"] and pl["np"] and pl["lines"] == 6 and pl["lit"] and pl["art"], str(pl))
         await shot(pg, "playing-after-publish", full=False)
+        await pg.click("#np [data-credits]"); await pg.wait_for_selector("#mBody .cgroup"); crm = await pg.inner_text("#mBody"); await pg.keyboard.press("Escape")
+        check("credits show who did what, the AI part and the release details", all(x in crm for x in ("Test Artist", "Guest One", "Mix Person", "AI-made: music, voice", "Test Label", "NL-A01-26-00042", "© 2026 Robert Monther", "℗ 2026 Robert Monther")), crm[:400])
         await pg.click("#npClose")
         fresh = await visitor()
         await fresh.goto(BASE + "#/search?q=test%20artist"); await fresh.wait_for_selector("#sres .srow")
@@ -240,10 +267,10 @@ async def main():
         check("it can be put back", next(x for x in state()["songs"] if x["id"] == song["id"])["status"] == "published")
 
         # ---- 12. a second upload is mostly filled in; an MP3 with lyrics inside ----
-        await pg.goto(BASE + "#/upload"); await pg.wait_for_selector(".st-done"); await pg.click("#dAgain"); await pg.wait_for_selector(".st .drop")
+        await pg.goto(BASE + "#/upload"); await pg.wait_for_selector(".st .drop")
         await pg.set_input_files("#fileIn", mp3); await pg.wait_for_selector("#fWave", timeout=60000); await pg.click("#stNext"); await pg.wait_for_selector("#dTitle")
         d2 = await pg.evaluate("({title: document.querySelector('#dTitle').value, artist: document.querySelector('#dArtist').value, genre: document.querySelector('#dGenre').value, sub: document.querySelector('#dSub').value, moods: [...document.querySelectorAll('[data-mood].on')].map(e=>e.dataset.mood), created: document.querySelector('#dCreated').value, lines: VeloraStudio._state().lines.length})")
-        check("the next upload remembers the artist, genre and moods, and reads the lyrics from the file", d2["title"] == "Tagged Song" and d2["artist"] == "test-artist" and d2["genre"] == "Pop" and d2["sub"] == "Dance Pop" and d2["moods"] == ["Playful", "Sensual"] and d2["created"] == "2026-09-19" and d2["lines"] == 2, str(d2))
+        check("the next upload remembers the artist, genre and moods, and reads the lyrics from the file", d2["title"] == "Tagged Song" and d2["artist"] == "test-artist" and d2["genre"] == "Pop" and d2["sub"] == "Dance Pop" and sorted(d2["moods"]) == ["Playful", "Sensual"] and d2["created"] == "2026-09-19" and d2["lines"] == 2, str(d2))
 
         # ---- 13. an account that is not an uploader ----
         urllib.request.urlopen(API + "/__add_listener").read()

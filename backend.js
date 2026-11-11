@@ -106,6 +106,14 @@ window.VeloraBackend = (function () {
     if (r.error) throw new Error(plain(r.error));
     return r.data;
   };
+  /* A public server function, for every visitor: one small request, no sign-in and no library. */
+  B.open = async function (fn, args) {
+    if (!enabled || !/^[a-z_]{3,40}$/.test(fn)) throw new Error("Not available.");
+    let r; try { r = await fetch(url + "/rest/v1/rpc/" + fn, { method: "POST", headers: { apikey: key, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args || {}) }); }
+    catch (e) { throw new Error(plain(e)); }
+    if (!r.ok) throw new Error("The server did not answer (" + r.status + ").");
+    return r.json();
+  };
   /* The published songs and their artists, for every visitor. One small request, no library needed. */
   B.catalogue = async function () {
     if (!enabled) return null;

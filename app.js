@@ -109,6 +109,22 @@ function creditsOf(s){
   return out;
 }
 
+// Who made the song, in one plain line. An uploaded song answers from its own form; the bundled ones are Robert's.
+const listAnd = a => a.length<2 ? (a[0]||"") : a.slice(0,-1).join(", ")+" and "+a[a.length-1];
+function aiLine(s){
+  const ai=s.ai; if(!ai) return "";
+  if(!ai.used) return "Made without AI.";
+  const made=[ai.music&&"the music", ai.vocals&&"the voice", ai.lyrics&&"the lyrics", ai.artwork&&"the cover"].filter(Boolean);
+  return `Made with AI: ${esc(listAnd(made)||"parts of the song")}${ai.tool?` (${esc(ai.tool)})`:""}.`;
+}
+function madeBy(s){
+  if(!s.uploaded) return `Lyrics, concept and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).`;
+  const who=r=>[...new Set((s.credits||[]).filter(c=>(c.roles||[]).includes(r)).map(c=>c.name))], ly=who("Lyricist"), pr=who("Producer"), parts=[];
+  if(ly.length) parts.push("Lyrics by "+esc(listAnd(ly))); if(pr.length) parts.push((parts.length?"produced by ":"Produced by ")+esc(listAnd(pr)));
+  return [parts.join("; ")+(parts.length?".":""), aiLine(s)].filter(Boolean).join(" ");
+}
+const holderOf = s => s.uploaded ? esc(s.holder||"The uploader") : `${esc(CREATOR)} (lyrics and song design) · music made with Suno`;
+
 // ---------- Search (like Spotify: a title, an artist, a genre, a mood, "explicit", "video", or a lyric) ----------
 function norm(s){ return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\br\s*(?:&|and|n|'n'|\+)\s*b\b/g,"rnb").replace(/\bhip[\s-]*hop\b/g,"hiphop").replace(/\blo[\s-]*fi\b/g,"lofi").replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim(); }
 const STOP = new Set(["song","songs","music","track","tracks","the","a","of"]);
@@ -386,8 +402,23 @@ function creditsCard(s){
   const merged=names.map(n=>{ const of=list.filter(c=>c.name===n); return {name:n, roles:[...new Set(of.flatMap(c=>c.roles||[]))], artist:(of.find(c=>c.artist)||{}).artist}; });
   return `<div class="np-card"><div class="card-h spread"><span>Credits</span><button type="button" class="linkbtn" data-credits="${esc(s.id)}">Show all</button></div>${merged.slice(0,3).map(creditRow).join("")}</div>`;
 }
+// Label, publisher, owner lines and ISRC, when the upload gave them.
+function releaseRows(s){
+  const r=s.release, out=[], add=(name,role)=>{ if(name) out.push({group:"Release", name, roles:[role]}); }; if(!r) return out;
+  add(r.label,"Label"); add(r.publisher,"Publisher");
+  if(r.cOwner) add(`© ${r.cYear||""} ${r.cOwner}`.replace(/\s+/g," "),"Composition owner");
+  if(r.pOwner) add(`℗ ${r.pYear||""} ${r.pOwner}`.replace(/\s+/g," "),"Recording owner");
+  if(r.isrc) add(r.isrc.replace(/^(..)(...)(..)(.....)$/,"$1-$2-$3-$4"),"ISRC");
+  return out;
+}
+function artistCredits(a, list){
+  const up=list.filter(s=>s.uploaded);
+  if(!up.length || up.length<list.length) return [{name:a.name,roles:["Main Artist"]},{name:CREATOR,roles:["Lyricist","Song design","Producer"]},{name:"Suno",roles:["Music generation (AI-assisted)"]}];
+  const all=up.flatMap(creditsOf), names=[...new Set(all.map(c=>c.name))];
+  return names.map(n=>({name:n, roles:[...new Set(all.filter(c=>c.name===n).flatMap(c=>c.roles||[]))].slice(0,6)})).slice(0,12);
+}
 function openCredits(s){
-  const list=creditsOf(s), groups=[...new Set(list.map(c=>c.group||"Credits"))];
+  const list=creditsOf(s).concat(releaseRows(s)), groups=[...new Set(list.map(c=>c.group||"Credits"))];
   openModal(`<h2 id="mTitle">${esc(s.title)}</h2><p class="muted small" style="margin-top:-6px">${subOf(s)}</p>${groups.map(g=>`<h3 class="cgroup">${esc(g)}</h3>${list.filter(c=>(c.group||"Credits")===g).map(creditRow).join("")}`).join("")}<p class="muted small" style="margin:16px 0 0">Source: Velora catalogue · ID ${esc(s.id)}</p>`);
 }
 function licenseCard(s){
@@ -400,7 +431,7 @@ function aboutCard(s){
   return `<div class="np-card"><div class="card-h"><span>About the song</span></div>
     <div class="facts np-facts"><div class="fact"><b>Genre</b>${esc(s.genre)}${s.subgenre?" · "+esc(s.subgenre):""}</div><div class="fact"><b>Mood</b>${esc(s.mood)}</div><div class="fact"><b>Length</b>${fmt(s.duration)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}<div class="fact"><b>Content</b>${s.explicit?"Explicit lyrics":"Clean"}</div></div>
     ${cats.length>1?`<div class="chips" style="margin:0 0 12px">${cats.map(c=>`<a class="chip" href="${catLink(c)}" data-close-np>${esc(c.name)}</a>`).join("")}</div>`:""}
-    <p class="small" style="margin:0 0 12px">Lyrics, concept and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).</p>
+    <p class="small" style="margin:0 0 12px">${madeBy(s)}</p>
     <a class="btn ghost sm" href="#/song/${encodeURIComponent(s.id)}" data-close-np>Open the song page</a></div>`;
 }
 function nextCard(s){
@@ -722,7 +753,7 @@ async function showCert(song,t){
   <div class="cert"><h3>Velora License Certificate</h3>${DEMO?'<div class="small">Example certificate. Not a real license.</div>':""}
   <dl><dt>License ID</dt><dd><b>${esc(lic)}</b></dd><dt>Song</dt><dd>${esc(song.title)} (${esc(song.id)})</dd><dt>Type</dt><dd>${esc(PRICES[t].label)}</dd>
   <dt>Issued</dt><dd>${longDateTime(now)}</dd><dt>Song created</dt><dd>${longDate(made)}</dd>
-  <dt>Rights holder</dt><dd>${esc(CREATOR)} (lyrics and song design) · music made with Suno</dd><dt>Fingerprint</dt><dd class="mono">${esc(fp.slice(0,32))}…</dd></dl></div>
+  <dt>Rights holder</dt><dd>${holderOf(song)}</dd><dt>Fingerprint</dt><dd class="mono">${esc(fp.slice(0,32))}…</dd></dl></div>
   <div class="row" style="margin-top:14px"><a class="btn primary" href="#/verify?id=${encodeURIComponent(lic)}" id="mVerify">Verify this license</a><button type="button" class="btn" id="mDone">Close</button></div>`);
   $("#mDone").onclick=closeM; $("#mVerify").onclick=e=>{ e.preventDefault(); closeM(); const h="#/verify?id="+encodeURIComponent(lic); if(npOpen) closeNP(false, h); else location.hash=h; };
 }
@@ -823,7 +854,7 @@ function artistView(id){
   <section>${head("Popular")}${rows(list,a.name,true)}</section>
   ${latest.length?`<section>${head("Releases")}${hrow(latest,a.name+" · releases")}</section>`:""}
   <section>${head("About")}<div class="about-card"><div class="about-img" style="${artistArt(a)}"></div><div class="about-body"><b>${esc(a.name)}</b><small>${plural(list.length,"song")} on Velora</small>${a.bio?`<p>${esc(a.bio)}</p>`:""}${Array.isArray(a.facts)&&a.facts.length?`<dl class="afacts">${a.facts.map(f=>`<dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd>`).join("")}</dl>`:""}</div></div></section>
-  <section>${head("Credits")}<div class="panel" style="margin-top:0">${creditRow({name:a.name,roles:["Main Artist"]})}${creditRow({name:CREATOR,roles:["Lyricist","Song design","Producer"]})}${creditRow({name:"Suno",roles:["Music generation (AI-assisted)"]})}</div></section>`;
+  <section>${head("Credits")}<div class="panel" style="margin-top:0">${artistCredits(a,list).map(creditRow).join("")}</div></section>`;
   $("#aPlay").onclick=()=>playList(list, a.name, false);
   $("#aShuffle").onclick=()=>playList(list, a.name+" · shuffle", true);
   $("#aShare").onclick=()=>shareLink(a.name+" on Velora", pageLink(artistLink(a)));
@@ -841,18 +872,35 @@ function genreView(id){
   $("#gPlay").onclick=()=>playList(list, c.name, false);
   $("#gShuffle").onclick=()=>playList(list, c.name+" · shuffle", true);
 }
+// An uploaded song carries a dated ownership record, written by the server at the moment it was published.
+function recordPanel(s){
+  const r=s.record;
+  return `<div class="panel prov"><div class="seal" aria-hidden="true">✓</div><div><h3 style="margin-bottom:4px">Ownership record${r&&r.id?" no. "+esc(r.id):""}</h3>
+    <div class="small">${r&&r.at?`Recorded <b>${longDateTime(r.at)}</b> · `:""}rights holder <b>${esc(s.holder||"the uploader")}</b> · ID ${esc(s.id)}</div>
+    <div class="muted small">${madeBy(s)}</div>
+    ${r&&r.hash?`<div class="muted small mono" style="overflow-wrap:anywhere">Fingerprint ${esc(r.hash.slice(0,32))}…</div><button type="button" class="linkbtn" data-record="${esc(s.id)}">Show the full record</button>`:""}</div></div>`;
+}
+async function openRecord(s){
+  openModal(`<h2 id="mTitle">Ownership record</h2><p class="muted" role="status">One moment…</p>`);
+  let rows; try { rows=await Backend.open("song_record",{p_song:s.id}); } catch(e){ rows=null; }
+  if($("#modal").hidden) return;
+  const dd=(k,v,mono)=>v?`<dt>${k}</dt><dd${mono?' class="mono"':""}>${esc(v)}</dd>`:"", kind={published:"Published",unlisted:"Taken off the list",relisted:"Put back on the list"};
+  openModal(`<h2 id="mTitle">Ownership record</h2><p class="muted small" style="margin-top:-6px">${esc(s.title)} · ${subOf(s)}</p>
+   ${Array.isArray(rows)&&rows.length?rows.map(x=>{ const d=x.details||{}; return `<div class="cert rec"><h3>No. ${esc(x.id)} · ${esc(kind[x.kind]||x.kind)}</h3><dl>${dd("Song",x.title)}${dd("Artist",x.artist)}${dd("Rights holder",x.holder)}${dd("Recorded",longDateTime(x.at))}${dd("Original file",d.original_sha256,1)}${dd("Streamed file",d.audio_sha256,1)}${dd("Cover",d.cover_sha256,1)}${dd("Lyrics",d.lyrics_sha256,1)}${dd("This record",x.hash,1)}${dd("Record before it",x.prev,1)}</dl></div>`; }).join(""):`<p class="muted">The record could not be loaded right now. Try again in a moment.</p>`}
+   <p class="muted small">Each long code is a fingerprint (SHA-256): only that exact file produces it, so anyone holding the file can check it against this record. Every record also carries the fingerprint of the one before it, so none can be changed or removed later without it showing. This is evidence of what was uploaded and when; it is not a copyright registration.</p>`);
+}
 function song(id){
   const s=byId(id); if(!s){ notFound("Song"); return; }
   if(isAdult(s) && age()==="minor"){ main.innerHTML=`<h1 class="pagetitle">For adults only</h1><p class="muted">This song is hidden on this device. You can change that in Settings.</p><div class="row"><a class="btn primary" href="#/">Back to Home</a><a class="btn ghost" href="#/settings">Settings</a></div>`; return; }
   const d=s.duration, c=catByName(s.genre), secs=s.sections||[], more=S.filter(x=>x!==s && catsOf(s).some(k=>inCat(x,k)));
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
-   <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1>${artistOf(s)?`<div class="song-artist"><a href="${artistLink(artistOf(s))}">${esc(artistOf(s).name)}</a></div>`:""}${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
+   <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")}${s.mood && !catsOf(s).some(k=>k.name===s.mood)?" · "+esc(s.mood):""}</div><h1>${esc(s.title)}</h1>${artistOf(s)?`<div class="song-artist"><a href="${artistLink(artistOf(s))}">${esc(artistOf(s).name)}</a></div>`:""}${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
    <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}${s.subgenre?`<div class="fact"><b>Style</b>${esc(s.subgenre)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Added"}</b>${esc(s.created||s.published||"–")}</div></div>
    <div class="row"><button type="button" class="btn primary" data-play="${esc(s.id)}" data-np>${icon("play")}Play full song</button><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button>${s.video||s.clip?`<button type="button" class="btn ghost" data-video="${esc(s.id)}">Watch video</button>`:""}<button type="button" class="btn ghost" data-share="${esc(s.id)}">${icon("share")}Share</button></div>
    <div class="panel"><h3>Lyrics</h3>${!playable(s)?`<p class="muted" style="margin-top:0">This song is for adults. The lyrics show once you confirm your age.</p><button type="button" class="btn sm" data-age>I'm 18 or older</button>`:hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${esc(s.id)}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics coming soon.</p>`}</div>
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Tap to jump there.</p>
     <div class="schedule">${secs.map((x,j)=>`<button type="button" class="slot tap" data-play="${esc(s.id)}" data-at="${+x.start||0}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((secs[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>
-   <div class="panel prov"><div class="seal" aria-hidden="true">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.created?"Made with Suno · created":"Made with Suno · added"} <b>${longDate(s.created||s.published)}</b> · catalogue ID ${esc(s.id)}</div><div class="muted small">Lyrics and song design by ${esc(CREATOR)}. Each license gets a dated certificate you can check on the Verify page.</div></div></div>
+   ${s.uploaded?recordPanel(s):`<div class="panel prov"><div class="seal" aria-hidden="true">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.created?"Made with Suno · created":"Made with Suno · added"} <b>${longDate(s.created||s.published)}</b> · catalogue ID ${esc(s.id)}</div><div class="muted small">Lyrics and song design by ${esc(CREATOR)}. Each license gets a dated certificate you can check on the Verify page.</div></div></div>`}
   </div></div>
   ${more.length?`<section>${head("More like this",c?`<a href="${catLink(c)}">${esc(c.name)}</a>`:"")}${hrow(more,"More like "+s.title)}</section>`:""}`;
 }
@@ -950,7 +998,8 @@ function settingsView(){
     :u?`<p class="small">Signed in as ${esc(u.email)}.</p><div class="row"><a class="btn sm" href="#/account">Open my account</a><button type="button" class="btn ghost sm" id="setOut">Sign out</button></div>`
     :`<p class="small">You are not signed in. Listening needs no account.</p><a class="btn sm" href="#/account">Sign in</a>`}</div>
   ${privacyPanel()}
-  <div class="panel"><h3>About</h3><p class="small" style="margin:0">Velora${DEMO?", test version":""}. Lyrics, concepts and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).${VER?` Build ${esc(VER)}.`:""}</p></div>`;
+  <div class="panel"><h3>About</h3><p class="small" style="margin:0">Velora${DEMO?", test version":""}. Lyrics, concepts and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).${VER?` Build ${esc(VER)}.`:""}</p>
+   <p class="muted small" style="margin:8px 0 0">Open-source parts: MP3 files are made in your browser with lamejs 1.2.1, which uses the LAME encoder (<a href="https://lame.sourceforge.io" target="_blank" rel="noopener noreferrer">lame.sourceforge.io</a>), under the LGPL licence; accounts use supabase-js (MIT). Both are in the site's vendor folder, unchanged.</p></div>`;
   wireWipe();
   const h=$("#ageHide"); if(h) h.onclick=()=>{ setAge("minor"); if(current && isAdult(current)) audio.pause(); toast("Adult songs are hidden on this device."); route(true); };
   const o=$("#setOut"); if(o) o.onclick=()=>Backend.signOut().then(()=>toast("Signed out."));
@@ -967,7 +1016,8 @@ function cleanRemoteSong(r){
     sections:(Array.isArray(r.sections)?r.sections:[]).filter(x=>x && typeof x.name==="string").slice(0,40).map(x=>({name:x.name.slice(0,40), start:Math.max(0,num(x.start))})),
     bestPart:Math.max(0,num(r.bestPart)), created:txt(r.created,10)||undefined, published:txt(r.published,10)||undefined, artist:txt(r.artist,60)||undefined,
     lyricsNote:txt(r.lyricsNote,200), uploaded:true, record:r.record && typeof r.record==="object" ? {id:num(r.record.id), at:txt(r.record.at,40), hash:txt(r.record.hash,64)} : undefined,
-    holder:txt(r.holder,80)||undefined, ai:r.ai && typeof r.ai==="object" ? {music:!!r.ai.music, vocals:!!r.ai.vocals, lyrics:!!r.ai.lyrics, artwork:!!r.ai.artwork, tool:txt(r.ai.tool,60)} : undefined };
+    holder:txt(r.holder,80)||undefined, ai:r.ai && typeof r.ai==="object" ? {used:!!r.ai.used, music:!!r.ai.music, vocals:!!r.ai.vocals, lyrics:!!r.ai.lyrics, artwork:!!r.ai.artwork, tool:txt(r.ai.tool,60)} : undefined };
+  if(r.release && typeof r.release==="object"){ const x=r.release, yr=v=>{ const n=num(v); return n>=1900&&n<=2100?n:0; }; s.release={label:txt(x.label,80), publisher:txt(x.publisher,80), isrc:/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(x.isrc||"")?x.isrc:"", cOwner:txt(x.c_owner,80), cYear:yr(x.c_year), pOwner:txt(x.p_owner,80), pYear:yr(x.p_year)}; }
   if(!s.sections.length) s.sections=[{name:"Start",start:0}];
   if(Array.isArray(r.lyrics)){ const L=r.lyrics.filter(l=>Array.isArray(l) && typeof l[1]==="string").slice(0,400).map(l=>[Math.max(0,num(l[0])), l[1].slice(0,300)]); if(L.length){ s.lyrics=L; if(r.lyricsSynced===false) s.lyricsSynced=false; } }
   if(Array.isArray(r.credits)) s.credits=r.credits.filter(c=>c && typeof c.name==="string").slice(0,30).map(c=>({group:txt(c.group,40)||"Credits", name:c.name.slice(0,80), roles:(Array.isArray(c.roles)?c.roles:[]).filter(x=>typeof x==="string").slice(0,6).map(x=>x.slice(0,60))}));
@@ -1002,7 +1052,7 @@ if(Backend.enabled){
 // ---------- Upload pages (studio.js is loaded only when someone opens them) ----------
 let studioP=null;
 const loadScript = src => new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=()=>rej(new Error("load")); document.head.appendChild(el); });
-const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, longDateTime:v=>longDateTime(v),
+const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, mediaOf:p=>url(p), longDateTime:v=>longDateTime(v),
   artists:()=>ARTISTS, songs:()=>ALL, addSongs:d=>mergeRemote(d,true), stopMusic:()=>{ try{ audio.pause(); }catch(e){} }, go:h=>{ location.hash=h; } };
 function studioView(path, params){
   main.innerHTML=`<p class="muted" style="margin-top:24px" role="status">One moment…</p>`;
@@ -1029,6 +1079,7 @@ document.addEventListener("click",e=>{
   const v=e.target.closest("[data-video]"); if(v){ e.preventDefault(); const s=byId(v.dataset.video); if(s) openVideo(s, v.hasAttribute("data-wide")); return; }
   const st=e.target.closest("[data-station]"); if(st){ e.preventDefault(); startStation(catById(st.dataset.station)); return; }
   const sh=e.target.closest("[data-share]"); if(sh){ e.preventDefault(); const s=byId(sh.dataset.share); if(s) openShare(s); return; }
+  const rc=e.target.closest("[data-record]"); if(rc){ e.preventDefault(); const s=byId(rc.dataset.record); if(s) openRecord(s); return; }
   const cr=e.target.closest("[data-credits]"); if(cr){ e.preventDefault(); const s=byId(cr.dataset.credits); if(s) openCredits(s); return; }
   const l=e.target.closest("[data-lic]"); if(l){ e.preventDefault(); openLicense(byId(l.dataset.lic), l.dataset.pre||"rent"); return; }
   const mo=e.target.closest("[data-more]"); if(mo){ const k=mo.dataset.more, r=ROWS[k]; if(r){ r.shown+=PAGE; const box=document.getElementById("rows-"+k); if(box) box.innerHTML=rowsInner(k, mo.hasAttribute("data-numbered")); } return; }

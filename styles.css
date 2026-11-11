@@ -490,3 +490,12 @@ body.ad-on .np-extra{visibility:hidden}
 .formmsg:empty{display:none}
 .auth .linkbtn{margin-top:14px;display:inline-block}
 @media (prefers-reduced-motion:reduce){ .drawer,.drawer-back{transition:none} }
+
+/* 11 Nov 2026: the ownership record of an uploaded song (song page) */
+.cert.rec{margin:0 0 12px;padding:18px}
+.cert.rec h3{font-size:20px;margin:0}
+.cert.rec dl{grid-template-columns:1fr;gap:0;margin-top:4px}
+.cert.rec dt{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-top:10px}
+.cert.rec dd{margin:2px 0 0;overflow-wrap:anywhere}
+.cert.rec dd.mono{line-height:1.5}
+@media (min-width:640px){.cert.rec dl{grid-template-columns:150px 1fr;gap:6px 12px;margin-top:12px}.cert.rec dt{margin-top:0;text-transform:none;font-size:inherit;font-weight:400;letter-spacing:0}.cert.rec dd{margin:0}}

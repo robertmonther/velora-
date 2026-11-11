@@ -28,6 +28,8 @@ body.in-studio .footer{display:none}
 .st-nav{display:flex;justify-content:space-between;gap:10px}
 .st-nav .btn{min-height:48px;min-width:112px;justify-content:center}
 .st-nav .btn.primary{flex:1;max-width:320px;margin-left:auto}
+.st-nav > span{display:none}
+@media (max-width:640px){.st-nav .btn.primary{max-width:none}}
 .st-h{font:800 18px var(--font);margin:26px 0 10px}
 .st-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:0 0 14px}
 .st-card.soft{background:var(--card);border-color:transparent}
@@ -103,7 +105,7 @@ body.in-studio .footer{display:none}
 .sync-list{list-style:none;margin:0 0 12px;padding:6px;max-height:min(42vh,360px);overflow-y:auto;background:var(--bg2);border:1px solid var(--line);border-radius:16px;position:relative}
 .sync-list em{display:block;font:700 11px var(--font);letter-spacing:.5px;text-transform:uppercase;color:var(--blue2);padding:8px 10px 2px;font-style:normal}
 .sy-line{display:flex;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--muted);font:500 15px/1.35 var(--font);padding:8px 10px;border-radius:10px;cursor:pointer}
-.sy-t{font-variant-numeric:tabular-nums;width:40px;flex:none;font-size:13px;padding-top:1px}
+.sy-t{font-variant-numeric:tabular-nums;width:50px;flex:none;font-size:13px;padding-top:1px}
 .sync-list li.done .sy-line{color:#d9d2cb}
 .sync-list li.done .sy-t{color:var(--blue2)}
 .sync-list li.cur .sy-line{background:rgba(224,169,176,.16);color:#fff;font-weight:700}
@@ -180,3 +182,12 @@ body.in-studio .footer{display:none}
 .msbody small{color:var(--muted);font-size:13px}
 .msact{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 @media (max-width:620px){.msrow{grid-template-columns:56px 1fr}.msact{grid-column:1 / -1;justify-content:flex-start}}
+
+/* folded "for stores" block in step 3 */
+.st-more{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:0 16px;margin:18px 0 0}
+.st-more summary{cursor:pointer;list-style:none;padding:14px 0;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px}
+.st-more summary::-webkit-details-marker{display:none}
+.st-more summary::after{content:"+";font:400 22px/1 var(--font);color:var(--muted)}
+.st-more[open] summary::after{content:"–"}
+.st-more[open]{padding-bottom:6px}
+.st-more summary:focus-visible{outline:2px solid var(--pink);outline-offset:4px;border-radius:8px}

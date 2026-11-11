@@ -39,7 +39,7 @@ def song_json(s):
     return {"id": s["id"], "title": title, "genre": s["genre"], "subgenre": s.get("subgenre"), "tags": s["moods"], "mood": s["moods"][0], "language": s["language"], "explicit": s["explicit"], "adult": s["adult"],
             "duration": s["duration"], "bpm": None, "key": None, "audio": s["audio_path"], "art": s["cover_path"], "color": s.get("color"), "sections": s["sections"], "bestPart": s["best_part"],
             "lyrics": s["lyrics"], "lyricsSynced": s["lyrics_synced"], "lyricsNote": None if not s["lyrics"] else ("Lyrics from the artist." if s["lyrics_synced"] else "Lyrics from the artist; not timed to the music yet."),
-            "created": s.get("created_on") or None, "published": s["published_at"][:10], "artist": s["artist_id"], "credits": s["credits"], "ai": s["ai"], "holder": s["holder"],
+            "created": s.get("created_on") or None, "published": s["published_at"][:10], "artist": s["artist_id"], "credits": s["credits"], "ai": s["ai"], "holder": s["holder"], "release": s.get("release_info") or {},
             "record": {"id": rec["id"], "at": rec["at"], "hash": rec["hash"]} if rec else None}
 def add_record(song, kind, title, artist, holder, details):
     prev = DB["records"][-1]["hash"] if DB["records"] else None
@@ -59,7 +59,8 @@ def rpc(fn, args, u):
         ids = {s["artist"] for s in songs}
         return {"complete": True, "songs": songs, "artists": [{"id": a["id"], "name": a["name"], "tagline": a.get("tagline"), "bio": a.get("bio"), "color": a.get("color"), "image": a.get("image_path")} for a in DB["artists"].values() if a["id"] in ids]}
     if fn == "song_record":
-        s = DB["songs"].get(args.get("p_song")); return [dict(r) for r in DB["records"] if s and s["status"] == "published" and r["song_id"] == s["id"]]
+        s = DB["songs"].get(args.get("p_song"))       # the public record never carries the name of the uploaded file
+        return [dict(r, details={k: v for k, v in r["details"].items() if k != "original_name"}) for r in DB["records"] if s and s["status"] == "published" and r["song_id"] == s["id"]]
     if not u: raise Err("permission denied for function " + fn, 401, "42501")
     if fn == "my_profile": return {"role": u["role"], "display_name": u["name"] or None, "premium": False}
     if fn == "my_licenses": return []
@@ -108,7 +109,8 @@ def rpc(fn, args, u):
                   "language": p["language"], "explicit": bool(p.get("explicit")), "adult": bool(p.get("adult")) or bool(p.get("explicit")), "lyrics": ly, "lyrics_synced": p.get("lyrics_synced", True) is not False,
                   "sections": p.get("sections") or [], "best_part": max(0, min(float(p.get("best_part") or 0), dur)), "duration": dur, "audio_path": ap, "cover_path": cp,
                   "color": p.get("color") if re.fullmatch(r"#[0-9a-fA-F]{6}", p.get("color") or "") else None, "created_on": p.get("created_on") or None, "credits": p.get("credits") or [], "ai": p.get("ai") or {},
-                  "mastered": bool(p.get("mastered")), "loudness": p.get("loudness"), "holder": u["name"] or "The uploader", "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "payload": p})
+                  "mastered": bool(p.get("mastered")), "loudness": p.get("loudness"),
+                  "release_info": p.get("release") if isinstance(p.get("release"), dict) and len(json.dumps(p.get("release"))) <= 1200 else {}, "holder": u["name"] or "The uploader", "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "payload": p})
         add_record(s["id"], "published", title + (f" ({s['version']})" if s["version"] else ""), a["name"], s["holder"], {k: p.get(k) for k in ("original_name", "original_bytes", "original_sha256", "audio_sha256", "cover_sha256", "lyrics_sha256") if p.get(k)})
         return song_json(s)
     if fn == "set_song_listed":

@@ -6,12 +6,13 @@
    Nothing is sent to the server before Publish. What you fill in stays while this page is open. */
 window.VeloraStudio = (function () {
   "use strict";
-  let ctx = null, st = null, myArtists = null, raf = 0;
+  let ctx = null, st = null, myArtists = null, myArtistsFor = "", raf = 0;
   const A = () => window.VeloraAudio, T = () => window.VELORA_TAXONOMY || { genres: [], moods: [], languages: ["English"] };
   const U = () => Object.assign({ maxFileMB: 250, minSeconds: 30, maxSeconds: 1200, mp3Kbps: 192, coverMin: 1500, coverMax: 6000, coverMinOwn: 600, coverStore: 1200, masterLufs: -14, masterPeakDb: -1, tapDelay: 0.18 }, (ctx.CFG && ctx.CFG.upload) || {});
   const $ = s => ctx.main.querySelector(s), $$ = s => [...ctx.main.querySelectorAll(s)];
-  const esc = s => ctx.esc(s == null ? "" : s), icon = (n, c) => ctx.icon(n, c || ""), fmt = t => ctx.fmt(t);
+  const esc = s => ctx.esc(s == null ? "" : s), icon = (n, c) => ctx.icon(n, c || ""), fmt = t => ctx.fmt(t), len = d => ctx.fmt(Math.round(d || 0));
   const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  const fmtT = t => { const m = Math.floor(t / 60), sec = t - m * 60; return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1); };   // a lyric line's moment, to a tenth of a second
   const mb = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + " MB";
   const lufs = v => (v <= -69 ? "silent" : v.toFixed(1) + " LUFS");
   const slug = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
@@ -22,9 +23,9 @@ window.VeloraStudio = (function () {
   // ---------- What was chosen last time (so the next upload is mostly filled in) ----------
   const LAST = "velora_studio_last";
   const lastChoices = () => { try { const v = JSON.parse(localStorage.getItem(LAST) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } };
-  function remember() {
+  function remember(artistId) {
     const f = st.f;
-    try { localStorage.setItem(LAST, JSON.stringify({ artistId: f.artistId, genre: f.genre, subgenre: f.subgenre, moods: f.moods, language: f.language, lyricist: f.lyricist, composer: f.composer, producer: f.producer, aiUsed: f.aiUsed, ai: f.ai, aiTool: f.aiTool, style: st.master.style, masterOn: st.master.on })); } catch (e) {}
+    try { localStorage.setItem(LAST, JSON.stringify({ artistId: artistId || f.artistId, label: f.label, publisher: f.publisher, cOwner: f.cOwner, pOwner: f.pOwner, genre: f.genre, subgenre: f.subgenre, moods: f.moods, language: f.language, lyricist: f.lyricist, composer: f.composer, producer: f.producer, aiUsed: f.aiUsed, ai: f.ai, aiTool: f.aiTool, style: st.master.style, masterOn: st.master.on })); } catch (e) {}
   }
   function fresh() {
     const l = lastChoices(), me = ctx.Backend.name || "";
@@ -32,11 +33,13 @@ window.VeloraStudio = (function () {
       step: 0, seen: 0, busy: "", file: null, name: "", size: 0, kind: "", wav: null, origHash: "", buffer: null, duration: 0, loud: null, outline: null, best: 0, bestSet: false, url: "", found: [],
       f: { title: "", version: "", versionOther: "", artistId: l.artistId || "", artistNew: "", featured: "", genre: l.genre || "", subgenre: l.subgenre || "", moods: Array.isArray(l.moods) ? l.moods.slice(0, 3) : [], language: l.language || "English",
         explicit: false, adult: false, release: today(), created: "", lyricist: l.lyricist || me, composer: l.composer || me, producer: l.producer || me, extra: [],
-        aiUsed: l.aiUsed !== false, ai: Object.assign({ music: true, vocals: true, lyrics: false, artwork: false }, l.ai || {}), aiTool: l.aiTool || "Suno", lyricsText: "", noLyrics: false },
+        aiUsed: l.aiUsed !== false, ai: Object.assign({ music: true, vocals: true, lyrics: false, artwork: false }, l.ai || {}), aiTool: l.aiTool || "Suno", lyricsText: "", noLyrics: false,
+        label: l.label || "", publisher: l.publisher || "", isrc: "", cOwner: l.cOwner || me, cYear: "", pOwner: l.pOwner || me, pYear: "" },
+      moreOpen: false,
       lines: [], syncing: false, skipSync: false,
       cover: { src: null, url: "", w: 0, h: 0, type: "", crop: false, allowSmall: false, color: "", name: "" },
       master: { on: l.masterOn !== false, style: l.style || "balanced", res: null, key: "", working: false, err: "" },
-      rights: { own: false, clean: false, record: false },
+      rights: { own: false, clean: false, record: false, cover: false },
       artist: { tagline: "", bio: "", photo: null, photoUrl: "", loadedFor: "" },
       pub: { running: false, log: [], error: "", song: null }
     };
@@ -55,7 +58,7 @@ window.VeloraStudio = (function () {
   }
   const artistList = () => {                     // my artist names from the server, then the site's own artists
     const mine = Array.isArray(myArtists) ? myArtists : [], out = mine.map(a => ({ id: a.id, name: a.name, tagline: a.tagline || "", bio: a.bio || "", image: a.image ? ctx.Backend.mediaUrl(a.image) : "", mine: true }));
-    for (const a of ctx.artists()) if (a.bundled && !out.some(x => x.id === a.id)) out.push({ id: a.id, name: a.name, tagline: a.tagline || "", bio: a.bio || "", image: "", bundled: true });
+    for (const a of ctx.artists()) if (a.bundled && !out.some(x => x.id === a.id)) out.push({ id: a.id, name: a.name, tagline: a.tagline || "", bio: a.bio || "", image: a.image ? ctx.mediaOf(a.image) : "", bundled: true });
     return out;
   };
   const chosenArtist = () => { const f = st.f; if (f.artistId === "+") { const n = f.artistNew.trim(); return n ? { id: slug(n), name: n, isNew: true, tagline: "", bio: "" } : null; } return artistList().find(a => a.id === f.artistId) || null; };
@@ -111,8 +114,8 @@ window.VeloraStudio = (function () {
       <ul class="plain small"><li>Best: WAV, 16-bit, 44.1 kHz or higher. MP3, FLAC and M4A work too.</li><li>From ${u.minSeconds} seconds to ${Math.round(u.maxSeconds / 60)} minutes, up to ${u.maxFileMB} MB.</li><li>Nothing leaves your device until you press Publish.</li></ul>`;
     const w = st.wav, tech = st.kind + (w ? ` · ${w.bits}-bit · ${(w.sampleRate / 1000).toFixed(1).replace(".0", "")} kHz · ${w.channels === 1 ? "mono" : "stereo"}` : "");
     return `<div class="st-card"><div class="filehead"><span class="fileico">${icon("music")}</span><div><b>${esc(st.name)}</b><small>${esc(tech)} · ${mb(st.size)}</small></div></div>
-      <div class="wave"><button type="button" class="round-play sm" id="fPlay" aria-label="Play">${icon("play")}</button><canvas id="fWave" width="640" height="64" aria-hidden="true"></canvas><span class="time" id="fTime">${fmt(st.duration)}</span></div>
-      <div class="facts st-facts"><div class="fact"><b>Length</b>${fmt(st.duration)}</div><div class="fact"><b>Loudness</b>${lufs(st.loud.lufs)}</div><div class="fact"><b>Loudest peak</b>${st.loud.peakDb.toFixed(1)} dB</div></div>
+      <div class="wave"><button type="button" class="round-play sm" id="fPlay" aria-label="Play">${icon("play")}</button><canvas id="fWave" width="640" height="64" aria-hidden="true"></canvas><span class="time" id="fTime">${len(st.duration)}</span></div>
+      <div class="facts st-facts"><div class="fact"><b>Length</b>${len(st.duration)}</div><div class="fact"><b>Loudness</b>${lufs(st.loud.lufs)}</div><div class="fact"><b>Peak</b>${st.loud.peakDb.toFixed(1)} dB</div></div>
       ${w && (w.bits < 16 || w.sampleRate < 44100) ? `<div class="chk warn">${icon("close")}<span>This WAV is below CD quality (16-bit, 44.1 kHz). It will work here; stores like LANDR ask for at least that.</span></div>` : ""}
       ${st.kind === "MP3" ? `<div class="chk warn">${icon("close")}<span>An MP3 works here. For the best sound, and for stores later, keep the WAV too.</span></div>` : ""}
       ${st.found.length ? `<p class="muted small" style="margin:10px 0 0">Read from the file: ${st.found.join(", ")}.</p>` : ""}
@@ -126,7 +129,7 @@ window.VeloraStudio = (function () {
     const o = $("#fOther"); if (o) o.onclick = () => inp.click();
     const a = $("#stAudio"), cv = $("#fWave"), pb = $("#fPlay");
     if (a && cv) {
-      const paint = () => { drawOutline(cv, a.duration ? a.currentTime / a.duration : 0); $("#fTime").textContent = a.paused && !a.currentTime ? fmt(st.duration) : fmt(a.currentTime); if (!a.paused) raf = requestAnimationFrame(paint); };
+      const paint = () => { drawOutline(cv, a.duration ? a.currentTime / a.duration : 0); $("#fTime").textContent = a.paused && !a.currentTime ? len(st.duration) : fmt(a.currentTime); if (!a.paused) raf = requestAnimationFrame(paint); };
       pb.onclick = () => { if (a.paused) { ctx.stopMusic(); a.play().catch(() => {}); } else a.pause(); };
       a.onplay = () => { pb.innerHTML = icon("pause"); pb.setAttribute("aria-label", "Pause"); paint(); }; a.onpause = () => { pb.innerHTML = icon("play"); pb.setAttribute("aria-label", "Play"); paint(); };
       cv.onclick = e => { const r = cv.getBoundingClientRect(); a.currentTime = (e.clientX - r.left) / r.width * (a.duration || st.duration); paint(); };
@@ -180,11 +183,31 @@ window.VeloraStudio = (function () {
      ${f.aiUsed ? `<div class="st-card soft"><p class="small" style="margin:0 0 8px">What did the AI make?</p>
         <div class="ticks">${tick("aiMusic", f.ai.music, "The music (instruments)")}${tick("aiVocals", f.ai.vocals, "The voice")}${tick("aiLyrics", f.ai.lyrics, "The lyrics")}${tick("aiArt", f.ai.artwork, "The cover")}</div>
         ${field("aiTool", "Which tool?", `<input id="aiTool" type="text" maxlength="60" value="${esc(f.aiTool)}" placeholder="Suno" autocomplete="off">`)}</div>` : ""}
-     <p class="muted small">Listeners see this on the song, in plain words. Being open about AI is part of the Velora promise.</p>`;
+     <p class="muted small">Listeners see this on the song, in plain words. Being open about AI is part of the Velora promise.</p>
+     <details class="st-more" id="cMore"${st.moreOpen ? " open" : ""}><summary>Release details for stores <span class="muted">(optional)</span></summary>
+      <p class="muted small" style="margin-top:0">LANDR and the stores ask for these. Velora keeps them with the song, ready for the day it goes to stores.</p>
+      <div class="two">${field("rLabel", "Label name", `<input id="rLabel" type="text" maxlength="80" value="${esc(f.label)}" placeholder="Often the artist name" autocomplete="off">`)}${field("rPub", "Publisher", `<input id="rPub" type="text" maxlength="80" value="${esc(f.publisher)}" placeholder="If the song has one" autocomplete="off">`)}</div>
+      <div class="two">${field("rCO", "Composition owner (©)", `<input id="rCO" type="text" maxlength="80" value="${esc(f.cOwner)}" autocomplete="off">`, "Who owns the song as written: music and lyrics.")}${field("rCY", "Year written", `<input id="rCY" type="text" inputmode="numeric" maxlength="4" value="${esc(f.cYear)}" placeholder="${yearOf()}" autocomplete="off">`)}</div>
+      <div class="two">${field("rPO", "Recording owner (℗)", `<input id="rPO" type="text" maxlength="80" value="${esc(f.pOwner)}" autocomplete="off">`, "Who owns this recording.")}${field("rPY", "Year recorded", `<input id="rPY" type="text" inputmode="numeric" maxlength="4" value="${esc(f.pYear)}" placeholder="${yearOf()}" autocomplete="off">`)}</div>
+      ${field("rIsrc", "ISRC code", `<input id="rIsrc" type="text" maxlength="15" value="${esc(f.isrc)}" placeholder="NL-A01-26-00001" autocomplete="off" autocapitalize="characters">`, "The song's code in stores. Leave it empty if the song has none: a distributor such as LANDR gives one when it sends the song out.")}
+     </details>`;
+  }
+  const yearOf = () => String((st.f.created || st.f.release || today()).slice(0, 4));
+  const ISRC = /^[A-Z]{2}-?[A-Z0-9]{3}-?\d{2}-?\d{5}$/;
+  // What is kept for stores: only what was filled in, plus the kind of release.
+  function releaseOut() {
+    const f = st.f, y = v => { const n = parseInt(v, 10); return n >= 1900 && n <= 2100 ? n : +yearOf(); }, o = { type: "single" };
+    if (f.label.trim()) o.label = f.label.trim().slice(0, 80); if (f.publisher.trim()) o.publisher = f.publisher.trim().slice(0, 80);
+    if (f.isrc.trim()) o.isrc = f.isrc.trim().toUpperCase().replace(/-/g, "");
+    if (f.cOwner.trim()) { o.c_owner = f.cOwner.trim().slice(0, 80); o.c_year = y(f.cYear); }
+    if (f.pOwner.trim()) { o.p_owner = f.pOwner.trim().slice(0, 80); o.p_year = y(f.pYear); }
+    return o;
   }
   function wireCredits() {
     const f = st.f, bind = (id, key) => { const el = $("#" + id); if (el) el.oninput = () => { f[key] = el.value; }; };
     bind("cLyr", "lyricist"); bind("cComp", "composer"); bind("cProd", "producer"); bind("aiTool", "aiTool");
+    bind("rLabel", "label"); bind("rPub", "publisher"); bind("rCO", "cOwner"); bind("rCY", "cYear"); bind("rPO", "pOwner"); bind("rPY", "pYear"); bind("rIsrc", "isrc");
+    const more = $("#cMore"); if (more) more.ontoggle = () => { st.moreOpen = more.open; };
     $("#cAdd").onclick = () => { if (f.extra.length >= 12) return; f.extra.push({ role: "Composer", name: "" }); render(); };
     $$("[data-xr]").forEach(el => el.onchange = () => { f.extra[+el.dataset.xr].role = el.value; });
     $$("[data-xn]").forEach(el => el.oninput = () => { f.extra[+el.dataset.xn].name = el.value; });
@@ -221,6 +244,7 @@ window.VeloraStudio = (function () {
   function reparse() {                                  // keep the times when only spelling changed
     const old = st.lines, now = parseLyrics(st.f.lyricsText);
     if (old.length === now.length) now.forEach((l, i) => { l.t = old[i].t; });
+    else for (let i = 0; i < Math.min(old.length, now.length) && old[i].text === now[i].text; i++) now[i].t = old[i].t;   // lines added or removed: keep the start that is the same
     st.lines = now;
   }
   const timed = () => st.lines.filter(l => l.t != null).length;
@@ -247,45 +271,59 @@ window.VeloraStudio = (function () {
     card();
   }
   function syncHTML() {
-    const n = st.lines.length, cur = st.lines.findIndex(l => l.t == null);
-    return `<div class="sync"><div class="sync-top"><button type="button" class="round-play sm" id="syPlay" aria-label="Play">${icon("play")}</button><span class="time" id="syTime">0:00 / ${fmt(st.duration)}</span>
+    return `<div class="sync"><div class="sync-top"><button type="button" class="round-play sm" id="syPlay" aria-label="Play">${icon("play")}</button><span class="time" id="syTime">0:00 / ${len(st.duration)}</span>
        <button type="button" class="btn ghost sm" id="syBack">Back 5 s</button><button type="button" class="btn ghost sm" id="sySpeed" aria-pressed="false">Slower</button></div>
-     <ol class="sync-list" id="syList">${st.lines.map((l, i) => `<li class="${l.t != null ? "done" : ""}${i === cur ? " cur" : ""}" data-i="${i}">${l.sec ? `<em>${esc(l.sec)}</em>` : ""}<button type="button" class="sy-line" data-redo="${i}" title="Redo from this line"><span class="sy-t">${l.t != null ? fmt(l.t) : "–:––"}</span><span class="sy-x">${esc(l.text)}</span></button></li>`).join("")}</ol>
-     <button type="button" class="sync-tap" id="syTap"${cur < 0 ? " disabled" : ""}><b>${cur < 0 ? "All lines are timed" : "Tap when this line starts"}</b><span id="syNext">${cur < 0 ? "Play to check; tap a line to redo from there." : esc(st.lines[cur].text)}</span></button>
-     <div class="row sync-actions"><button type="button" class="btn ghost sm" id="syUndo"${timed() ? "" : " disabled"}>Undo last</button><button type="button" class="btn ghost sm" id="syClear"${timed() ? "" : " disabled"}>Start over</button><button type="button" class="btn primary sm" id="syDone">${cur < 0 ? "Done" : `Done for now (${timed()} of ${n})`}</button></div>
+     <ol class="sync-list" id="syList">${st.lines.map((l, i) => `<li data-i="${i}">${l.sec ? `<em>${esc(l.sec)}</em>` : ""}<button type="button" class="sy-line" data-redo="${i}" title="Redo from this line"><span class="sy-t"></span><span class="sy-x">${esc(l.text)}</span></button></li>`).join("")}</ol>
+     <button type="button" class="sync-tap" id="syTap"><b></b><span id="syNext"></span></button>
+     <div class="row sync-actions"><button type="button" class="btn ghost sm" id="syUndo">Undo last</button><button type="button" class="btn ghost sm" id="syClear">Start over</button><button type="button" class="btn primary sm" id="syDone"></button></div>
      <p class="muted small" style="margin:8px 0 0">Tip: on a computer the space bar taps too. A tap that came late? Tap that line in the list to redo from there.</p>
      <audio id="stAudio" src="${esc(st.url)}" preload="auto"></audio></div>`;
   }
   function wireSync() {
-    const a = $("#stAudio"), list = $("#syList"), u = U();
+    const a = $("#stAudio"), list = $("#syList"), u = U(), items = $$("#syList li"), tapB = $("#syTap"), pb = $("#syPlay"), clock = $("#syTime");
     const cur = () => st.lines.findIndex(l => l.t == null);
-    const mark = () => {
+    const mark = () => {                               // which line is being sung now
+      cancelAnimationFrame(raf); if (!a.isConnected) return;
       const t = a.currentTime; let on = -1; st.lines.forEach((l, i) => { if (l.t != null && l.t <= t + 0.05) on = i; });
-      $$("#syList li").forEach((li, i) => li.classList.toggle("on", i === on));
-      $("#syTime").textContent = fmt(t) + " / " + fmt(st.duration);
+      items.forEach((li, i) => li.classList.toggle("on", i === on));
+      clock.textContent = fmt(t) + " / " + len(st.duration);
       if (!a.paused) raf = requestAnimationFrame(mark);
     };
     const follow = () => { const li = list.querySelector("li.cur") || list.querySelector("li.on"); if (li) list.scrollTo({ top: Math.max(0, li.offsetTop - list.clientHeight * 0.35), behavior: "smooth" }); };
-    const refresh = () => { const pos = a.currentTime, playing = !a.paused, rate = a.playbackRate; cancelAnimationFrame(raf); render(); const b = $("#stAudio"); b.currentTime = pos; b.playbackRate = rate; if (rate < 1) { const s = $("#sySpeed"); s.textContent = "Normal speed"; s.setAttribute("aria-pressed", "true"); } if (playing) b.play().catch(() => {}); };
+    const paint = () => {                              // the panel is updated in place: the song plays on without a gap
+      const c = cur(), n = st.lines.length, k = timed();
+      items.forEach((li, i) => { const l = st.lines[i]; li.classList.toggle("done", l.t != null); li.classList.toggle("cur", i === c); li.querySelector(".sy-t").textContent = l.t != null ? fmtT(l.t) : "–:––"; });
+      tapB.disabled = c < 0; tapB.querySelector("b").textContent = c < 0 ? "All lines are timed" : "Tap when this line starts";
+      $("#syNext").textContent = c < 0 ? "Play to check; tap a line to redo from there." : st.lines[c].text;
+      $("#syUndo").disabled = !k; $("#syClear").disabled = !k; $("#syDone").textContent = c < 0 ? "Done" : `Done for now (${k} of ${n})`;
+      follow(); mark();
+    };
+    const play = () => { ctx.stopMusic(); a.play().catch(() => {}); };
     const tap = () => {
       const i = cur(); if (i < 0) return;
-      if (a.paused) { ctx.stopMusic(); a.play().catch(() => {}); if (i === 0 && a.currentTime < 0.3) return; }     // the first tap just starts the song
+      if (a.paused) { play(); if (i === 0 && a.currentTime < 0.3) return; }     // the first tap just starts the song
       const prev = i > 0 ? st.lines[i - 1].t : -1;
-      st.lines[i].t = Math.round(Math.max(prev + 0.05, a.currentTime - u.tapDelay, 0) * 100) / 100;
-      refresh();
+      st.lines[i].t = Math.round(Math.max(prev + 0.05, a.currentTime - u.tapDelay * a.playbackRate, 0) * 100) / 100;   // a finger is always a little late
+      paint();
     };
-    $("#syPlay").onclick = () => { if (a.paused) { ctx.stopMusic(); a.play().catch(() => {}); } else a.pause(); };
-    a.onplay = () => { const b = $("#syPlay"); b.innerHTML = icon("pause"); b.setAttribute("aria-label", "Pause"); mark(); };
-    a.onpause = () => { const b = $("#syPlay"); if (b) { b.innerHTML = icon("play"); b.setAttribute("aria-label", "Play"); } };
-    $("#syBack").onclick = () => { a.currentTime = Math.max(0, a.currentTime - 5); mark(); };
+    pb.onclick = () => { if (a.paused) play(); else a.pause(); };
+    a.onplay = () => { pb.innerHTML = icon("pause"); pb.setAttribute("aria-label", "Pause"); mark(); };
+    a.onpause = () => { pb.innerHTML = icon("play"); pb.setAttribute("aria-label", "Play"); };
+    a.onseeked = mark;
+    $("#syBack").onclick = () => { a.currentTime = Math.max(0, a.currentTime - 5); };
     $("#sySpeed").onclick = e => { a.playbackRate = a.playbackRate < 1 ? 1 : 0.75; e.currentTarget.textContent = a.playbackRate < 1 ? "Normal speed" : "Slower"; e.currentTarget.setAttribute("aria-pressed", String(a.playbackRate < 1)); };
-    $("#syTap").onclick = tap;
-    $("#syUndo").onclick = () => { for (let i = st.lines.length - 1; i >= 0; i--) if (st.lines[i].t != null) { const t = st.lines[i].t; st.lines[i].t = null; a.currentTime = Math.max(0, (i > 0 ? st.lines[i - 1].t : 0) - 1); void t; break; } refresh(); };
-    $("#syClear").onclick = () => { st.lines.forEach(l => { l.t = null; }); a.pause(); a.currentTime = 0; refresh(); };
-    $$("[data-redo]").forEach(b => b.onclick = () => { const i = +b.dataset.redo; if (st.lines[i].t == null && i !== cur()) return; for (let k = i; k < st.lines.length; k++) st.lines[k].t = null; a.currentTime = Math.max(0, (i > 0 ? st.lines[i - 1].t : 0) - 2); refresh(); ctx.stopMusic(); $("#stAudio").play().catch(() => {}); });
+    tapB.onclick = tap;
+    $("#syUndo").onclick = () => { for (let i = st.lines.length - 1; i >= 0; i--) if (st.lines[i].t != null) { st.lines[i].t = null; a.currentTime = Math.max(0, (i > 0 ? st.lines[i - 1].t : 0) - 1); break; } paint(); };
+    $("#syClear").onclick = () => { st.lines.forEach(l => { l.t = null; }); a.pause(); a.currentTime = 0; paint(); };
+    list.onclick = e => {                              // tap a line: time it again from there
+      const b = e.target.closest("[data-redo]"); if (!b) return; const i = +b.dataset.redo;
+      if (st.lines[i].t == null && i !== cur()) return;
+      for (let k = i; k < st.lines.length; k++) st.lines[k].t = null;
+      a.currentTime = Math.max(0, (i > 0 ? st.lines[i - 1].t : 0) - 2); paint(); play();
+    };
     $("#syDone").onclick = () => { a.pause(); st.syncing = false; render(); };
     st.onKey = e => { if ((e.code === "Space" || e.key === "Enter") && !/INPUT|TEXTAREA|SELECT|BUTTON/.test((e.target.tagName || ""))) { e.preventDefault(); tap(); } };
-    follow(); mark();
+    paint();
   }
   // What goes to the server: timed lines, the parts of the song, and the best part.
   function lyricsOut() {
@@ -409,10 +447,12 @@ window.VeloraStudio = (function () {
   // ============================================================
   // Step 7: rights
   // ============================================================
-  const RIGHTS_TEXT = "I made this song or I own the rights to it: the recording, the lyrics and the cover. It contains no samples, melodies or lyrics from other people's work that I have no permission for.";
+  const RIGHTS_TEXT = "I made this song or I own the rights to it: the recording, the lyrics and the cover. It contains no samples, melodies or lyrics from other people's work that I have no permission for. It is my own song, not a cover of someone else's song.";
   function stepRights() {
     const r = st.rights, me = ctx.Backend.name || "you";
-    return `<div class="ticks big">${tick("rOwn", r.own, "<b>I made this song or I own the rights to it</b><small>The recording, the lyrics and the cover.</small>")}
+    return `<div class="field"><label id="rCovL">Is this a cover of someone else's song?</label><div class="seg wide" role="group" aria-labelledby="rCovL"><button type="button" data-cov="0" class="${r.cover ? "" : "on"}" aria-pressed="${!r.cover}">No, my own song</button><button type="button" data-cov="1" class="${r.cover ? "on" : ""}" aria-pressed="${!!r.cover}">Yes, a cover</button></div></div>
+     ${r.cover ? `<div class="chk bad">${icon("close")}<span>Velora takes original songs only for now. A cover needs a licence from the owner of the original song.</span></div>` : ""}
+     <div class="ticks big">${tick("rOwn", r.own, "<b>I made this song or I own the rights to it</b><small>The recording, the lyrics and the cover.</small>")}
       ${tick("rClean", r.clean, "<b>Nothing in it is taken from someone else without permission</b><small>No samples, melodies or lyrics from other people's work.</small>")}
       ${tick("rRec", r.record, "<b>Keep a dated record that this song is mine</b><small>The song stays on Velora until I take it off the list. The record stays for good.</small>")}</div>
      <div class="st-card soft"><b>What the ownership record holds</b>
@@ -421,7 +461,10 @@ window.VeloraStudio = (function () {
       <p class="muted small" style="margin:10px 0 0">A fingerprint is a short code that only this exact file produces. Anyone holding the file can check it against the record. The records are chained: none can be changed or removed later without it showing.</p></div>
      <p class="muted small">This record is evidence of what you uploaded and when. It is not a copyright registration and not legal advice.</p>`;
   }
-  function wireRights() { [["rOwn", "own"], ["rClean", "clean"], ["rRec", "record"]].forEach(([id, k]) => { const el = $("#" + id); el.onchange = () => { st.rights[k] = el.checked; }; }); }
+  function wireRights() {
+    [["rOwn", "own"], ["rClean", "clean"], ["rRec", "record"]].forEach(([id, k]) => { const el = $("#" + id); el.onchange = () => { st.rights[k] = el.checked; }; });
+    $$("[data-cov]").forEach(b => b.onclick = () => { st.rights.cover = b.dataset.cov === "1"; render(); });
+  }
 
   // ============================================================
   // Step 8: the artist profile, then Publish
@@ -451,7 +494,7 @@ window.VeloraStudio = (function () {
         ${field("aBio", "About the artist <span class=\"muted\">(optional)</span>", `<textarea id="aBio" rows="3" maxlength="1500" placeholder="A few sentences listeners see on the artist page.">${esc(c.bio)}</textarea>`)}</div></div>
       <h3 class="st-h">Ready to publish</h3>
       <div class="st-card summary"><div class="sumcover" style="background-image:url('${esc(st.cover.url)}')"></div><div class="sumbody"><b>${esc(fullTitle())}</b><span>${esc(a ? a.name : "")}${f.featured.trim() ? " · feat. " + esc(f.featured.trim()) : ""}</span>
-        <small>${esc(f.genre)}${f.subgenre ? " · " + esc(f.subgenre) : ""} · ${esc(f.moods.join(", "))} · ${fmt(st.duration)}</small>
+        <small>${esc(f.genre)}${f.subgenre ? " · " + esc(f.subgenre) : ""} · ${esc(f.moods.join(", "))} · ${len(st.duration)}</small>
         <div class="sumtags">${f.explicit ? '<span class="e-badge">E</span>' : ""}${adult ? '<span class="a18">18+</span>' : ""}<span class="tag">${lo.lyrics ? (lo.synced ? "Synced lyrics" : "Lyrics, not timed") : "No lyrics"}</span><span class="tag">${st.master.on ? "Mastered" : "Original sound"}</span>${f.aiUsed ? '<span class="tag">AI disclosed</span>' : ""}</div></div></div>
       <p class="muted small">Publish makes the song live at once for everyone${adult ? " who confirmed they are 18 or older" : ""}, and writes its ownership record.</p>`;
   }
@@ -499,14 +542,14 @@ window.VeloraStudio = (function () {
         ai: f.aiUsed ? { used: true, music: !!f.ai.music, vocals: !!f.ai.vocals, lyrics: !!f.ai.lyrics, artwork: !!f.ai.artwork, tool: f.aiTool.trim().slice(0, 60) } : { used: false },
         release_date: f.release || today(), created_on: f.created || "", rights_confirmed: true, rights_statement: RIGHTS_TEXT,
         original_name: st.name, original_bytes: st.size, original_sha256: st.origHash, audio_sha256: p.mp3Hash, cover_sha256: coverHash, lyrics_sha256: lyrHash,
-        mastered: sound.mastered, loudness: sound.loud } }));
+        mastered: sound.mastered, loudness: sound.loud, release: releaseOut() } }));
       // The song is live: put it into the catalogue of this page right away.
       const fix = x => x ? B.mediaUrl(x) : x;
       song.audio = fix(song.audio); song.art = fix(song.art);
       const art = { id: saved.id, name: saved.name, tagline: saved.tagline || "", bio: saved.bio || "", color: saved.color, image: saved.image ? fix(saved.image) : undefined };
       ctx.addSongs({ songs: [song], artists: [art] });
       if (Array.isArray(myArtists)) { const i = myArtists.findIndex(x => x.id === saved.id); if (i < 0) myArtists.push(saved); else myArtists[i] = Object.assign(myArtists[i], saved); }
-      remember(); p.song = song; p.running = false; render(); window.scrollTo(0, 0);
+      remember(saved.id); p.song = song; p.running = false; render(); window.scrollTo(0, 0);
     } catch (e) {
       p.running = false; p.error = (e && e.message) || "Something went wrong."; render();
     }
@@ -523,7 +566,7 @@ window.VeloraStudio = (function () {
   function wireDone() {
     const s = st.pub.song, link = location.href.split("#")[0] + "#/song/" + encodeURIComponent(s.id);
     $("#dShare").onclick = async () => { try { if (navigator.share) { await navigator.share({ title: s.title, url: link }); return; } await navigator.clipboard.writeText(link); ctx.toast("Link copied."); } catch (e) { if (!e || e.name !== "AbortError") ctx.toast(link); } };
-    $("#dAgain").onclick = () => { cleanup(); st = fresh(); render(); window.scrollTo(0, 0); };
+    $("#dAgain").onclick = () => { cleanup(); st = fresh(); st.uid = ctx.Backend.user.id; render(); window.scrollTo(0, 0); };
   }
 
   // ============================================================
@@ -542,11 +585,15 @@ window.VeloraStudio = (function () {
       if (!f.release) return "Choose the release date.";
       return "";
     }
-    if (i === 2) { if (!f.lyricist.trim() && f.language !== "Instrumental (no lyrics)" && !f.noLyrics) return "Say who wrote the lyrics."; if (!f.producer.trim()) return "Say who produced the song."; if (f.extra.some(c => !c.name.trim())) return "Fill in the name of each added credit, or remove it."; if (f.aiUsed && !(f.ai.music || f.ai.vocals || f.ai.lyrics || f.ai.artwork)) return "Tick what the AI made, or choose “No”."; return ""; }
+    if (i === 2) { if (!f.lyricist.trim() && f.language !== "Instrumental (no lyrics)" && !f.noLyrics) return "Say who wrote the lyrics."; if (!f.producer.trim()) return "Say who produced the song."; if (f.extra.some(c => !c.name.trim())) return "Fill in the name of each added credit, or remove it."; if (f.aiUsed && !(f.ai.music || f.ai.vocals || f.ai.lyrics || f.ai.artwork)) return "Tick what the AI made, or choose “No”.";
+      const more = why => { st.moreOpen = true; return why; }, yr = v => !v.trim() || (/^\d{4}$/.test(v.trim()) && +v >= 1900 && +v <= new Date().getFullYear() + 1);
+      if (f.isrc.trim() && !ISRC.test(f.isrc.trim().toUpperCase())) return more("The ISRC code has 12 letters and numbers, like NL-A01-26-00001. Or leave it empty.");
+      if (!yr(f.cYear) || !yr(f.pYear)) return more("A year has four numbers, like " + yearOf() + ".");
+      return ""; }
     if (i === 3) { if (f.noLyrics) return ""; if (!st.lines.length) return "Paste the lyrics, or tick that the song has none."; if (timed() < st.lines.length && !st.skipSync) return "Sync the lyrics, or tick “Skip for now”."; return ""; }
     if (i === 4) { const s = coverState(); if (!s.has) return "Choose the cover image."; if (!s.squareOk) return "The cover must be a square. Press “Crop to a square”."; if (s.tiny) return `The cover is too small (at least ${u.coverMinOwn} × ${u.coverMinOwn}).`; if (!s.store && !st.cover.allowSmall) return "The cover is below the store size. Choose a bigger one, or press “Use it on Velora anyway”."; return ""; }
     if (i === 5) return st.master.on && st.master.working ? "One moment, the mastering is finishing." : "";
-    if (i === 6) return st.rights.own && st.rights.clean && st.rights.record ? "" : "Tick all three boxes to continue.";
+    if (i === 6) return st.rights.cover ? "Velora takes original songs only for now, not covers." : st.rights.own && st.rights.clean && st.rights.record ? "" : "Tick all three boxes to continue.";
     return "";
   }
   function goStep(i) {
@@ -557,7 +604,7 @@ window.VeloraStudio = (function () {
     const h = $(".st-title"); if (h) try { h.focus({ preventScroll: true }); } catch (e) {}
   }
   function next() {
-    const p = problem(st.step); if (p) { msg(p); return; }
+    const open = st.moreOpen, p = problem(st.step); if (p) { if (st.moreOpen !== open) render(); msg(p); return; }
     if (st.step === STEPS.length - 1) { for (let i = 0; i < STEPS.length - 1; i++) { const q = problem(i); if (q) { goStep(i); msg(q); return; } } publish(); return; }
     goStep(st.step + 1);
   }
@@ -605,7 +652,7 @@ window.VeloraStudio = (function () {
         return;
       }
       if (!B.canUpload()) { m.innerHTML = `<h1 class="pagetitle">Upload a song</h1><div class="panel"><h3>This account can't upload yet</h3><p class="muted small">Signed in as ${esc(B.user.email)}. Uploading is open to the owner's account for now; accounts for other creators come later.</p><button type="button" class="btn ghost sm" id="gOut">Sign out</button></div>`; document.getElementById("gOut").onclick = () => B.signOut().then(() => gate(then)); return; }
-      if (myArtists === null) { try { myArtists = await B.rpc("my_artists"); } catch (e) { myArtists = []; } }
+      if (myArtists === null || myArtistsFor !== B.user.id) { try { myArtists = await B.rpc("my_artists"); } catch (e) { myArtists = []; } myArtistsFor = B.user.id; }
       then();
     }).catch(e => { m.innerHTML = `<h1 class="pagetitle">Upload a song</h1><p class="muted">${esc(e && e.message || "The server can't be reached right now.")}</p><button type="button" class="btn primary" id="gRetry">Try again</button>`; document.getElementById("gRetry").onclick = () => gate(then); });
   }
@@ -616,7 +663,7 @@ window.VeloraStudio = (function () {
     const box = document.getElementById("msList"); if (!box) return;
     if (!list || !list.length) { box.innerHTML = `<div class="panel"><h3>No songs yet</h3><p class="muted small">The songs you upload show here, with their ownership records.</p><a class="btn primary" href="#/upload">${icon("upload")}Upload your first song</a></div>`; return; }
     box.innerHTML = `<p class="muted small">${list.length} song${list.length === 1 ? "" : "s"} uploaded from this account.</p><div class="mslist">${list.map(s => `<div class="msrow" data-id="${esc(s.id)}"><span class="mscover" style="background-image:url('${esc(s.art ? B.mediaUrl(s.art) : "")}')"></span>
-       <div class="msbody"><b>${esc(s.title)}</b><small>${esc(s.artist || "")} · ${fmt(s.duration)} · ${s.status === "published" ? "Live" : "Off the list"}${s.published_at ? " · " + esc(ctx.longDateTime(s.published_at)) : ""}</small></div>
+       <div class="msbody"><b>${esc(s.title)}</b><small>${esc(s.artist || "")} · ${len(s.duration)} · ${s.status === "published" ? "Live" : "Off the list"}${s.published_at ? " · " + esc(ctx.longDateTime(s.published_at)) : ""}</small></div>
        <div class="msact">${s.status === "published" ? `<a class="btn sm" href="#/song/${encodeURIComponent(s.id)}">Open</a>` : ""}<button type="button" class="btn ghost sm" data-rec="${esc(s.id)}">Record</button><button type="button" class="btn ghost sm" data-list="${esc(s.id)}" data-on="${s.status === "published" ? "0" : "1"}">${s.status === "published" ? "Take off the list" : "Put back"}</button></div></div>`).join("")}</div>`;
     box.onclick = async e => {
       const l = e.target.closest("[data-list]"), r = e.target.closest("[data-rec]");
@@ -632,7 +679,13 @@ window.VeloraStudio = (function () {
     open(path, params, c) {
       ctx = c;
       if (!this.bound) { this.bound = true; document.addEventListener("keydown", onKey); window.addEventListener("beforeunload", warn); }
-      gate(() => { if (path === "/studio") { mySongs(); return; } if (!st) st = fresh(); render(); });
+      gate(() => {
+        const uid = ctx.Backend.user.id;
+        if (st && (st.pub.song || st.uid !== uid)) { cleanup(); st = null; }      // a finished upload, or another account: start clean
+        if (path === "/studio") { mySongs(); return; }
+        if (!st) { st = fresh(); st.uid = uid; }
+        render();
+      });
     },
     leave() { if (st) { stopSound(); abStop(); st.syncing = false; } },
     _state: () => st

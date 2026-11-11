@@ -215,7 +215,7 @@ window.VeloraAudio = (function () {
     const apply = g => { for (let i = 0; i < n; i++) { L[i] *= g; R[i] *= g; } };
     apply(Math.pow(10, gainDb / 20)); limited = A.limit(L, R, ceiling, fs);
     let after = A.loudness([L, R], fs);
-    if (limited && o.lufs - after.lufs > 0.3) {       // the limiter took some loudness: give a little back, once
+    for (let round = 0; round < 2 && limited && o.lufs - after.lufs > 0.3; round++) {   // the limiter took some loudness: give a little back (twice at most, so the sound is never squashed)
       const extra = clamp(o.lufs - after.lufs, 0, 2); apply(Math.pow(10, extra / 20)); A.limit(L, R, ceiling, fs); gainDb += extra; after = A.loudness([L, R], fs);
     }
     return { L, R, sampleRate: fs, length: n, gainDb, limited, after: { lufs: after.lufs, peakDb: after.peakDb } };
