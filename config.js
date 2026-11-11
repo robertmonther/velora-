@@ -57,8 +57,25 @@ window.VELORA_CONFIG = {
     { name: "X", url: "" }
   ],
 
-  /* Accounts: OFF until a Supabase project exists. Then put its address and its public (anon) key here.
-     The anon key is safe to publish; the database rules in supabase/schema.sql protect the data.
-     Never put the service_role key in this file. */
+  /* Adults only: sensual songs ("adult" in the catalogue, and every explicit song) ask the visitor's age
+     the first time one is opened; until then they carry an "18+" mark and never start by themselves.
+     false = no age question at all (explicit songs then only carry the E badge, like Spotify). */
+  ageGate: true,
+
+  /* Upload page (Menu → Upload a song). The numbers below are what the form checks.
+     Cover: the same rule as LANDR (square, JPG or PNG, 1500 to 6000 px). coverMinOwn is the smallest cover
+     the site itself accepts when the uploader chooses "use it on Velora anyway". */
+  upload: {
+    maxFileMB: 250,            /* biggest song file the browser will open */
+    minSeconds: 30, maxSeconds: 1200,
+    mp3Kbps: 192,              /* quality of the file that is stored and streamed */
+    coverMin: 1500, coverMax: 6000, coverMinOwn: 600, coverStore: 1200,
+    masterLufs: -14, masterPeakDb: -1,
+    tapDelay: 0.18             /* seconds taken off each tap when syncing lyrics (people tap a little late) */
+  },
+
+  /* Accounts and uploads: a Supabase project. Put its address and its public (anon / publishable) key here.
+     The public key is safe to publish; the database rules in supabase/schema.sql protect the data.
+     Never put the service_role (secret) key in this file. Empty = accounts and uploads are off. */
   supabase: { url: "", anonKey: "" }
 };

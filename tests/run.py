@@ -17,8 +17,10 @@ def check(name, ok, detail=""):
     results.append(ok)
     print(("PASS  " if ok else "FAIL  ") + name + (f"   [{detail}]" if detail and not ok else ""), flush=True)
 
-async def new_page(browser, width=390, height=844, mobile=True):
+async def new_page(browser, width=390, height=844, mobile=True, adult=True):
+    """A fresh visitor. adult=True: the age question was already answered with Yes (most checks are about the music)."""
     ctx = await browser.new_context(viewport={"width": width, "height": height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
+    if adult: await ctx.add_init_script("try{ localStorage.setItem('velora_age', JSON.stringify('adult')); }catch(e){}")
     page = await ctx.new_page()
     page.problems = []
     page.on("pageerror", lambda e: page.problems.append("error: " + str(e)))
@@ -113,7 +115,7 @@ async def main():
 
             # 4. Every page: no sideways scrolling at a narrow phone width, no errors
             small = await new_page(b, 360, 740)
-            for path in ("#/", "#/search", "#/genre/sensual", "#/genre/anthems", "#/artist/voluptra", "#/song/rm-0007", "#/song/rm-0020", "#/radio", "#/videos", "#/pricing", "#/verify", "#/account", "#/genre/nope", "#/song/nope"):
+            for path in ("#/", "#/search", "#/genre/sensual", "#/genre/anthems", "#/artist/voluptra", "#/song/rm-0007", "#/song/rm-0020", "#/radio", "#/videos", "#/pricing", "#/verify", "#/account", "#/settings", "#/genre/nope", "#/song/nope"):
                 await small.goto(BASE + path); await small.wait_for_timeout(400)
                 over = await small.evaluate("document.documentElement.scrollWidth - window.innerWidth")
                 tiny = await small.evaluate("""() => [...document.querySelectorAll('main button, main a.btn, main a.pill, .tabbar a, .tabbar button')].filter(e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height<32 && !e.classList.contains('ll'); }).length""")
@@ -121,6 +123,56 @@ async def main():
                 name = re.sub(r"[^a-z0-9]+", "-", path.lower()).strip("-") or "home"
                 await small.screenshot(path=f"{SHOTS}/page-{name}.png", full_page=True)
             check("no errors on any page (phone)", not small.problems and not pg.problems, str((small.problems + pg.problems)[:4]))
+
+            # 4b. Menu and the Upload button
+            await small.goto(BASE); await small.wait_for_timeout(400)
+            up = await small.evaluate("(() => { const b=document.querySelector('#uploadBtn'), r=b.getBoundingClientRect(); return {w:r.width, h:r.height, text:b.textContent.trim(), right:r.right<=window.innerWidth}; })()")
+            check("the Upload button is on screen on a small phone", up["w"] > 40 and up["h"] >= 32 and up["right"] and up["text"] == "Upload", str(up))
+            await small.click("#menuBtn"); await small.wait_for_timeout(400)
+            m = await small.evaluate("({open: !document.querySelector('#drawer').hidden, items: [...document.querySelectorAll('.dr-item')].map(e=>e.textContent.trim()), first: document.querySelector('.dr-item').textContent.trim(), focusIn: document.querySelector('#drawer').contains(document.activeElement), inert: document.querySelector('main').hasAttribute('inert')})")
+            check("the menu opens with Upload first, then Settings and the other pages", m["open"] and m["first"] == "Upload a song" and "Settings" in m["items"] and "Radio" in m["items"] and m["focusIn"] and m["inert"], str(m))
+            await small.screenshot(path=f"{SHOTS}/04b-menu.png")
+            await small.keyboard.press("Escape"); await small.wait_for_timeout(250)
+            closed = await small.evaluate("document.querySelector('#drawer').hidden && !document.querySelector('main').hasAttribute('inert')")
+            await small.click("#menuBtn"); await small.wait_for_timeout(300); await small.click(".dr-item[href='#/settings']"); await small.wait_for_timeout(400)
+            there = await small.evaluate("location.hash==='#/settings' && document.querySelector('#drawer').hidden && !!document.querySelector('main h1')")
+            check("Escape closes the menu; a menu item opens its page", closed and there)
+
+            # 4c. Adults only: sensual songs ask the age once, never start by themselves, and hide after "No"
+            ag = await new_page(b, adult=False)
+            await ag.goto(BASE + "#/genre/sensual"); await ag.wait_for_timeout(500)
+            marks = await ag.evaluate("document.querySelectorAll('main .a18').length")
+            await ag.click("main .lrow >> nth=0"); await ag.wait_for_timeout(700)
+            q = await ag.evaluate("({asked: (document.querySelector('#mTitle')||{}).textContent, playing: !document.querySelector('#audio').paused, src: document.querySelector('#audio').currentSrc})")
+            check("an adult song shows 18+ and asks the age before playing", marks >= 10 and q["asked"] == "Adults only" and not q["playing"] and not q["src"], f"{marks} {q}")
+            await ag.screenshot(path=f"{SHOTS}/04c-age-question.png")
+            await ag.click("#ageYes"); await ag.wait_for_timeout(1800)
+            st = await state(ag); left = await ag.evaluate("document.querySelectorAll('main .a18').length")
+            check("after Yes the song plays and the 18+ marks are gone", st["np"] and not st["paused"] and left == 0, f"{st} {left}")
+            a2 = await new_page(b, adult=False)
+            await a2.goto(BASE); await a2.wait_for_timeout(600)
+            await a2.click(".tabbar [data-stream]"); await a2.wait_for_timeout(1500)
+            adult_ids = {x["id"] for x in cat if x.get("adult") or x.get("explicit")}
+            cur = await a2.evaluate("(() => { const t=document.querySelector('#npTitle').textContent; return t; })()")
+            cur_id = next((x["id"] for x in cat if x["title"] == cur), "")
+            check("before the age is known, Stream starts a song that is not for adults", bool(cur_id) and cur_id not in adult_ids, cur)
+            await a2.click("#npClose"); await a2.wait_for_timeout(300)
+            await a2.goto(BASE + "#/genre/sensual"); await a2.wait_for_timeout(400); await a2.click("#gPlay"); await a2.wait_for_timeout(500)
+            asked = await a2.evaluate("(document.querySelector('#mTitle')||{}).textContent")
+            await a2.click("#ageNo"); await a2.wait_for_timeout(500)
+            await a2.goto(BASE + "#/search?q=sensual"); await a2.wait_for_timeout(400)
+            n1 = await a2.evaluate("document.querySelectorAll('#sres .srow').length")
+            await a2.goto(BASE + "#/song/rm-0008"); await a2.wait_for_timeout(300)
+            hid = await a2.evaluate("document.querySelector('main h1').textContent")
+            await a2.goto(BASE + "#/search?q="); await a2.wait_for_timeout(300)
+            total = await a2.evaluate("document.querySelectorAll('#sres .srow').length")
+            check("after No, adult songs are hidden everywhere", asked == "Adults only" and n1 == 0 and hid == "For adults only" and total == len(cat) - len(adult_ids), f"{asked} {n1} {hid} {total}")
+            await a2.goto(BASE + "#/settings"); await a2.wait_for_timeout(300); await a2.screenshot(path=f"{SHOTS}/04d-settings.png", full_page=True)
+            await a2.click("[data-age]"); await a2.wait_for_timeout(300); await a2.click("#ageYes"); await a2.wait_for_timeout(400)
+            await a2.goto(BASE + "#/search?q=sensual"); await a2.wait_for_timeout(400)
+            back = await a2.evaluate("document.querySelectorAll('#sres .srow').length")
+            check("Settings can bring the adult songs back", back == tagged("Sensual"), str(back))
+            check("no errors around the age question", not ag.problems and not a2.problems, str((ag.problems + a2.problems)[:4]))
 
             # 5. Radio: two listeners land on the same song at the same moment; no seeking on live radio
             r1 = await new_page(b); r2 = await new_page(b)

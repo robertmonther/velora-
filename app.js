@@ -1,12 +1,18 @@
 /* Velora: the whole site in one file, no build step.
    Order of this file: helpers, categories, search, colours, toast, ads, player, Now Playing,
    radio, license demo, page building blocks, pages, clicks, router.
-   Settings live in config.js; the songs in data/catalogue.js; accounts in account.js. */
+   Settings live in config.js; the bundled songs in data/catalogue.js; accounts and uploaded songs in backend.js;
+   the upload pages in studio.js (loaded only when someone opens Upload). */
 (function(){
 "use strict";
 const CFG = window.VELORA_CONFIG || {};
-const D = window.VELORA_DATA || {songs:[],categories:[]}, S = D.songs, CATS = D.categories || [];
-const Account = window.VeloraAccount || {enabled:false, user:null, premium:false};
+const D = window.VELORA_DATA || {songs:[],categories:[]}, CATS = Array.isArray(D.categories) ? D.categories : [];
+// ALL: every song (the bundled ones, plus the uploaded ones once the server answers).
+// S: the songs this visitor sees: ALL, minus the adult songs once someone answers "No" to the age question.
+const ALL = Array.isArray(D.songs) ? D.songs : [];
+let S = ALL;
+const Backend = window.VeloraBackend || {enabled:false, user:null, premium:false, role:"", ready:true, canUpload:()=>false};
+const VER = ((document.currentScript && document.currentScript.src) || "").split("?v=")[1] || "";
 const $ = s => document.querySelector(s), main = $("#main"), audio = $("#audio");
 
 // ---------- Helpers ----------
@@ -17,7 +23,7 @@ const fmt = t => { t=Math.max(0,Math.floor(t||0)); return Math.floor(t/60)+":"+S
 const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
 const plural = (n,w) => n+" "+w+(n===1?"":"s");
 const icon = (name, cls="") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-const byId = id => S.find(s=>s.id===id);
+const byId = id => ALL.find(s=>s.id===id);
 const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(c||"") ? c : "#5b7a99";
 // Links from settings may only be https addresses or pages of this site.
 const safeLink = u => /^(https:\/\/|#\/)/.test(u||"") ? u : "";
@@ -45,7 +51,7 @@ function seededShuffle(list, seed){
 }
 const dayShuffle = (list, salt="") => seededShuffle(list, new Date().toISOString().slice(0,10)+salt);
 const shuffled = list => seededShuffle(list, Math.random());
-const recents = () => store.list("velora_recent").map(byId).filter(Boolean);
+const recents = () => store.list("velora_recent").map(byId).filter(s=>s && S.includes(s));
 
 // ---------- Categories ----------
 const catByName = n => CATS.find(c=>c.name===n);
@@ -59,13 +65,21 @@ const kindLabel = c => c.kind==="mood" ? "Mood" : c.kind==="collection" ? "Colle
 // USED: categories that have songs (search). BROWSE: 2 songs or more (Browse all). HOME: 3 or more (shelves, stations, pills).
 // Moods and collections come first, then genres; inside each group the biggest first.
 let USED = [], BROWSE = [], HOME = [];
+// A genre or tag that is not in the list yet (it can arrive with an uploaded song) becomes a category of its own.
+function ensureCats(){
+  const have = new Set(CATS.map(c=>c.name)), ids = new Set(CATS.map(c=>c.id));
+  for(const s of ALL) for(const [n,kind] of [[s.genre,"genre"], ...(s.tags||[]).map(t=>[t,"mood"])]){
+    if(typeof n!=="string" || !n || have.has(n)) continue;
+    let id = n.toLowerCase().replace(/&/g,"n").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "c"; while(ids.has(id)) id+="-x";
+    CATS.push({id, name:n, kind, color:"#5b7a99", words:""}); have.add(n); ids.add(id);
+  }
+}
 function sortCats(){
   const n = new Map(CATS.map(c=>[c,songsIn(c).length])), rank = c => c.kind==="genre" ? 1 : 0;
   USED = CATS.filter(c=>n.get(c)>0).map((c,i)=>[c,i]).sort((a,b)=>rank(a[0])-rank(b[0]) || n.get(b[0])-n.get(a[0]) || a[1]-b[1]).map(x=>x[0]);
   BROWSE = USED.filter(c=>n.get(c)>=2); HOME = USED.filter(c=>n.get(c)>=3);
   if(!HOME.length) HOME = USED.slice(0,6);
 }
-sortCats();
 
 const coverStyle = s => { if(s.art) return `background:#141418 ${cssUrl(s.art)} center/cover no-repeat`; const c=catByName(s.genre); const p=PAL[s.hue||0]||PAL[0]; return `background:radial-gradient(circle at 30% 25%, ${safeColor(c&&c.color)} 0%, transparent 62%),linear-gradient(160deg, ${p[1]}, #141418 80%)`; };
 const cover = (s,cls="cover") => `<div class="${cls}" style="${coverStyle(s)}" role="img" aria-label="Cover of ${esc(s.title)}">${s.art?"":`<span>${esc(s.title)}</span>`}</div>`;
@@ -74,6 +88,8 @@ const hasLyrics = s => Array.isArray(s.lyrics) && s.lyrics.length>0;
 const isAdult = s => !!(s && (s.adult || s.explicit));
 // Explicit songs carry an "E" badge, like Spotify, and play like every other song.
 const eb = s => s.explicit ? '<span class="e-badge" title="Explicit lyrics" aria-label="Explicit">E</span>' : "";
+// In lists: "18+" on adult songs until the visitor has confirmed their age, afterwards the usual E for explicit lyrics.
+const badge = s => !adultOK() && isAdult(s) ? '<span class="a18" title="For adults" aria-label="For adults">18+</span>' : eb(s);
 // ---------- Artists and credits ----------
 // A song may name an artist (catalogue "artists"). Without one, the line under the title shows the genre.
 const ARTISTS = D.artists || [];
@@ -99,8 +115,26 @@ const STOP = new Set(["song","songs","music","track","tracks","the","a","of"]);
 let IDX = [];
 function reindex(){ IDX = S.map(s=>{ const a=artistOf(s); return {s, title:norm(s.title),
   meta:norm([s.genre,s.subgenre,...(s.tags||[]),s.mood,s.language,a?a.name:"",...catsOf(s).map(c=>c.words||""),s.explicit?"explicit e":"clean",s.video?"video videos short shorts":"",s.clip?"video videos clip clips music video":""].join(" ")),
-  lyr:norm(hasLyrics(s)?s.lyrics.map(l=>l[1]).join(" "):"")}; }); }
-reindex();
+  lyr:norm(hasLyrics(s) && playable(s) ? s.lyrics.map(l=>l[1]).join(" ") : "")}; }); }
+
+// ---------- Adults only ----------
+// Sensual songs are for adults: the first time someone opens one, the site asks their age (config.js: ageGate).
+// Until then adult songs are listed with an "18+" mark and never start by themselves; after "No" they are hidden.
+const AGE_GATE = CFG.ageGate !== false;
+const age = () => { if(!AGE_GATE) return "adult"; const v=store.get("velora_age",""); return v==="adult"||v==="minor" ? v : ""; };
+const adultOK = () => age()==="adult";
+const playable = s => adultOK() || !isAdult(s);
+function applyAge(){ S = age()==="minor" ? ALL.filter(s=>!isAdult(s)) : ALL; ensureCats(); sortCats(); reindex(); }
+function setAge(v){ if(v) store.set("velora_age",v); else { try{ localStorage.removeItem("velora_age"); }catch(e){} } applyAge(); }
+function askAge(then){
+  if(adultOK()){ if(then) then(); return; }
+  openModal(`<h2 id="mTitle">Adults only</h2><p>Sensual songs on Velora are made for adults. Are you 18 or older?</p>
+   <div class="row"><button type="button" class="btn primary" id="ageYes">Yes, I'm 18 or older</button><button type="button" class="btn ghost" id="ageNo">No</button></div>
+   <p class="muted small" style="margin:14px 0 0">Your answer stays on this device. You can change it in Settings.</p>`);
+  $("#ageYes").onclick=()=>{ setAge("adult"); closeM(); route(true); if(then) then(); };
+  $("#ageNo").onclick=()=>{ setAge("minor"); closeM(); if(current && isAdult(current)){ audio.pause(); } toast("Adult songs are hidden on this device."); route(true); };
+}
+applyAge();
 function search(q){
   const toks = norm(q).split(" ").filter(t=>t && !STOP.has(t)).slice(0,8);
   if(!toks.length) return {songs:[], cats:[], artists:[], lyricHit:new Set()};
@@ -163,7 +197,7 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("sh
 // ---------- Ads (off by default, see config.js) ----------
 // Audio spots play between songs; banners are quiet cards. Premium members never get either.
 const ADS = CFG.ads || {};
-const adsOn = () => ADS.enabled===true && !Account.premium;
+const adsOn = () => ADS.enabled===true && !Backend.premium;
 const adSpots = () => adsOn() && Array.isArray(ADS.audio) ? ADS.audio.filter(a=>a && a.audio) : [];
 let adState=null, songsSinceAd=0, adIndex=0;
 function banner(slot){
@@ -198,6 +232,7 @@ let loadErrors = 0, pausedAt = 0;
 const canSeek = () => !!current && !adState && mode!=="radio";
 
 function load(song, autoplay=true, at=0){
+  if(!playable(song)){ askAge(()=>load(song,autoplay,at)); return; }
   if(adState){ adState=null; document.body.classList.remove("ad-on"); $("#npAd").innerHTML=""; }
   current = song; qi = queue.indexOf(song); if(qi<0){ queue=[song]; qi=0; }
   audio.src = url(song.audio);
@@ -209,7 +244,7 @@ function load(song, autoplay=true, at=0){
   paintMini(song); renderNP(song); applyTheme(song); setMediaSession(song); paintBars(); setPlayIcons();
 }
 function playFrom(list, song, label, at=0, after=null){
-  mode="library"; queue=list.slice(); if(!queue.includes(song)) queue.unshift(song); source=label; load(song,true,at);
+  mode="library"; queue=list.filter(x=>playable(x)||x===song); if(!queue.includes(song)) queue.unshift(song); source=label; load(song,true,at);
   if(after) after();
 }
 function seekTo(t, play=false){
@@ -228,16 +263,18 @@ function next(){
 }
 function prev(){ if(!canSeek()) return; if(audio.currentTime>3 || qi<=0){ audio.currentTime=0; return; } load(queue[qi-1]); }
 function bestPart(){ if(current) seekTo(current.bestPart||0, true); }
-function startStream(){ if(!current){ const list=dayShuffle(S,"stream"); if(!list.length) return; playFrom(list, list[0], "All songs"); } openNP(); }
+function startStream(){ if(!current){ const list=dayShuffle(S,"stream").filter(playable); if(!list.length) return; playFrom(list, list[0], "All songs"); } openNP(); }
 function suggestions(s,n=8){
   const mine=catsOf(s);
   const score = x => mine.filter(c=>inCat(x,c)).length*2 + (x.genre===s.genre?2:0) + (x.mood===s.mood?1:0) + (!!x.explicit===!!s.explicit?0.5:0);
-  return S.filter(x=>x!==s).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
+  return S.filter(x=>x!==s && playable(x)).map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).slice(0,n).map(a=>a[0]);
 }
-function startStation(c){
-  if(!c) return; const list=shuffled(songsIn(c)); if(!list.length) return;
-  playFrom(list, list[0], c.name+" Radio", 0, openNP);
+// Play a list from the top or shuffled. If every song in it is for adults, ask the age first; otherwise the adult ones are left out.
+function playList(list, label, mix){
+  const ok=list.filter(playable); if(!ok.length){ if(list.length) askAge(()=>playList(list,label,mix)); return; }
+  const l = mix ? shuffled(ok) : ok; playFrom(l, l[0], label, 0, openNP);
 }
+function startStation(c){ if(c) playList(songsIn(c), c.name+" Radio", true); }
 
 function paintMini(s){
   $("#miniCover").setAttribute("style", coverStyle(s));
@@ -373,7 +410,7 @@ function nextCard(s){
   return `<div class="np-card">${up?`<div class="card-h"><span>Up next</span></div><div class="rows">${srowNP(up,"queue")}</div>`:""}
     <div class="card-h"${up?' style="margin-top:14px"':""}><span>More like this</span></div><div class="rows">${suggestions(s).map(x=>srowNP(x,"sug")).join("")}</div></div>`;
 }
-const srowMeta = x => `<span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${eb(x)}${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>`;
+const srowMeta = x => `<span class="srow-cover" style="${coverStyle(x)}"></span><span class="srow-t"><b>${esc(x.title)}</b><small>${badge(x)}${esc(x.genre)} · ${esc(x.mood)} · ${fmt(x.duration)}</small></span>`;
 const srowNP = (x,kind) => `<button type="button" class="srow" data-${kind}="${esc(x.id)}">${srowMeta(x)}${icon("play","srow-i")}</button>`;
 const srowStatic = x => `<div class="srow static">${srowMeta(x)}</div>`;
 $("#npCards").addEventListener("click",e=>{
@@ -473,8 +510,9 @@ function slotAt(ms){
 // A slot plays the songs of its categories; "adult:false" leaves out adult songs, "explicit:false" explicit ones.
 const slotAllows = (slot,s) => !(slot.adult===false && isAdult(s)) && !(slot.explicit===false && s.explicit);
 function radioPool(slot){
-  const p=S.filter(s=>slotAllows(slot,s) && slot.cats.some(n=>{ const c=catByName(n); return c && inCat(s,c); }));
-  if(p.length) return p; const rest=S.filter(s=>slotAllows(slot,s)); return rest.length?rest:S;
+  const fine = s => slotAllows(slot,s) && playable(s);
+  const p=S.filter(s=>fine(s) && slot.cats.some(n=>{ const c=catByName(n); return c && inCat(s,c); }));
+  if(p.length) return p; const rest=S.filter(fine); return rest.length ? rest : S.filter(playable);
 }
 // The song on air at time ms (with how far into it we are) and the ones after it.
 function radioTimeline(ms, count=4){
@@ -524,12 +562,53 @@ function closeM(){
   modalFocus=null;
 }
 $("#mClose").onclick=closeM; $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeM(); });
-document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; if(!$("#modal").hidden) closeM(); else if(npOpen) closeNP(false); });
-// Keep the Tab key inside the open window.
-$("#modal").addEventListener("keydown",e=>{
-  if(e.key!=="Tab") return; const f=[...$("#modal").querySelectorAll("button,a[href],input,video[controls]")].filter(x=>!x.disabled && x.offsetParent!==null); if(!f.length) return;
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; if(!$("#modal").hidden) closeM(); else if(!$("#drawer").hidden) closeMenu(); else if(npOpen) closeNP(false); });
+// Keep the Tab key inside the open window (license window, menu).
+function trapTab(box){ box.addEventListener("keydown",e=>{
+  if(e.key!=="Tab") return; const f=[...box.querySelectorAll("button,a[href],input,select,textarea,video[controls]")].filter(x=>!x.disabled && x.offsetParent!==null); if(!f.length) return;
   const first=f[0], last=f[f.length-1];
   if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+}); }
+trapTab($("#modal")); trapTab($("#drawer"));
+
+// ---------- Menu (the ☰ button): Upload, the account, Settings and the other pages ----------
+let menuFocus=null;
+function menuHTML(){
+  const u=Backend.user, up=!!u && Backend.canUpload();
+  const who = u ? `<div class="dr-who"><span class="dr-ava">${icon("user")}</span><div><b>${esc(Backend.name||u.email||"Signed in")}</b><small>${Backend.role==="owner"?"Owner":up?"Creator":"Signed in"}</small></div></div>`
+    : `<div class="dr-who"><span class="dr-ava">${icon("user")}</span><div><b>Welcome</b><small>Listening needs no account</small></div></div>`;
+  const item=(href,ic,label,cls="")=>`<a class="dr-item${cls}" href="${href}">${icon(ic)}<span>${label}</span></a>`;
+  return `<div class="dr-head"><span class="brand"><span class="logo-dot"></span>Velora</span><button type="button" class="icon-btn" id="menuClose" aria-label="Close the menu">${icon("close")}</button></div>
+   ${who}
+   ${item("#/upload","upload","Upload a song"," main")}
+   ${up?item("#/studio","music","My songs"):""}
+   <div class="dr-sep"></div>
+   ${item("#/","home","Home")}${item("#/search","search","Search")}${item("#/radio","radio","Radio")}${item("#/videos","video","Videos")}
+   <div class="dr-sep"></div>
+   ${item("#/pricing","premium","Pricing")}${item("#/verify","check","Verify a license")}
+   <div class="dr-sep"></div>
+   ${item("#/settings","settings","Settings")}
+   ${u?`<button type="button" class="dr-item" id="menuOut">${icon("lock")}<span>Sign out</span></button>`:item("#/account","user",Backend.enabled?"Sign in":"Account")}`;
+}
+function openMenu(){
+  const d=$("#drawer"); if(!d.hidden) return;
+  menuFocus=document.activeElement; $("#drawerNav").innerHTML=menuHTML(); d.hidden=false; $("#menuBtn").setAttribute("aria-expanded","true");
+  requestAnimationFrame(()=>d.classList.add("open")); setInert(true);
+  try{ $("#menuClose").focus({preventScroll:true}); }catch(e){}
+  if(Backend.enabled && !Backend.ready) Backend.init().then(()=>{ if(!d.hidden) $("#drawerNav").innerHTML=menuHTML(); }).catch(()=>{});
+}
+function closeMenu(){
+  const d=$("#drawer"); if(d.hidden) return;
+  d.classList.remove("open"); d.hidden=true; $("#menuBtn").setAttribute("aria-expanded","false");
+  if(!npOpen && $("#modal").hidden) setInert(false);
+  if(menuFocus && menuFocus.isConnected) try{ menuFocus.focus({preventScroll:true}); }catch(e){}
+  menuFocus=null;
+}
+$("#menuBtn").onclick=openMenu;
+$("#drawer").addEventListener("click",e=>{
+  if(e.target.id==="drawer" || e.target.closest("#menuClose")){ closeMenu(); return; }
+  if(e.target.closest("#menuOut")){ closeMenu(); Backend.signOut().then(()=>{ toast("Signed out."); route(true); }); return; }
+  if(e.target.closest("a.dr-item")) closeMenu();
 });
 
 // ---------- Share (a ready card, like Spotify: the song, or lyric lines you pick) ----------
@@ -653,7 +732,7 @@ async function showCert(song,t){
 let ROWS = {}, rowN = 0;
 const PAGE = 50; // long lists show 50 songs at a time, so the page stays fast with 1,000+ songs
 const reg = (list,label) => { const k="r"+(++rowN); ROWS[k]={list,label,shown:PAGE}; return k; };
-const tile = (s,k) => `<button type="button" class="tile" data-song="${esc(s.id)}" data-list="${k}"><span class="tile-cover" style="${coverStyle(s)}"></span><span class="tile-t">${eb(s)}${esc(s.title)}</span><span class="tile-s">${subOf(s)}</span></button>`;
+const tile = (s,k) => `<button type="button" class="tile" data-song="${esc(s.id)}" data-list="${k}"><span class="tile-cover" style="${coverStyle(s)}"></span><span class="tile-t">${badge(s)}${esc(s.title)}</span><span class="tile-s">${subOf(s)}</span></button>`;
 const hrow = (list,label) => { const k=reg(list,label); return `<div class="hrow">${list.slice(0,24).map(s=>tile(s,k)).join("")}</div>`; };
 const srow = (s,k,n) => `<button type="button" class="srow lrow" data-song="${esc(s.id)}" data-list="${k}">${n?`<span class="srow-n">${n}</span>`:""}${srowMeta(s)}${icon("play","srow-i")}</button>`;
 function rowsInner(k,numbered){ const r=ROWS[k], part=r.list.slice(0,r.shown);
@@ -673,13 +752,13 @@ function onAirHTML(){
 // ---------- Pages ----------
 function home(){
   if(!S.length){ main.innerHTML=`<h1 class="pagetitle">Velora</h1><p class="muted">The songs are on their way.</p>`; return; }
-  const today=dayShuffle(S), pick=today.find(s=>!s.explicit)||today[0], rec=recents(), base=rec[0]||today[1]||pick, kPick=reg(today,"Today's pick");
+  const today=dayShuffle(S), pick=today.find(s=>!isAdult(s))||today[0], rec=recents(), base=rec[0]||today[1]||pick, kPick=reg(today,"Today's pick");
   const intro = store.get("velora_intro_seen",false) ? "" : `<section class="intro" id="intro"><div><b>Full songs you can use in your videos.</b><span>Listen free. Rent a song from ${esc(PRICES.rent.price)} or buy the rights; every license comes with a certificate.</span></div><div class="intro-actions"><a class="btn sm primary" href="#/pricing">How it works</a><button type="button" class="btn sm ghost" id="introX">Got it</button></div></section>`;
   main.innerHTML = `
   ${pills(null)}${intro}
   <section class="feat">
     <button type="button" class="feat-cover" data-song="${esc(pick.id)}" data-list="${kPick}" style="${coverStyle(pick)}" aria-label="Play ${esc(pick.title)}"></button>
-    <div class="feat-t"><div class="muted small">Today's pick</div><h2>${esc(pick.title)}</h2><div class="muted">${eb(pick)}${subOf(pick)} · ${esc(pick.mood)}</div>
+    <div class="feat-t"><div class="muted small">Today's pick</div><h2>${esc(pick.title)}</h2><div class="muted">${badge(pick)}${subOf(pick)} · ${esc(pick.mood)}</div>
       <div class="feat-actions"><button type="button" class="icon-btn" data-lic="${esc(pick.id)}" aria-label="License ${esc(pick.title)}">${icon("tag")}</button><button type="button" class="round-play" data-song="${esc(pick.id)}" data-list="${kPick}" aria-label="Play ${esc(pick.title)}">${icon("play")}</button></div></div>
   </section>
   <section>${head("Recommended for today")}${hrow(today,"Recommended for today")}</section>
@@ -745,8 +824,8 @@ function artistView(id){
   ${latest.length?`<section>${head("Releases")}${hrow(latest,a.name+" · releases")}</section>`:""}
   <section>${head("About")}<div class="about-card"><div class="about-img" style="${artistArt(a)}"></div><div class="about-body"><b>${esc(a.name)}</b><small>${plural(list.length,"song")} on Velora</small>${a.bio?`<p>${esc(a.bio)}</p>`:""}${Array.isArray(a.facts)&&a.facts.length?`<dl class="afacts">${a.facts.map(f=>`<dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd>`).join("")}</dl>`:""}</div></div></section>
   <section>${head("Credits")}<div class="panel" style="margin-top:0">${creditRow({name:a.name,roles:["Main Artist"]})}${creditRow({name:CREATOR,roles:["Lyricist","Song design","Producer"]})}${creditRow({name:"Suno",roles:["Music generation (AI-assisted)"]})}</div></section>`;
-  $("#aPlay").onclick=()=>{ if(list.length) playFrom(list, list[0], a.name, 0, openNP); };
-  $("#aShuffle").onclick=()=>{ const l=shuffled(list); if(l.length) playFrom(l, l[0], a.name+" · shuffle", 0, openNP); };
+  $("#aPlay").onclick=()=>playList(list, a.name, false);
+  $("#aShuffle").onclick=()=>playList(list, a.name+" · shuffle", true);
   $("#aShare").onclick=()=>shareLink(a.name+" on Velora", pageLink(artistLink(a)));
 }
 const notFound = what => { main.innerHTML=`<h1 class="pagetitle">${what} not found</h1><p class="muted">It may have moved.</p><a class="btn primary" href="#/">Back to Home</a>`; };
@@ -759,17 +838,18 @@ function genreView(id){
    <div class="ghead-actions"><button type="button" class="round-play" id="gPlay" aria-label="Play ${esc(c.name)}">${icon("play")}</button><button type="button" class="icon-btn" id="gShuffle" aria-label="Shuffle ${esc(c.name)}">${icon("shuffle")}</button><button type="button" class="btn ghost sm" data-station="${esc(c.id)}">${icon("radio")}${esc(c.name)} Radio</button></div></section>
   ${rows(list,c.name,true)}
   <section>${head("More to explore")}<div class="browse">${BROWSE.filter(x=>x!==c).map(btile).join("")}</div></section>`;
-  $("#gPlay").onclick=()=>{ if(list.length) playFrom(list, list[0], c.name, 0, openNP); };
-  $("#gShuffle").onclick=()=>{ const l=shuffled(list); if(l.length) playFrom(l, l[0], c.name+" · shuffle", 0, openNP); };
+  $("#gPlay").onclick=()=>playList(list, c.name, false);
+  $("#gShuffle").onclick=()=>playList(list, c.name+" · shuffle", true);
 }
 function song(id){
   const s=byId(id); if(!s){ notFound("Song"); return; }
+  if(isAdult(s) && age()==="minor"){ main.innerHTML=`<h1 class="pagetitle">For adults only</h1><p class="muted">This song is hidden on this device. You can change that in Settings.</p><div class="row"><a class="btn primary" href="#/">Back to Home</a><a class="btn ghost" href="#/settings">Settings</a></div>`; return; }
   const d=s.duration, c=catByName(s.genre), secs=s.sections||[], more=S.filter(x=>x!==s && catsOf(s).some(k=>inCat(x,k)));
   main.innerHTML=`<div class="split"><div>${cover(s,"cover song-cover")}</div><div>
    <div class="muted small">${catsOf(s).map(k=>`<a href="${catLink(k)}">${esc(k.name)}</a>`).join(" · ")} · ${esc(s.mood)}</div><h1>${esc(s.title)}</h1>${artistOf(s)?`<div class="song-artist"><a href="${artistLink(artistOf(s))}">${esc(artistOf(s).name)}</a></div>`:""}${s.explicit?`<div class="muted">${eb(s)}Explicit lyrics</div>`:""}
    <div class="facts"><div class="fact"><b>Length</b>${fmt(d)}</div><div class="fact"><b>BPM</b>${esc(s.bpm||"–")}</div>${s.key?`<div class="fact"><b>Key</b>${esc(s.key)}</div>`:""}${s.subgenre?`<div class="fact"><b>Style</b>${esc(s.subgenre)}</div>`:""}<div class="fact"><b>${s.created?"Created":"Added"}</b>${esc(s.created||s.published||"–")}</div></div>
    <div class="row"><button type="button" class="btn primary" data-play="${esc(s.id)}" data-np>${icon("play")}Play full song</button><button type="button" class="btn red" data-lic="${esc(s.id)}">Rent ${esc(PRICES.rent.price)}</button><button type="button" class="btn blue" data-lic="${esc(s.id)}" data-pre="buy">Buy rights ${esc(PRICES.buy.price)}</button>${s.video||s.clip?`<button type="button" class="btn ghost" data-video="${esc(s.id)}">Watch video</button>`:""}<button type="button" class="btn ghost" data-share="${esc(s.id)}">${icon("share")}Share</button></div>
-   <div class="panel"><h3>Lyrics</h3>${hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${esc(s.id)}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics coming soon.</p>`}</div>
+   <div class="panel"><h3>Lyrics</h3>${!playable(s)?`<p class="muted" style="margin-top:0">This song is for adults. The lyrics show once you confirm your age.</p><button type="button" class="btn sm" data-age>I'm 18 or older</button>`:hasLyrics(s)?`<p class="muted small" style="margin-top:0">${esc(s.lyricsNote||"")} Tap a line to play from there.</p><div class="plyr">${lyricLines(s,"button",t=>`type="button" data-play="${esc(s.id)}" data-at="${t}" data-np`)}</div>`:`<p class="muted">Lyrics coming soon.</p>`}</div>
    <div class="panel"><h3>Song map</h3><p class="muted small">Where each part starts and ends. Tap to jump there.</p>
     <div class="schedule">${secs.map((x,j)=>`<button type="button" class="slot tap" data-play="${esc(s.id)}" data-at="${+x.start||0}"><span>${esc(x.name)}${x.start===s.bestPart?" · best part":""}</span><span class="muted">${fmt(x.start)} – ${fmt((secs[j+1]||{start:d}).start)}</span></button>`).join("")}</div></div>
    <div class="panel prov"><div class="seal" aria-hidden="true">✓</div><div><h3 style="margin-bottom:4px">Provenance record</h3><div class="small">${s.created?"Made with Suno · created":"Made with Suno · added"} <b>${longDate(s.created||s.published)}</b> · catalogue ID ${esc(s.id)}</div><div class="muted small">Lyrics and song design by ${esc(CREATOR)}. Each license gets a dated certificate you can check on the Verify page.</div></div></div>
@@ -808,31 +888,128 @@ function verify(params){
     $("#vr").innerHTML= !v?"": rec?`<div class="cert"><h3>Valid license${demoTag}</h3><dl><dt>License ID</dt><dd>${esc(rec.lic)}</dd><dt>Song</dt><dd>${esc(rec.title)} (${esc(rec.song)})</dd><dt>Type</dt><dd>${esc(rec.type)}</dd><dt>Issued</dt><dd>${longDateTime(rec.issued)}</dd><dt>Song created</dt><dd>${longDate(rec.songDate)}</dd></dl></div>`:`<div class="note">No license found with that ID.${DEMO?" In this preview, licenses are only stored in the browser that made them.":""}</div>`; };
   $("#vf").onsubmit=e=>{e.preventDefault();run();}; if(id) run();
 }
-// Account page. Until accounts are switched on (config.js), nothing personal is collected at all.
-function accountView(){
-  const privacy=`<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently${DEMO?" and the demo licenses you made":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
-  const wire=()=>{ const w=$("#wipe"); if(w) w.onclick=()=>{ store.wipe(); toast("Cleared."); }; };
-  if(!Account.enabled){
-    main.innerHTML=`<h1 class="pagetitle">Your account</h1>
-    <div class="panel"><h3>Accounts open soon</h3><p>With an account you will find here:</p><ul class="plain"><li>your licenses and certificates</li><li>Premium: your subscription and listening without ads</li><li>the songs you saved</li></ul><p class="muted small" style="margin-bottom:0">Sign-in will be by a link sent to your email, with no password to remember. Listening already works without an account.</p></div>${privacy}`;
-    wire(); return;
-  }
-  main.innerHTML=`<h1 class="pagetitle">Your account</h1><div id="acct" aria-live="polite"><p class="muted">One moment…</p></div>${privacy}`; wire();
-  Account.init().then(async ()=>{
-    const box=$("#acct"); if(!box) return; const u=Account.user;
-    if(!u){
-      box.innerHTML=`<div class="panel"><h3>Sign in</h3><p class="muted small">We send a sign-in link to your email. No password.</p><form id="si" class="row"><div class="field" style="flex:1;margin:0"><label for="em" class="sr">Email</label><input id="em" type="email" required maxlength="254" autocomplete="email" inputmode="email" placeholder="you@example.com"></div><button class="btn primary">Send the link</button></form><p id="siMsg" class="small" role="status"></p><p class="muted small" style="margin-bottom:0">We use your email only to sign you in and to send your licenses.</p></div>`;
-      $("#si").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button"), msg=$("#siMsg"); b.disabled=true;
-        try{ await Account.signIn($("#em").value); msg.textContent="Check your email and tap the link to sign in."; }catch(err){ msg.textContent=err.message; } finally{ b.disabled=false; } };
-      return;
-    }
-    const lic=await Account.licenses();
-    box.innerHTML=`<div class="panel"><h3>${esc(u.email||"Signed in")}</h3><p class="small">${Account.premium?"Premium is active: no ads.":"Free plan."}</p><button type="button" class="btn ghost sm" id="so">Sign out</button></div>
-    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map(l=>{ const sg=byId(l.song_id); return `<div class="slot"><span><b>${esc(sg?sg.title:l.song_id)}</b> · ${esc(l.type)}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></div>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>`;
-    $("#so").onclick=()=>Account.signOut();
-  }).catch(()=>{ const box=$("#acct"); if(box) box.innerHTML=`<p class="muted">Accounts are not reachable right now. Please try again later.</p>`; });
+// ---------- Sign-in, the account page and Settings ----------
+// Sign-in is for the owner (and later for creators). Listening never needs an account.
+const pwField = (id,label,auto,min=8) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="password" required minlength="${min}" maxlength="200" autocomplete="${auto}"></div>`;
+function authPanel(box, done){
+  if(!Backend.enabled){ box.innerHTML=`<div class="panel"><h3>Accounts open soon</h3><p class="muted small" style="margin:0">The account server is not connected yet. Listening works without an account.</p></div>`; return; }
+  const sharedNote = Backend.shared ? `<p class="muted small" style="margin:10px 0 0">On this test address you sign in again after a reload.</p>` : "";
+  const signIn = () => {
+    box.innerHTML=`<div class="panel auth"><h3>Sign in</h3><p class="muted small" style="margin-top:-4px">For the owner's account. Listening needs no account.</p>
+     <form id="si"><div class="field"><label for="em">Email</label><input id="em" type="email" required maxlength="254" autocomplete="username" inputmode="email"></div>${pwField("pw","Password","current-password")}
+     <button class="btn primary" type="submit">Sign in</button><p id="siMsg" class="formmsg" role="alert"></p></form>
+     <button type="button" class="linkbtn" id="toSetup">First time here? Set up the owner account</button>${sharedNote}</div>`;
+    $("#toSetup").onclick=setup;
+    $("#si").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button[type=submit]"), msg=$("#siMsg"); b.disabled=true; msg.textContent="";
+      try{ await Backend.signIn($("#em").value, $("#pw").value); if(done) done(); }catch(err){ msg.textContent=err.message; } finally{ b.disabled=false; } };
+  };
+  const setup = () => {
+    box.innerHTML=`<div class="panel auth"><h3>Set up the owner account</h3><p class="muted small" style="margin-top:-4px">This works once. It creates the account that can upload and manage the songs.</p>
+     <form id="su"><div class="field"><label for="snm">Your name <span class="muted">(shown as the rights holder)</span></label><input id="snm" type="text" required maxlength="80" autocomplete="name"></div>
+     <div class="field"><label for="sem">Email</label><input id="sem" type="email" required maxlength="254" autocomplete="username" inputmode="email"></div>
+     ${pwField("spw","Password <span class=\"muted\">(12 characters or more)</span>","new-password",12)}${pwField("spw2","Password again","new-password",12)}
+     <div class="field"><label for="scode">Setup code</label><input id="scode" type="text" required maxlength="80" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"></div>
+     <button class="btn primary" type="submit">Create the owner account</button><p id="suMsg" class="formmsg" role="alert"></p></form>
+     <button type="button" class="linkbtn" id="toSignIn">I already have the account: sign in</button>${sharedNote}</div>`;
+    $("#toSignIn").onclick=signIn;
+    $("#su").onsubmit=async e=>{ e.preventDefault(); const b=e.target.querySelector("button[type=submit]"), msg=$("#suMsg"); msg.textContent="";
+      const pw=$("#spw").value; if(pw!==$("#spw2").value){ msg.textContent="The two passwords are not the same."; return; }
+      if(pw.length<12){ msg.textContent="Use 12 characters or more."; return; }
+      b.disabled=true;
+      try{ await Backend.ownerSetup({name:$("#snm").value.trim(), email:$("#sem").value.trim(), password:pw, code:$("#scode").value.trim()}); await Backend.signIn($("#sem").value, pw); toast("The owner account is ready."); if(done) done(); }
+      catch(err){ msg.textContent=err.message; } finally{ b.disabled=false; } };
+  };
+  signIn();
 }
-if(Account.enabled){ Account.onChange(()=>{ if(location.hash.startsWith("#/account")) accountView(); }); Account.init().catch(()=>{}); }
+const privacyPanel = () => `<div class="panel"><h3>Your privacy</h3><p class="small">Velora uses no tracking and no advertising cookies. This browser only remembers the songs you played recently, your answer to the age question${DEMO?" and the demo licenses you made":""}, on this device.</p><button type="button" class="btn ghost sm" id="wipe">Clear what this browser remembers</button></div>`;
+const wireWipe = () => { const w=$("#wipe"); if(w) w.onclick=()=>{ store.wipe(); applyAge(); toast("Cleared."); route(true); }; };
+function accountView(){
+  if(!Backend.enabled){
+    main.innerHTML=`<h1 class="pagetitle">Your account</h1>
+    <div class="panel"><h3>Accounts open soon</h3><p>With an account you will find here:</p><ul class="plain"><li>your licenses and certificates</li><li>Premium: your subscription and listening without ads</li><li>the songs you saved</li></ul><p class="muted small" style="margin-bottom:0">Listening already works without an account.</p></div>${privacyPanel()}`;
+    wireWipe(); return;
+  }
+  main.innerHTML=`<h1 class="pagetitle">Your account</h1><div id="acct" aria-live="polite"><p class="muted">One moment…</p></div>${privacyPanel()}`; wireWipe();
+  Backend.init().then(async ()=>{
+    const box=$("#acct"); if(!box) return; const u=Backend.user;
+    if(!u){ authPanel(box, ()=>{ if(location.hash.startsWith("#/account")) accountView(); }); return; }
+    const lic=await Backend.licenses(); if(!$("#acct")) return;
+    box.innerHTML=`<div class="panel"><h3>${esc(Backend.name||u.email||"Signed in")}</h3><p class="small">${esc(u.email)} · ${Backend.role==="owner"?"Owner":Backend.canUpload()?"Creator":"Listener"}${Backend.premium?" · Premium":""}</p>
+      <div class="row">${Backend.canUpload()?`<a class="btn primary sm" href="#/upload">${icon("upload")}Upload a song</a><a class="btn sm" href="#/studio">My songs</a>`:""}<button type="button" class="btn ghost sm" id="so">Sign out</button></div></div>
+    <div class="panel"><h3>Your licenses</h3>${lic.length?`<div class="schedule">${lic.map(l=>{ const sg=byId(l.song_id); return `<div class="slot"><span><b>${esc(sg?sg.title:l.song_id)}</b> · ${esc(l.type)}</span><span class="muted">${esc(l.id)} · ${longDate(l.issued_at)}</span></div>`; }).join("")}</div>`:`<p class="muted small" style="margin:0">No licenses yet.</p>`}</div>`;
+    $("#so").onclick=()=>Backend.signOut().then(()=>toast("Signed out."));
+  }).catch(err=>{ const box=$("#acct"); if(box) box.innerHTML=`<p class="muted">${esc(err && err.message || "Accounts are not reachable right now. Please try again later.")}</p>`; });
+}
+function settingsView(){
+  const a=age(), u=Backend.user;
+  main.innerHTML=`<h1 class="pagetitle">Settings</h1>
+  ${AGE_GATE?`<div class="panel"><h3>Adult songs</h3>
+    <p class="small">${a==="adult"?"You confirmed that you are 18 or older. Sensual songs play like every other song.":a==="minor"?"Adult songs are hidden on this device.":"Sensual songs are for adults. The site asks your age the first time you open one."}</p>
+    ${a==="adult"?`<button type="button" class="btn ghost sm" id="ageHide">Hide adult songs on this device</button>`:`<button type="button" class="btn sm" data-age>I'm 18 or older</button>`}</div>`:""}
+  <div class="panel"><h3>Account</h3>${!Backend.enabled?`<p class="muted small" style="margin:0">Accounts open soon. Listening needs no account.</p>`
+    :u?`<p class="small">Signed in as ${esc(u.email)}.</p><div class="row"><a class="btn sm" href="#/account">Open my account</a><button type="button" class="btn ghost sm" id="setOut">Sign out</button></div>`
+    :`<p class="small">You are not signed in. Listening needs no account.</p><a class="btn sm" href="#/account">Sign in</a>`}</div>
+  ${privacyPanel()}
+  <div class="panel"><h3>About</h3><p class="small" style="margin:0">Velora${DEMO?", test version":""}. Lyrics, concepts and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).${VER?` Build ${esc(VER)}.`:""}</p></div>`;
+  wireWipe();
+  const h=$("#ageHide"); if(h) h.onclick=()=>{ setAge("minor"); if(current && isAdult(current)) audio.pause(); toast("Adult songs are hidden on this device."); route(true); };
+  const o=$("#setOut"); if(o) o.onclick=()=>Backend.signOut().then(()=>toast("Signed out."));
+}
+
+// ---------- Uploaded songs: they arrive from the server and join the catalogue ----------
+// Only plain data is taken over, and media must come from this site's own storage.
+function cleanRemoteSong(r){
+  if(!r || typeof r.id!=="string" || typeof r.title!=="string" || !Backend.isMediaUrl(r.audio)) return null;
+  const txt=(v,n)=>typeof v==="string"?v.slice(0,n):"", num=v=>Number.isFinite(+v)?+v:0;
+  const s={ id:r.id.slice(0,40), title:r.title.slice(0,160), genre:txt(r.genre,60)||"Pop", subgenre:txt(r.subgenre,60), tags:Array.isArray(r.tags)?r.tags.filter(t=>typeof t==="string").slice(0,6).map(t=>t.slice(0,40)):[],
+    mood:txt(r.mood,40), language:txt(r.language,40), explicit:!!r.explicit, adult:!!r.adult, duration:num(r.duration), bpm:num(r.bpm)||undefined, key:txt(r.key,20)||undefined,
+    audio:r.audio, art:Backend.isMediaUrl(r.art)?r.art:undefined, color:/^#[0-9a-f]{6}$/i.test(r.color||"")?r.color:undefined,
+    sections:(Array.isArray(r.sections)?r.sections:[]).filter(x=>x && typeof x.name==="string").slice(0,40).map(x=>({name:x.name.slice(0,40), start:Math.max(0,num(x.start))})),
+    bestPart:Math.max(0,num(r.bestPart)), created:txt(r.created,10)||undefined, published:txt(r.published,10)||undefined, artist:txt(r.artist,60)||undefined,
+    lyricsNote:txt(r.lyricsNote,200), uploaded:true, record:r.record && typeof r.record==="object" ? {id:num(r.record.id), at:txt(r.record.at,40), hash:txt(r.record.hash,64)} : undefined,
+    holder:txt(r.holder,80)||undefined, ai:r.ai && typeof r.ai==="object" ? {music:!!r.ai.music, vocals:!!r.ai.vocals, lyrics:!!r.ai.lyrics, artwork:!!r.ai.artwork, tool:txt(r.ai.tool,60)} : undefined };
+  if(!s.sections.length) s.sections=[{name:"Start",start:0}];
+  if(Array.isArray(r.lyrics)){ const L=r.lyrics.filter(l=>Array.isArray(l) && typeof l[1]==="string").slice(0,400).map(l=>[Math.max(0,num(l[0])), l[1].slice(0,300)]); if(L.length){ s.lyrics=L; if(r.lyricsSynced===false) s.lyricsSynced=false; } }
+  if(Array.isArray(r.credits)) s.credits=r.credits.filter(c=>c && typeof c.name==="string").slice(0,30).map(c=>({group:txt(c.group,40)||"Credits", name:c.name.slice(0,80), roles:(Array.isArray(c.roles)?c.roles:[]).filter(x=>typeof x==="string").slice(0,6).map(x=>x.slice(0,60))}));
+  return s;
+}
+function mergeRemote(d, quiet){
+  if(!d) return [];
+  const added=[];
+  for(const a of Array.isArray(d.artists)?d.artists:[]){
+    if(!a || typeof a.id!=="string" || typeof a.name!=="string") continue;
+    const clean={id:a.id.slice(0,60), name:a.name.slice(0,80), tagline:typeof a.tagline==="string"?a.tagline.slice(0,120):"", bio:typeof a.bio==="string"?a.bio.slice(0,1500):"", color:a.color, image:Backend.isMediaUrl(a.image)?a.image:undefined};
+    const i=ARTISTS.findIndex(x=>x.id===clean.id); if(i<0) ARTISTS.push(clean); else if(!ARTISTS[i].bundled) Object.assign(ARTISTS[i], clean);
+  }
+  for(const r of Array.isArray(d.songs)?d.songs:[]){
+    const c=cleanRemoteSong(r); if(!c) continue;
+    const i=ALL.findIndex(x=>x.id===c.id);
+    if(i<0){ ALL.unshift(c); added.push(c); } else if(ALL[i].uploaded){ if(ALL[i]===current){ Object.assign(ALL[i], c); } else ALL[i]=c; }
+  }
+  const gone = Array.isArray(d.songs) ? new Set(d.songs.map(x=>x&&x.id)) : null;   // an unlisted song leaves the list
+  if(gone && d.complete) for(let i=ALL.length-1;i>=0;i--) if(ALL[i].uploaded && !gone.has(ALL[i].id) && ALL[i]!==current) ALL.splice(i,1);
+  applyAge();
+  if(!quiet && !npOpen && $("#modal").hidden && window.scrollY<120 && !/^#\/(upload|studio|account|settings)/.test(location.hash)) route(true);
+  return added;
+}
+ARTISTS.forEach(a=>{ a.bundled=true; });
+if(Backend.enabled){
+  Backend.catalogue().then(d=>mergeRemote(d)).catch(()=>{});
+  Backend.onChange(()=>{ if(/^#\/(account|settings)/.test(location.hash)) route(true); });
+  Backend.init().catch(()=>{});
+}
+
+// ---------- Upload pages (studio.js is loaded only when someone opens them) ----------
+let studioP=null;
+const loadScript = src => new Promise((res,rej)=>{ const el=document.createElement("script"); el.src=src; el.onload=res; el.onerror=()=>rej(new Error("load")); document.head.appendChild(el); });
+const studioCtx = { main, Backend, CFG, VER, esc, icon, fmt, toast, openModal, closeM, authPanel, safeColor, longDateTime:v=>longDateTime(v),
+  artists:()=>ARTISTS, songs:()=>ALL, addSongs:d=>mergeRemote(d,true), stopMusic:()=>{ try{ audio.pause(); }catch(e){} }, go:h=>{ location.hash=h; } };
+function studioView(path, params){
+  main.innerHTML=`<p class="muted" style="margin-top:24px" role="status">One moment…</p>`;
+  if(!studioP) studioP = loadScript("data/taxonomy.js"+(VER?"?v="+VER:"")).then(()=>loadScript("studio.js"+(VER?"?v="+VER:""))).catch(e=>{ studioP=null; throw e; });
+  studioP.then(()=>{ if(/^#\/(upload|studio)/.test(location.hash)) window.VeloraStudio.open(path, params, studioCtx); })
+    .catch(()=>{ main.innerHTML=`<h1 class="pagetitle">Upload</h1><p class="muted">The upload page did not load. Check your connection.</p><button type="button" class="btn primary" id="stRetry">Try again</button>`; const b=$("#stRetry"); if(b) b.onclick=()=>studioView(path, params); });
+}
 
 // Footer channels: only real addresses are shown.
 (function(){ const list=(CFG.channels||[]).filter(c=>c && /^https:\/\//.test(c.url||"")), box=$("#channels"); if(!box) return;
@@ -853,35 +1030,44 @@ document.addEventListener("click",e=>{
   const mo=e.target.closest("[data-more]"); if(mo){ const k=mo.dataset.more, r=ROWS[k]; if(r){ r.shown+=PAGE; const box=document.getElementById("rows-"+k); if(box) box.innerHTML=rowsInner(k, mo.hasAttribute("data-numbered")); } return; }
   // Tap a song anywhere: it plays and its full screen opens (cover, lyrics, video, license).
   const t=e.target.closest("[data-song]"); if(t){ e.preventDefault(); const s=byId(t.dataset.song); if(!s) return; const row=ROWS[t.dataset.list]||{list:[s],label:s.genre};
-    if(current===s && mode!=="radio" && !adState && !audio.error){ if(audio.paused) audio.play().catch(()=>{}); openNP(); return; } playFrom(row.list, s, row.label, 0, openNP); return; }
+    const go=()=>{ if(current===s && mode!=="radio" && !adState && !audio.error){ if(audio.paused) audio.play().catch(()=>{}); openNP(); return; } playFrom(row.list, s, row.label, 0, openNP); };
+    if(playable(s)) go(); else askAge(go); return; }
   const p=e.target.closest("[data-play]"); if(p){ e.preventDefault(); const s=byId(p.dataset.play), at=Math.max(0,+(p.dataset.at||0)||0), open=p.hasAttribute("data-np")?openNP:null; if(!s) return;
-    if(current===s && mode!=="radio" && !adState && !audio.error){ audio.currentTime=at; audio.play().catch(()=>{}); if(open) open(); return; }
-    playFrom([s,...suggestions(s,8)], s, s.genre, at, open); return; }
+    const go=()=>{ if(current===s && mode!=="radio" && !adState && !audio.error){ audio.currentTime=at; audio.play().catch(()=>{}); if(open) open(); return; }
+      playFrom([s,...suggestions(s,8)], s, s.genre, at, open); };
+    if(playable(s)) go(); else askAge(go); return; }
+  if(e.target.closest("[data-age]")){ e.preventDefault(); askAge(); return; }
   if(e.target.closest("[data-sub]")){ e.preventDefault(); openLicense(current||S[0],"sub"); return; }
 });
 $("#q").addEventListener("input",e=>{ searchQ=e.target.value; if(!/^#\/(search|library)/.test(location.hash)) location.hash="#/search"; else { const lq=$("#libq"); if(lq) lq.value=searchQ; drawSearch(); } });
 
 // ---------- Router (addresses look like #/song/rm-0006) ----------
 const decode = s => { try{ return decodeURIComponent(s||""); }catch(e){ return ""; } };
-function route(){
+let lastPath="";
+function route(keep){
   const h=location.hash.slice(1)||"/"; const [path,qs]=h.split("?"); const params=new URLSearchParams(qs||"");
   if(npOpen) closeNP(true);
-  closeM();
+  closeM(); closeMenu();
   ROWS={}; rowN=0;
+  const inStudio = p => p==="/upload" || p==="/studio";
+  if(inStudio(lastPath) && !inStudio(path) && window.VeloraStudio) window.VeloraStudio.leave();
+  lastPath=path; document.body.classList.toggle("in-studio", path==="/upload");
   const navPath = path.startsWith("/song") || path.startsWith("/genre") || path.startsWith("/artist") || path==="/library" ? "/search" : path;
   document.querySelectorAll(".topnav a").forEach(a=>{ const on=a.getAttribute("href")==="#"+navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   document.querySelectorAll(".tabbar [data-tab]").forEach(a=>{ const on=a.dataset.tab===navPath; a.classList.toggle("active",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account"};
+  const names={"/":"","/search":"Search","/radio":"Radio","/videos":"Videos","/pricing":"Pricing","/verify":"Verify a license","/account":"Account","/settings":"Settings","/upload":"Upload a song","/studio":"My songs"};
   let title=names[navPath]||"";
   if(path==="/") home(); else if(path==="/search"||path==="/library") searchView(params);
   else if(path.startsWith("/song/")){ const id=decode(path.split("/")[2]); song(id); const s=byId(id); if(s) title=s.title; }
   else if(path.startsWith("/genre/")){ const id=decode(path.split("/")[2]); genreView(id); const c=catById(id); if(c) title=c.name; }
   else if(path.startsWith("/artist/")){ const id=decode(path.split("/")[2]); artistView(id); const a=artistById(id); if(a) title=a.name; }
   else if(path==="/radio") radioView(); else if(path==="/videos") videosView(); else if(path==="/pricing") pricing(); else if(path==="/verify") verify(params);
-  else if(path==="/account") accountView();
+  else if(path==="/account") accountView(); else if(path==="/settings") settingsView();
+  else if(path==="/upload"||path==="/studio") studioView(path, params);
   else if(path==="/stream"){ home(); startStream(); } else home();
   document.title=(title?title+" · ":"")+"Velora";
-  window.scrollTo(0,0);
+  document.querySelectorAll("#uploadBtn").forEach(b=>b.classList.toggle("on", path==="/upload"));
+  if(keep!==true) window.scrollTo(0,0);
 }
-window.addEventListener("hashchange",route); route();
+window.addEventListener("hashchange",()=>route()); route();
 })();

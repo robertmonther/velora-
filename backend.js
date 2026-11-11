@@ -1,0 +1,123 @@
+/* Velora backend: accounts, the songs uploaded through the site, and the upload API.
+   It talks to a Supabase project (database, sign-in, file storage). The project's address and public key are in config.js;
+   while they are empty this whole file stays off and the site works from the bundled catalogue alone.
+
+   Security notes:
+   - The public (anon) key is meant to be published. What protects the data is the database rules in supabase/schema.sql:
+     visitors can only read published songs; writing goes through checked server functions.
+   - Sign-in is email + password. On a shared test address (raw.githack.com serves every GitHub project from one web
+     origin) the session is kept in memory only, so you sign in again after a reload. On the site's own address it is
+     remembered on the device.
+   - The Supabase library (vendor/supabase.js) is loaded only when someone signs in or uploads; listeners never download it. */
+window.VeloraBackend = (function () {
+  "use strict";
+  const C = (window.VELORA_CONFIG || {}).supabase || {};
+  const url = String(C.url || "").replace(/\/+$/, ""), key = String(C.anonKey || "");
+  const enabled = /^https:\/\/[a-z0-9]{10,40}\.supabase\.co$/.test(url) && key.length >= 20;
+  const shared = /(^|\.)githack\.com$|^htmlpreview\.github\.io$/i.test(location.hostname);
+  const mem = {};
+  const memStore = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } };
+  let client = null, libP = null, initP = null;
+  const subs = [];
+  const B = { enabled, url, shared, user: null, role: "", name: "", premium: false, ready: !enabled };
+  const notify = () => subs.forEach(f => { try { f(B); } catch (e) {} });
+
+  function lib() {
+    if (window.supabase && window.supabase.createClient) return Promise.resolve();
+    if (!libP) libP = new Promise((res, rej) => {
+      const s = document.createElement("script"); s.src = "vendor/supabase.js"; s.async = true;
+      s.onload = () => (window.supabase && window.supabase.createClient ? res() : rej(new Error("The account library did not load.")));
+      s.onerror = () => { libP = null; rej(new Error("The account library did not load. Check your connection.")); };
+      document.head.appendChild(s);
+    });
+    return libP;
+  }
+  // Turn the server's technical messages into plain ones.
+  function plain(err) {
+    const m = String((err && (err.message || err.error_description || err.msg)) || err || "");
+    if (/invalid login credentials/i.test(m)) return "Wrong email or password.";
+    if (/email not confirmed/i.test(m)) return "This email is not confirmed yet.";
+    if (/rate limit|too many/i.test(m)) return "Too many tries. Wait a minute and try again.";
+    if (/failed to fetch|networkerror|load failed/i.test(m)) return "Can't reach the server. Check your connection and try again.";
+    if (/jwt|not authenticated|401/i.test(m)) return "You are signed out. Sign in again.";
+    if (/payload too large|exceeded the maximum allowed size|413/i.test(m)) return "The file is too big for the server.";
+    return m || "Something went wrong. Please try again.";
+  }
+  async function refresh(session) {
+    const u = session && session.user ? session.user : null;
+    B.user = u ? { id: u.id, email: u.email || "" } : null; B.role = ""; B.name = ""; B.premium = false;
+    if (u) {
+      try {
+        const r = await client.rpc("my_profile");
+        if (!r.error && r.data) { B.role = String(r.data.role || "listener"); B.name = String(r.data.display_name || ""); B.premium = !!r.data.premium; }
+      } catch (e) {}
+    }
+    B.ready = true; notify();
+  }
+
+  /* Start the account layer (loads the library once). Safe to call many times. */
+  B.init = function () {
+    if (!enabled) return Promise.resolve(null);
+    if (!initP) initP = lib().then(async () => {
+      client = window.supabase.createClient(url, key, {
+        auth: { persistSession: true, storage: shared ? memStore : undefined, storageKey: "velora_auth", autoRefreshToken: true, detectSessionInUrl: false }
+      });
+      const got = await client.auth.getSession();
+      await refresh(got && got.data ? got.data.session : null);
+      // Never call the server from inside this callback (the library would wait on itself): defer it.
+      client.auth.onAuthStateChange((ev, session) => { if (ev === "SIGNED_OUT" || ev === "SIGNED_IN" || ev === "USER_UPDATED") setTimeout(() => refresh(session), 0); });
+      return client;
+    }).catch(e => { initP = null; B.ready = true; throw new Error(plain(e)); });
+    return initP;
+  };
+  B.onChange = f => { subs.push(f); };
+  B.canUpload = () => B.role === "owner" || B.role === "creator";
+
+  B.signIn = async function (email, password) {
+    await B.init();
+    const r = await client.auth.signInWithPassword({ email: String(email || "").trim(), password: String(password || "") });
+    if (r.error) throw new Error(plain(r.error));
+    await refresh(r.data ? r.data.session : null);
+    return B.user;
+  };
+  B.signOut = async function () {
+    if (client) { try { await client.auth.signOut(); } catch (e) {} }
+    if (client) await refresh(null);
+  };
+  /* One-time owner setup: creates the owner's account. Needs the setup code (see docs/UPLOAD-STUDIO.md). */
+  B.ownerSetup = async function (body) {
+    let r, j = {};
+    try { r = await fetch(url + "/functions/v1/owner-setup", { method: "POST", headers: { "Content-Type": "application/json", apikey: key }, body: JSON.stringify(body) }); }
+    catch (e) { throw new Error(plain(e)); }
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok || !j.ok) throw new Error(j.error || "The setup did not work (" + r.status + ").");
+    return j;
+  };
+
+  /* Call a server function (see supabase/schema.sql). Throws a plain-language error. */
+  B.rpc = async function (fn, args) {
+    await B.init();
+    const r = await client.rpc(fn, args || {});
+    if (r.error) throw new Error(plain(r.error));
+    return r.data;
+  };
+  /* The published songs and their artists, for every visitor. One small request, no library needed. */
+  B.catalogue = async function () {
+    if (!enabled) return null;
+    const r = await fetch(url + "/rest/v1/rpc/public_catalogue", { headers: { apikey: key, Accept: "application/json" } });
+    if (!r.ok) throw new Error("catalogue " + r.status);
+    return r.json();
+  };
+  /* Public address of a stored file, and its storage path back from that address. */
+  B.mediaUrl = path => url + "/storage/v1/object/public/media/" + String(path).split("/").map(encodeURIComponent).join("/");
+  B.isMediaUrl = u => typeof u === "string" && u.indexOf(url + "/storage/v1/object/public/media/") === 0;
+  /* Store a file in the signed-in uploader's own folder. Returns its public address. */
+  B.upload = async function (path, blob, type) {
+    await B.init();
+    const r = await client.storage.from("media").upload(path, blob, { contentType: type, upsert: true, cacheControl: "31536000" });
+    if (r.error) throw new Error(plain(r.error));
+    return B.mediaUrl(path);
+  };
+  B.licenses = async function () { try { const d = await B.rpc("my_licenses"); return Array.isArray(d) ? d : []; } catch (e) { return []; } };
+  return B;
+})();

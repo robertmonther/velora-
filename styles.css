@@ -454,3 +454,39 @@ body.ad-on .np-extra{visibility:hidden}
 .share-actions{display:flex;gap:8px;flex-wrap:wrap;position:sticky;bottom:-26px;margin:0 -26px -26px;padding:12px 26px 22px;background:var(--bg2);border-top:1px solid var(--line)}
 .share-actions .btn{flex:1;justify-content:center;min-width:110px}
 @media (min-width:901px){.ahead{margin:0;border-radius:16px;overflow:hidden;min-height:340px}}
+
+/* ---------- 11 Nov 2026: menu, Upload button, age mark, forms ---------- */
+.menu-btn{margin-left:-8px}
+.upload-btn{background:var(--pink);color:#1b1114;gap:6px;padding:8px 14px 8px 11px}
+.upload-btn.on{background:var(--cream)}
+.upload-btn svg{width:18px;height:18px}
+.topbar .brand{margin-right:auto}
+@media (min-width:901px){ .topbar .brand{margin-right:0} .menu-btn{margin-left:-6px} }
+@media (max-width:359px){ .upload-btn span{display:none} .upload-btn{padding:9px 11px} }
+.drawer-back{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,0);transition:background .2s}
+.drawer-back[hidden]{display:none}
+.drawer-back.open{background:rgba(0,0,0,.6)}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:min(86vw,340px);background:var(--bg2);border-right:1px solid var(--line);padding:max(14px,env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));overflow-y:auto;transform:translateX(-102%);transition:transform .24s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;gap:2px}
+.drawer-back.open .drawer{transform:none}
+.dr-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px 8px 8px}
+.dr-head .brand{font-size:22px}
+.dr-who{display:flex;align-items:center;gap:12px;padding:12px;margin:0 0 8px;background:var(--card);border-radius:14px}
+.dr-who b{display:block;font-size:15px;overflow-wrap:anywhere}
+.dr-who small{color:var(--muted);font-size:12px}
+.dr-ava{width:40px;height:40px;border-radius:50%;background:var(--card2);display:grid;place-items:center;flex:none}
+.dr-ava svg{width:22px;height:22px}
+.dr-item{display:flex;align-items:center;gap:14px;min-height:48px;padding:0 12px;border-radius:12px;text-decoration:none;color:var(--text);font:600 15px var(--font);background:none;border:0;width:100%;cursor:pointer;text-align:left}
+.dr-item svg{width:22px;height:22px;fill:currentColor;flex:none;opacity:.9}
+.dr-item:hover{background:rgba(255,255,255,.07)}
+.dr-item.main{background:var(--pink);color:#1b1114;margin-bottom:4px}
+.dr-item.main:hover{background:var(--pink);filter:brightness(1.06)}
+.dr-sep{height:1px;background:var(--line);margin:8px 6px}
+.a18{display:inline-grid;place-items:center;height:16px;padding:0 4px;border-radius:3px;background:var(--red);color:#fff;font:700 10px/1 var(--font);margin-right:6px;vertical-align:1px;letter-spacing:.2px}
+.auth{max-width:460px}
+.auth .field label,.field label{font-size:13px;color:#d9d2cb;font-weight:600}
+.field textarea{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:11px 14px;font:15px/1.5 var(--font);resize:vertical;min-height:120px}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--pink);outline-offset:1px;border-color:transparent}
+.formmsg{min-height:20px;margin:10px 0 0;font-size:14px;color:#f0b3ac}
+.formmsg:empty{display:none}
+.auth .linkbtn{margin-top:14px;display:inline-block}
+@media (prefers-reduced-motion:reduce){ .drawer,.drawer-back{transition:none} }
