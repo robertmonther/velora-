@@ -5,7 +5,7 @@ window.VELORA_CONFIG = {
      mediaRev pins it to one commit, because an "@main" link can stay cached for hours.
      After pushing new or changed media, put that commit's full ID here (git rev-parse HEAD). */
   mediaRepo: "robertmonther/velora-",
-  mediaRev: "35af767f219230a9db57fd7bd3a1e184871a34a8",
+  mediaRev: "782d21f7c4ec31fae8e351f8639d25903e9a243e",
 
   /* true while prices and checkout are examples: shows the preview banner and "(demo)" labels. */
   demo: true,
