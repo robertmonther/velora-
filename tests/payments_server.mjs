@@ -17,6 +17,7 @@ function net(opts = {}) {            // plays the database, the sign-in service 
     const c = { url: String(url), method: init.method || "GET", headers: init.headers || {}, body: init.body || "" }; calls.push(c);
     const ok = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
     if (c.url.endsWith("/rest/v1/rpc/shop_info")) return ok(opts.shop || SHOP);
+    if (c.url.endsWith("/rest/v1/rpc/song_title")) return ok(JSON.parse(c.body).p_song === "rm-0007" ? "Live Footage of Me Ruining This" : null);
     if (c.url.endsWith("/rest/v1/rpc/premium_customer")) return ok(opts.customer === undefined ? "cus_test_9" : opts.customer);
     if (c.url === "https://api.stripe.com/v1/billing_portal/sessions") return ok({ id: "bps_1", url: "https://billing.stripe.test/p/session/bps_1" });
     if (c.url.includes("/rest/v1/rpc/")) return opts.dbDown ? ok({ message: "down" }, 500) : ok({ id: "VL-2026-ABCDEF1234" });
@@ -27,7 +28,7 @@ function net(opts = {}) {            // plays the database, the sign-in service 
   return { f, calls };
 }
 const post = (body, headers = {}) => new Request("https://fn.test/checkout", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
-const RENT = { kind: "rent", song_id: "rm-0007", song_title: "Live Footage of Me Ruining This", buyer_name: "Lina <b>Test</b>", consent: true, return_url: "https://velora.test/index.html#/song/rm-0007", amount: 1 };
+const RENT = { kind: "rent", song_id: "rm-0007", song_title: "A <b>title</b> the browser made up", buyer_name: "Lina <b>Test</b>", consent: true, return_url: "https://velora.test/index.html#/song/rm-0007", amount: 1 };
 
 // ---------- starting a payment ----------
 {
@@ -40,15 +41,16 @@ const RENT = { kind: "rent", song_id: "rm-0007", song_title: "Live Footage of Me
   n = net(); res = await checkout(post({ ...RENT, return_url: "https://evil.test/x" }), ENV, n.f);
   check("a return address that is not the site's own: refused", res.status === 400 && !n.calls.some(c => c.url.includes("stripe")));
   n = net(); res = await checkout(post({ ...RENT, song_id: "x'; drop" }), ENV, n.f);
-  check("an unknown song id: refused", res.status === 400);
+  const n6 = net(); const res6 = await checkout(post({ ...RENT, song_id: "rm-9999" }), ENV, n6.f);
+  check("a song id of the wrong shape, or a song the server does not know: refused", res.status === 400 && res6.status === 400 && !n.calls.concat(n6.calls).some(c => c.url.includes("stripe")));
   n = net(); res = await checkout(post({ kind: "premium", return_url: "https://velora.test/" }), ENV, n.f); r = await res.json();
   check("Premium without an account: asks to sign in first", res.status === 401 && r.needAccount === true && !n.calls.some(c => c.url.includes("stripe")));
 
   n = net(); res = await checkout(post(RENT), ENV, n.f); r = await res.json();
   const s = n.calls.find(c => c.url.includes("stripe")), q = new URLSearchParams(s ? s.body : "");
-  check("rent: the provider gets the price from the database, the song, the cleaned name and the consent time", r.ok && r.url.includes("cs_test_123") && s.headers.Authorization === "Bearer sk_test_x"
+  check("rent: the provider gets the price and the song's title from the database (not from the browser), the cleaned name and the consent time", r.ok && r.url.includes("cs_test_123") && s.headers.Authorization === "Bearer sk_test_x"
     && q.get("mode") === "payment" && q.get("line_items[0][price_data][unit_amount]") === "900" && q.get("line_items[0][price_data][currency]") === "eur"
-    && q.get("line_items[0][price_data][product_data][name]") === "Rent: Live Footage of Me Ruining This" && q.get("metadata[kind]") === "rent" && q.get("metadata[song_id]") === "rm-0007"
+    && q.get("line_items[0][price_data][product_data][name]") === "Rent: Live Footage of Me Ruining This" && q.get("metadata[song_title]") === "Live Footage of Me Ruining This" && q.get("metadata[kind]") === "rent" && q.get("metadata[song_id]") === "rm-0007"
     && q.get("metadata[buyer_name]") === "Lina bTest/b" && /^\d{4}-\d\d-\d\dT/.test(q.get("metadata[consent_at]")) && q.get("metadata[user_id]") === "" && !q.has("client_reference_id"), s ? s.body : "no call");
   check("the buyer comes back to the site's thanks page with the provider's reference; cancelling goes back to the song", q.get("success_url") === "https://velora.test/index.html?paid={CHECKOUT_SESSION_ID}&kind=rent#/thanks" && q.get("cancel_url") === "https://velora.test/index.html#/song/rm-0007", q.get("success_url"));
   n = net(); res = await checkout(post({ ...RENT, buyer_name: "" }), ENV, n.f); r = await res.json();

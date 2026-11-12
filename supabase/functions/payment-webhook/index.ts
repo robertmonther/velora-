@@ -66,7 +66,10 @@ export async function handle(req: Request, env: Env, f: typeof fetch, nowSec = M
       const pay = idOf(o.payment_intent);
       if (o.refunded === true && pay) await rpc(env, f, "record_refund", { p: { provider_ref: pay } });
     }
-  } catch (_) { return json({ ok: false, error: "not recorded" }, 500); }   // the provider will send it again
+  } catch (e) {                                                              // the provider will send it again
+    console.error("payment-webhook: not recorded", String(ev.type || ""), String(ev.id || ""), String(e));
+    return json({ ok: false, error: "not recorded" }, 500);
+  }
   return json({ ok: true });
 }
 

@@ -155,6 +155,13 @@ create table private.shop (
 );
 insert into private.shop (id) values (1);
 
+-- The bundled songs (the catalogue file that ships with the site), so the server only sells songs it knows.
+-- Rows: python3 scripts/shop_songs_sql.py prints them from data/catalogue.json (25 songs on 12 Nov 2026).
+create table private.bundled_songs (
+  id text primary key check (id ~ '^rm-[0-9]{4,}$'),
+  title text not null check (char_length(title) between 1 and 160)
+);
+
 -- ---------- Who may read what ----------
 alter table public.profiles enable row level security;
 alter table public.entitlements enable row level security;
@@ -164,6 +171,7 @@ alter table public.songs enable row level security;
 alter table public.ownership_records enable row level security;
 alter table private.owner_setup enable row level security;
 alter table private.shop enable row level security;
+alter table private.bundled_songs enable row level security;
 
 revoke all on public.profiles, public.entitlements, public.licenses, public.artists, public.songs, public.ownership_records from anon, authenticated;
 revoke all on sequence public.song_number from anon, authenticated;
@@ -310,8 +318,8 @@ begin
   return n;
 end $$;
 
--- Signed in: delete my account for good. Not for the owner, and not for an account that has uploaded songs
--- (their ownership records must stay; such an account is closed by hand).
+-- Signed in: delete my account for good. Not for the owner, not for an account that has uploaded songs
+-- (their ownership records must stay; such an account is closed by hand), and not while Premium is running.
 create function public.delete_my_account() returns text
 language plpgsql security definer set search_path = '' as $$
 declare uid uuid := (select auth.uid());
@@ -321,6 +329,9 @@ begin
     raise exception 'The owner account cannot be deleted from the site.' using errcode = '42501'; end if;
   if exists (select 1 from public.songs s where s.owner_id = uid) then
     raise exception 'This account has uploaded songs, so it cannot be deleted from the site. Write to us and we close it for you.' using errcode = '42501'; end if;
+  -- Not while Premium is still running: the monthly payment would go on without an account.
+  if exists (select 1 from public.entitlements e where e.user_id = uid and e.premium_until > now()) then
+    raise exception 'Premium is still running on this account. Cancel it first (Manage or cancel Premium). When the paid time has ended you can delete the account, or write to us and we do it for you.' using errcode = '42501'; end if;
   delete from public.artists a where a.owner_id = uid;
   delete from auth.users where id = uid;
   return 'deleted';
@@ -594,6 +605,20 @@ language sql immutable set search_path = '' as $$
     else 'By written agreement.' end;
 $$;
 
+-- The catalogue's own title of a song that can be licensed today: a published upload or a bundled song. null = not for sale.
+create function private.song_title(p_song text) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(
+    (select left(s.title || case when s.version is not null then ' (' || s.version || ')' else '' end, 160) from public.songs s where s.id = p_song and s.status = 'published'),
+    (select b.title from private.bundled_songs b where b.id = p_song));
+$$;
+
+-- The checkout function only: the title of a song that may be sold (null = unknown song).
+create function public.song_title(p_song text) returns text
+language sql stable security definer set search_path = '' as $$
+  select private.song_title(p_song);
+$$;
+
 -- Everyone: is the shop open, and what does it charge (in cents).
 create function public.shop_info() returns json
 language sql stable security definer set search_path = '' as $$
@@ -625,9 +650,10 @@ begin
   begin v_amount := nullif(p->>'amount_cents', '')::integer; exception when others then v_amount := null; end;
   if v_amount is not null and v_amount < 0 then v_amount := null; end if;
   if v_cur is not null and v_cur !~ '^[a-z]{3}$' then v_cur := null; end if;
-  -- An uploaded song is named as the catalogue names it, whatever the browser sent.
+  -- The catalogue's own title (an upload that was unlisted since the checkout still counts: it was paid for).
   select left(s.title || case when s.version is not null then ' (' || s.version || ')' else '' end, 160) into v_real
   from public.songs s where s.id = v_song and s.status <> 'draft';
+  if v_real is null then select b.title into v_real from private.bundled_songs b where b.id = v_song; end if;
   loop
     begin
       insert into public.licenses (id, user_id, buyer_email, song_id, song_title, type, buyer_name, allowed_use, valid_until, amount_cents, currency, consent_at, payment_ref, provider_ref)
@@ -701,24 +727,26 @@ begin
   return n;
 end $$;
 
--- Signed in with Premium: the certificate for one song (one per song and account).
+-- Signed in with Premium: the certificate for one song (one per song and account). Only for a song the server knows,
+-- and always under the catalogue's own title (p_title is ignored; it stays in the signature for older pages).
 create function public.premium_license(p_song text, p_title text) returns json
 language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := (select auth.uid()); sh private.shop; l public.licenses; v_name text; v_real text;
-  v_title text := nullif(left(btrim(regexp_replace(coalesce(p_title, ''), '[[:cntrl:]<>]', '', 'g')), 160), '');
 begin
   if uid is null then raise exception 'Sign in first.' using errcode = '28000'; end if;
   if p_song is null or p_song !~ '^(rm|vs)-[0-9]{4,}$' then raise exception 'That song is not known.' using errcode = '22023'; end if;
   if not exists (select 1 from public.entitlements e where e.user_id = uid and e.premium_until > now()) then
     raise exception 'Premium is not active on this account.' using errcode = '42501'; end if;
+  select * into l from public.licenses where user_id = uid and song_id = p_song and type = 'premium';
+  if found then return private.license_json(l); end if;
+  v_real := private.song_title(p_song);
+  if v_real is null then raise exception 'That song is not known.' using errcode = '22023'; end if;
   select * into sh from private.shop where id = 1;
   select p.display_name into v_name from public.profiles p where p.id = uid;
-  select left(s.title || case when s.version is not null then ' (' || s.version || ')' else '' end, 160) into v_real
-  from public.songs s where s.id = p_song and s.status <> 'draft';
   insert into public.licenses (id, user_id, buyer_email, song_id, song_title, type, buyer_name, allowed_use)
   values ('VL-' || to_char(now() at time zone 'UTC', 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)),
-          uid, (select lower(u.email) from auth.users u where u.id = uid), p_song, coalesce(v_real, v_title), 'premium',
+          uid, (select lower(u.email) from auth.users u where u.id = uid), p_song, v_real, 'premium',
           coalesce(nullif(btrim(v_name), ''), 'Premium member'), private.allowed_use('premium', sh.rent_days))
   on conflict do nothing;
   select * into l from public.licenses where user_id = uid and song_id = p_song and type = 'premium';
@@ -742,7 +770,7 @@ revoke all on function public.public_catalogue(), public.song_record(text), publ
   public.my_artists(), public.save_artist(jsonb), public.reserve_song(), public.publish_song(jsonb), public.my_songs(),
   public.my_records(text), public.set_song_listed(text, boolean), public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text),
   public.set_my_name(text), public.delete_my_account(), public.shop_info(), public.record_purchase(jsonb), public.record_premium(jsonb),
-  public.record_refund(jsonb), public.claim_purchase(text), public.link_my_purchases(), public.premium_license(text, text), public.premium_customer(uuid)
+  public.record_refund(jsonb), public.claim_purchase(text), public.link_my_purchases(), public.premium_license(text, text), public.premium_customer(uuid), public.song_title(text)
   from public, anon, authenticated;
 grant execute on function public.public_catalogue(), public.song_record(text), public.verify_license(text), public.shop_info(), public.claim_purchase(text) to anon, authenticated;
 grant execute on function public.set_my_name(text), public.delete_my_account(), public.link_my_purchases(), public.premium_license(text, text) to authenticated;
@@ -750,9 +778,9 @@ grant execute on function public.my_profile(), public.my_licenses(), public.my_a
   public.publish_song(jsonb), public.my_songs(), public.my_records(text), public.set_song_listed(text, boolean) to authenticated;
 -- The server's own key only: the owner setup and the two payment functions.
 grant execute on function public.owner_setup_check(text), public.owner_setup_finish(text, uuid, text),
-  public.record_purchase(jsonb), public.record_premium(jsonb), public.record_refund(jsonb), public.premium_customer(uuid) to service_role;
+  public.record_purchase(jsonb), public.record_premium(jsonb), public.record_refund(jsonb), public.premium_customer(uuid), public.song_title(text) to service_role;
 revoke all on function private.handle_new_user(), private.no_change(), private.hex64(text), private.license_json(public.licenses),
-  private.allowed_use(text, integer) from public;
+  private.allowed_use(text, integer), private.song_title(text) from public;
 
 -- ---------- File storage ----------
 -- One public bucket. Everyone can open a file whose address they have; listing is not possible.

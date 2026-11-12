@@ -26,7 +26,7 @@ There are two ways a song gets on the site:
   "mood": "Seductive",                 // one word shown next to the genre
   "language": "English",
   "explicit": false,                   // explicit lyrics: shows the E badge, like Spotify
-  "adult": true,                       // sensual songs: adults only (the age gate). Explicit songs are always adult.
+  "adult": true,                       // sensual songs (hidden by the "hide explicit songs" switch). Explicit songs are always adult.
   "bpm": 92, "key": "Bb minor", "duration": 214,
   "audio": "media/audio/song-26-title.mp3",
   "art": "media/covers/song-26-art.jpg",
@@ -61,3 +61,9 @@ A song points to its artist with `"artist": "<id>"`. A song without an artist sh
 - The site is in English only.
 - Never put Suno song IDs in the public files; they stay in the private Notion song records.
 - Genres, moods and artist links proposed by Claude are Robert's to change.
+
+## The shop must know a bundled song
+
+The server only sells songs it knows. After adding or renaming a bundled song, run
+`python3 scripts/shop_songs_sql.py` and apply what it prints in the Supabase SQL editor (it updates the list
+`private.bundled_songs`). Songs uploaded through the site need nothing: the server knows them already.

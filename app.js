@@ -1215,7 +1215,7 @@ function accountView(){
       openModal(`<h2 id="mTitle">Delete your account?</h2><p>Your sign-in and your profile are removed for good. Licenses you bought stay valid: keep their certificates.</p>
         <div class="row"><button type="button" class="btn primary" id="delYes">Delete my account</button><button type="button" class="btn ghost" id="delNo">Keep it</button></div><p id="delMsg" class="formmsg" role="alert"></p>`);
       $("#delNo").onclick=closeM;
-      $("#delYes").onclick=async e=>{ e.currentTarget.disabled=true; try{ await Backend.deleteAccount(); closeM(); toast("Your account is deleted."); again(); }catch(err){ $("#delMsg").textContent=err.message; e.currentTarget.disabled=false; } };
+      $("#delYes").onclick=async e=>{ const yes=e.currentTarget; yes.disabled=true; try{ await Backend.deleteAccount(); closeM(); toast("Your account is deleted."); again(); }catch(err){ if(yes.isConnected){ $("#delMsg").textContent=err.message; yes.disabled=false; } } };
     };
   }).catch(err=>{ const box=$("#acct"); if(box) box.innerHTML=`<p class="muted">${esc(err && err.message || "Accounts are not reachable right now. Please try again later.")}</p>`; });
 }

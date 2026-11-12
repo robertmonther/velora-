@@ -49,11 +49,15 @@ export async function handle(req: Request, env: Env, f: typeof fetch): Promise<R
   if (!shop || !secret || (shop.open !== true && kind !== "manage")) return json({ ok: false, closed: true });
 
   // The name on the license is optional here: without one, the webhook takes the name the buyer pays with.
-  const songId = String(b.song_id ?? ""), title = clean(b.song_title, 120), name = clean(b.buyer_name, 120);
+  const songId = String(b.song_id ?? ""), name = clean(b.buyer_name, 120);
+  let title = "";
   if (kind === "rent" || kind === "buy") {
-    if (!/^(rm|vs)-[0-9]{4,}$/.test(songId) || !title) return json({ ok: false, error: "That song is not known." }, 400);
+    if (!/^(rm|vs)-[0-9]{4,}$/.test(songId)) return json({ ok: false, error: "That song is not known." }, 400);
     // EU rule for digital content: delivery starts at once only with the buyer's express consent (see docs/LEGAL.md).
     if (b.consent !== true) return json({ ok: false, error: "Tick the box about immediate delivery to continue." }, 400);
+    // Only songs the server knows are sold, under the catalogue's own title (whatever title the browser sent).
+    try { title = clean(await rpc(env, f, "song_title", { p_song: songId }), 160); } catch (e) { console.error("checkout: song_title failed", String(e)); return json({ ok: false, error: "The shop could not be reached." }, 500); }
+    if (!title) return json({ ok: false, error: "That song is not known." }, 400);
   }
   // Where the buyer comes back to: only the site's own addresses.
   const origins = (env.SITE_ORIGINS ?? "").split(",").map((s) => s.trim().replace(/[/]+$/, "")).filter(Boolean);
@@ -107,7 +111,10 @@ export async function handle(req: Request, env: Env, f: typeof fetch): Promise<R
   try { r = await stripe("checkout/sessions", p); }
   catch (_) { return json({ ok: false, error: "The payment provider could not be reached. Try again." }, 502); }
   const s = await r.json().catch(() => ({}));
-  if (!r.ok || !s || typeof s.url !== "string") return json({ ok: false, error: "The payment could not be started. Try again." }, 502);
+  if (!r.ok || !s || typeof s.url !== "string") {
+    console.error("checkout: the provider refused", r.status, s && s.error ? String(s.error.code || s.error.type || "") : "");      // never the key, never the buyer
+    return json({ ok: false, error: "The payment could not be started. Try again." }, 502);
+  }
   return json({ ok: true, url: s.url });
 }
 

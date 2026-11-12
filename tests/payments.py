@@ -146,6 +146,10 @@ async def main():
         await pg.click("#mClose"); await open_license(pg, "rm-0003"); await pg.click("#memGet"); await pg.wait_for_selector("#mBody .cert")
         check("asking again for the same song gives the same certificate", plic["id"] in await pg.inner_text("#mBody") and sum(1 for l in state()["licenses"] if l["type"] == "premium") == 1)
         await pg.goto(BASE + "#/account"); await pg.wait_for_selector("#premManage"); await pg.screenshot(path=f"{SHOTS}/06-account-premium.png", full_page=True)
+        await pg.click("#delAcc"); await pg.wait_for_selector("#delYes"); await pg.click("#delYes"); await until(pg, "document.querySelector('#delMsg').textContent.length > 0")
+        still = await pg.inner_text("#delMsg"); await pg.click("#delNo")
+        pg.problems[:] = [x for x in pg.problems if "status of 400" not in x]        # the refusal above was asked for; the browser logs it
+        check("an account with Premium still running cannot be deleted: the monthly payment would go on without it", "Premium is still running" in still and "member@example.test" in [u["email"] for u in state()["users"]], still)
         await pg.click("#premManage"); await pg.wait_for_selector("#cancel"); await pg.click("#cancel")
         await pg.wait_for_selector("#so"); await until(pg, "!document.querySelector('#premManage')")
         await pg.goto(BASE + "#/verify?id=" + plic["id"]); await pg.wait_for_selector(".verdict"); ver = await pg.inner_text("#vr")
@@ -157,10 +161,10 @@ async def main():
             const send = async body => { const r = await fetch(api + "/functions/v1/checkout", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)}); return [r.status, (await r.json()).error || ""]; };
             const base = {kind: "rent", song_id: "rm-0007", song_title: "x", consent: true, return_url: location.href};
             const rpc = async (fn, args) => (await fetch(api + "/rest/v1/rpc/" + fn, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(args)})).status;
-            return {elsewhere: await send({...base, return_url: "https://evil.example/x"}), noConsent: await send({...base, consent: false}), badSong: await send({...base, song_id: "../x"}), kind: await send({...base, kind: "free"}),
+            return {elsewhere: await send({...base, return_url: "https://evil.example/x"}), noConsent: await send({...base, consent: false}), badSong: await send({...base, song_id: "../x"}), noSong: await send({...base, song_id: "rm-9999", song_title: "A song that does not exist"}), kind: await send({...base, kind: "free"}),
                     premiumGuest: await send({kind: "premium", return_url: location.href}), write: await rpc("record_purchase", {p: {kind: "buy", song_id: "rm-0007", payment_ref: "cs_test_" + "a".repeat(40)}}), short: await (await fetch(api + "/rest/v1/rpc/claim_purchase", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({p_ref: "cs_test"})})).json()}; }""", API)
-        check("the server refuses: another site's return address, no consent, an unknown song or kind, Premium without an account, writing a license from the browser, a guessed short reference",
-              bad["elsewhere"][0] == 400 and bad["noConsent"][0] == 400 and bad["badSong"][0] == 400 and bad["kind"][0] == 400 and bad["premiumGuest"][0] == 401 and bad["write"] == 401 and bad["short"] is None, str(bad))
+        check("the server refuses: another site's return address, no consent, a song it does not know, an unknown kind, Premium without an account, writing a license from the browser, a guessed short reference",
+              bad["elsewhere"][0] == 400 and bad["noConsent"][0] == 400 and bad["badSong"][0] == 400 and bad["noSong"][0] == 400 and bad["kind"][0] == 400 and bad["premiumGuest"][0] == 401 and bad["write"] == 401 and bad["short"] is None, str(bad))
         await pg.goto(BASE + "#/thanks?ref=nope"); await pg.wait_for_selector("main .btn")
         check("the thanks page without a real payment reference says there is nothing to show", "no payment to show" in await pg.inner_text("main"))
         check("no page of the payment flow had a script error", not clean_so_far and not [x for x in pg.problems if x.startswith("error:")], str((clean_so_far + pg.problems)[:3]))

@@ -29,15 +29,17 @@ paying again, and cancels in the account ("Manage or cancel Premium" opens the p
 | `record_purchase`, `record_premium`, `record_refund` | database functions, server key only | Write one license per payment (the same payment told twice gives the same license), keep Premium running month by month, mark a refunded license. |
 | `claim_purchase`, `verify_license`, `shop_info` | database functions, public | Show the license of a finished payment to the buyer who comes back with the provider's reference, answer the Verify page, tell the site whether the shop is open. |
 | `link_my_purchases`, `premium_license`, `my_licenses` | database functions, signed in | Move licenses bought with my email into my account, give a member a certificate, list my licenses. |
+| `song_title`, `premium_customer` | database functions, server key only | The title of a song that may be sold; a member's customer number at the provider (for cancelling). |
 
 Rules that hold on the server, whatever a browser sends:
 
 - A price never comes from the browser.
+- Only songs the server knows are sold (uploaded songs, and the list of bundled songs in `private.bundled_songs`), and a
+  certificate always carries the catalogue's own title.
 - A rent or buy without the delivery consent is refused; the time of the consent is stored with the license.
 - The buyer can only be sent back to the site's own addresses (`SITE_ORIGINS`).
 - A license can only be written with the server's own key, which lives in Supabase and nowhere else.
 - A payment message without a valid signature, or older than five minutes, is refused.
-- The certificate of an uploaded song carries the catalogue's own title, not the one the browser sent.
 
 What a license stores: its number, the song, the type, the name on the license, what it covers, the dates, the
 status, and for our records the buyer's email, the amount, the provider's references and the consent time. The
@@ -111,7 +113,7 @@ To close the shop again at any moment: `update private.shop set open = false;`. 
 
 - `node --experimental-strip-types tests/payments_server.mjs`: 24 checks on the two server functions (their real
   code, with a stand-in for the network).
-- `python3 tests/payments.py`: 26 checks in a real browser, from the License button to the certificate, against a
+- `python3 tests/payments.py`: 27 checks in a real browser, from the License button to the certificate, against a
   stand-in server and a stand-in payment page. Pictures land in `tests/shots/payments/`.
 - On the real database (12 November 2026): the functions were run in a test that was rolled back, and the two
   deployed functions were called once each. They answered "closed" and "bad signature", as they should.

@@ -66,9 +66,13 @@ def lic_json(l, public=False):
     if public and st == "active" and l["type"] == "premium" and not is_member(l.get("user")): st = "membership ended"
     return {"id": l["id"], "song_id": l["song_id"], "song_title": l["song_title"], "type": l["type"], "buyer_name": l["buyer_name"], "allowed_use": l["allowed_use"],
             "issued_at": l["issued_at"], "valid_until": l["valid_until"], "status": st}
-def real_title(song_id, fallback):
+BUNDLED = {x["id"]: x["title"] for x in json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "catalogue.json"), encoding="utf-8"))["songs"]}
+def song_title(song_id):
+    """The catalogue's own title of a song that can be licensed: a published upload or a bundled song. None = unknown."""
     sg = DB["songs"].get(song_id)
-    return (sg["title"] + (f" ({sg['version']})" if sg.get("version") else "")) if sg and sg.get("status") in ("published", "unlisted") else fallback
+    if sg and sg.get("status") == "published": return sg["title"] + (f" ({sg['version']})" if sg.get("version") else "")
+    return BUNDLED.get(song_id)
+def real_title(song_id, fallback): return song_title(song_id) or fallback
 def new_license(kind, song_id, title, name, user=None, email=None, ref=None, amount=None):
     old = next((l for l in DB["licenses"] if ref and l.get("ref") == ref), None)
     if old: return old                                   # the same payment told twice gives the same license
@@ -121,7 +125,8 @@ def rpc(fn, args, u):
         if not re.fullmatch(r"(rm|vs)-[0-9]{4,}", sid): raise Err("That song is not known.")
         if not is_member(u["id"]): raise Err("Premium is not active on this account.", 400, "42501")
         old = next((l for l in DB["licenses"] if l.get("user") == u["id"] and l["song_id"] == sid and l["type"] == "premium"), None)
-        return lic_json(old or new_license("premium", sid, args.get("p_title"), u["name"], u["id"], u["email"]))
+        if not old and not song_title(sid): raise Err("That song is not known.")
+        return lic_json(old or new_license("premium", sid, song_title(sid), u["name"], u["id"], u["email"]))
     if fn == "set_my_name":
         n = re.sub(r"[<>\x00-\x1f]", "", str(args.get("p_name") or "")).strip()[:80]
         if not n: raise Err("Write a name.")
@@ -129,6 +134,7 @@ def rpc(fn, args, u):
     if fn == "delete_my_account":
         if u["role"] == "owner": raise Err("The owner account cannot be deleted from the site.", 400, "42501")
         if any(x["owner"] == u["id"] for x in DB["songs"].values()): raise Err("This account has uploaded songs, so it cannot be deleted from the site. Write to us and we close it for you.", 400, "42501")
+        if is_member(u["id"]): raise Err("Premium is still running on this account. Cancel it first (Manage or cancel Premium). When the paid time has ended you can delete the account, or write to us and we do it for you.", 400, "42501")
         for k in [k for k, a in DB["artists"].items() if a["owner"] == u["id"]]: del DB["artists"][k]
         del DB["users"][u["email"]]; return "deleted"
     if fn == "my_artists": return [{"id": a["id"], "name": a["name"], "tagline": a.get("tagline"), "bio": a.get("bio"), "color": a.get("color"), "image": a.get("image_path"), "songs": sum(1 for s in DB["songs"].values() if s.get("artist_id") == a["id"] and s["status"] == "published")} for a in DB["artists"].values() if a["owner"] == u["id"]]
@@ -238,8 +244,10 @@ class Fake(H):
                 if kind not in ("rent", "buy", "premium", "manage"): return self._send(400, {"ok": False, "error": "Choose rent, buy or Premium."})
                 if not DB["shop"]["open"] and kind != "manage": return self._send(200, {"ok": False, "closed": True})
                 if kind in ("rent", "buy"):
-                    if not re.fullmatch(r"(rm|vs)-[0-9]{4,}", str(b.get("song_id") or "")) or not str(b.get("song_title") or "").strip(): return self._send(400, {"ok": False, "error": "That song is not known."})
+                    if not re.fullmatch(r"(rm|vs)-[0-9]{4,}", str(b.get("song_id") or "")): return self._send(400, {"ok": False, "error": "That song is not known."})
                     if b.get("consent") is not True: return self._send(400, {"ok": False, "error": "Tick the box about immediate delivery to continue."})
+                    if not song_title(b["song_id"]): return self._send(400, {"ok": False, "error": "That song is not known."})
+                    b["song_title"] = song_title(b["song_id"])          # the server's own title, whatever the browser sent
                 back = urlparse(str(b.get("return_url") or ""))
                 if f"{back.scheme}://{back.netloc}" != home: return self._send(400, {"ok": False, "error": "This site address is not set up for payments."})
                 if kind in ("premium", "manage") and not u: return self._send(401, {"ok": False, "error": "Sign in or create an account first: Premium belongs to an account.", "needAccount": True})
