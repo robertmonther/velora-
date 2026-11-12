@@ -1,0 +1,4 @@
+# While this is a test address, search engines stay out. At the real launch, replace this file
+# (see docs/GO-LIVE.md, "The launch day").
+User-agent: *
+Disallow: /

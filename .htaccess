@@ -1,0 +1,51 @@
+# Velora on our own hosting (Hostinger's LiteSpeed server reads this Apache-style file).
+# scripts/build_site.py copies it into the built site.
+
+Options -Indexes
+
+# Always https
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Only the site's own files are served: no notes, no scripts, no hidden files
+<FilesMatch "\.(md|sql|py|mjs|ts|sh|lock|log|yml|yaml)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  # Safety headers. The page's own content rules are in index.html; "frame-ancestors" can only be sent from here:
+  # no other site may show Velora inside a frame (protects the Pay and Publish buttons from click tricks).
+  Header always set Content-Security-Policy "frame-ancestors 'none'"
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=31536000"
+
+  # Pages, styles and scripts: the browser asks each time whether they changed (a new ?v= number also forces it)
+  <FilesMatch "\.(html|js|css|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # Songs, covers, videos, fonts: kept for a month
+  <FilesMatch "\.(mp3|mp4|jpg|jpeg|png|webp|svg|woff2)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType audio/mpeg .mp3
+  AddType video/mp4 .mp4
+  AddType font/woff2 .woff2
+  AddType application/javascript .js
+  AddDefaultCharset utf-8
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
