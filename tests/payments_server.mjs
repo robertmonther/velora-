@@ -22,7 +22,12 @@ function net(opts = {}) {            // plays the database, the sign-in service 
     if (c.url === "https://api.stripe.com/v1/billing_portal/sessions") return ok({ id: "bps_1", url: "https://billing.stripe.test/p/session/bps_1" });
     if (c.url.includes("/rest/v1/rpc/")) return opts.dbDown ? ok({ message: "down" }, 500) : ok({ id: "VL-2026-ABCDEF1234" });
     if (c.url.endsWith("/auth/v1/user")) return c.headers.Authorization === "Bearer " + USER_JWT ? ok({ id: "11111111-1111-1111-1111-111111111111", email: "lina@example.test" }) : ok({ msg: "no" }, 401);
-    if (c.url === "https://api.stripe.com/v1/checkout/sessions") return ok({ id: "cs_test_123", url: "https://checkout.stripe.test/c/pay/cs_test_123" });
+    if (c.url === "https://api.stripe.com/v1/checkout/sessions") {
+      // An account on an old version of the provider's interface does not know the "managed payments" switch.
+      if (opts.oldApi && new URLSearchParams(c.body).has("managed_payments[enabled]")) return ok({ error: { type: "invalid_request_error", code: "parameter_unknown", param: "managed_payments", message: "Received unknown parameter: managed_payments" } }, 400);
+      if (opts.refuse) return ok({ error: { type: "invalid_request_error", code: "parameter_missing", param: "line_items[0][price_data][product_data][tax_code]", message: "Product tax code is required for lina@example.test" } }, 400);
+      return ok({ id: "cs_test_123", url: "https://checkout.stripe.test/c/pay/cs_test_123" });
+    }
     return ok({}, 404);
   };
   return { f, calls };
@@ -73,6 +78,34 @@ const RENT = { kind: "rent", song_id: "rm-0007", song_title: "A <b>title</b> the
   check("managing Premium needs the signed-in member, and an account that never paid gets a plain answer", res.status === 401 && res5.status === 404 && !n.calls.concat(n5.calls).some(c => c.url.includes("stripe")));
   n = net(); await checkout(post({ kind: "premium", return_url: "https://velora.test/" }, { Authorization: "Bearer " + USER_JWT }), { ...ENV, SITE_NAME: "Nova <Sound>" }, n.f);
   check("the name shown at the provider can be changed without touching the code", new URLSearchParams(n.calls.find(c => c.url.includes("stripe")).body).get("line_items[0][price_data][product_data][name]") === "Nova Sound Premium");
+
+  // who the seller is, and tax (found on the real provider's test account on 12 November 2026)
+  const form = (m) => new URLSearchParams(m.calls.filter(c => c.url.endsWith("/checkout/sessions")).pop().body);
+  const TAX = "line_items[0][price_data][product_data][tax_code]", BEHAV = "line_items[0][price_data][tax_behavior]", PREMIUM = { kind: "premium", return_url: "https://velora.test/" }, AUTH = { Authorization: "Bearer " + USER_JWT };
+  check("our own business is the seller unless set otherwise: every checkout switches the provider's 'managed payments' off, with no tax settings", q.get("managed_payments[enabled]") === "false" && q3.get("managed_payments[enabled]") === "false" && q2.get("managed_payments[enabled]") === "false"
+    && !q.has(TAX) && !q.has(BEHAV) && !q.has("automatic_tax[enabled]"), s.body);
+  n = net({ oldApi: true }); res = await checkout(post(RENT), ENV, n.f); r = await res.json();
+  const tries = n.calls.filter(c => c.url.endsWith("/checkout/sessions"));
+  check("a provider account that does not know that switch: asked once more without it, and the payment starts", r.ok === true && tries.length === 2 && new URLSearchParams(tries[0].body).has("managed_payments[enabled]") && !new URLSearchParams(tries[1].body).has("managed_payments[enabled]")
+    && new URLSearchParams(tries[1].body).get("line_items[0][price_data][unit_amount]") === "900", JSON.stringify(r));
+  const CODES = { STRIPE_TAX_CODE_RENT: "txcd_10401001", STRIPE_TAX_CODE_BUY: "txcd_10401100", STRIPE_TAX_CODE_PREMIUM: "txcd_10401200" };
+  n = net(); res = await checkout(post(RENT), { ...ENV, STRIPE_MANAGED_PAYMENTS: "on" }, n.f); r = await res.json();
+  const nb = net(); const resb = await checkout(post(RENT), { ...ENV, STRIPE_MANAGED_PAYMENTS: "on", STRIPE_TAX_CODE_RENT: "audio" }, nb.f);
+  check("'managed payments' switched on without a product tax code (or with a malformed one): refused before the provider is asked", res.status === 500 && r.ok === false && resb.status === 500 && !n.calls.concat(nb.calls).some(c => c.url.includes("stripe")), JSON.stringify(r));
+  n = net(); res = await checkout(post(RENT), { ...ENV, ...CODES, STRIPE_MANAGED_PAYMENTS: " On " }, n.f); r = await res.json(); let qm = form(n);
+  const nc = net(); await checkout(post({ ...RENT, kind: "buy" }), { ...ENV, ...CODES, STRIPE_MANAGED_PAYMENTS: "on" }, nc.f);
+  const nd = net(); await checkout(post(PREMIUM, AUTH), { ...ENV, ...CODES, STRIPE_MANAGED_PAYMENTS: "on", STRIPE_AUTOMATIC_TAX: "on" }, nd.f);
+  check("'managed payments' switched on: each product carries its own tax code, the price includes tax, and the provider works out the tax itself", r.ok === true && qm.get("managed_payments[enabled]") === "true" && qm.get(TAX) === "txcd_10401001" && qm.get(BEHAV) === "inclusive" && !qm.has("automatic_tax[enabled]")
+    && form(nc).get(TAX) === "txcd_10401100" && form(nd).get(TAX) === "txcd_10401200" && form(nd).get("managed_payments[enabled]") === "true" && !form(nd).has("automatic_tax[enabled]"), qm.toString());
+  n = net({ oldApi: true }); res = await checkout(post(RENT), { ...ENV, ...CODES, STRIPE_MANAGED_PAYMENTS: "on" }, n.f);
+  check("'managed payments' switched on at an account that does not know it: the payment does not start (no silent fall-back to another seller)", res.status === 502 && n.calls.filter(c => c.url.endsWith("/checkout/sessions")).length === 1);
+  n = net(); res = await checkout(post(RENT), { ...ENV, STRIPE_AUTOMATIC_TAX: "on", STRIPE_TAX_CODE_RENT: "txcd_10401001" }, n.f); r = await res.json(); qm = form(n);
+  const ne = net(); await checkout(post(RENT), { ...ENV, STRIPE_AUTOMATIC_TAX: "on" }, ne.f);
+  check("automatic tax switched on (our business stays the seller): the provider works out the VAT inside the price; a tax code is optional", r.ok === true && qm.get("automatic_tax[enabled]") === "true" && qm.get(BEHAV) === "inclusive" && qm.get(TAX) === "txcd_10401001" && qm.get("managed_payments[enabled]") === "false"
+    && form(ne).get("automatic_tax[enabled]") === "true" && !form(ne).has(TAX), qm.toString());
+  const logged = []; const keep = console.error; console.error = (...a) => logged.push(a.join(" "));
+  n = net({ refuse: true }); res = await checkout(post(RENT, AUTH), ENV, n.f); r = await res.json(); console.error = keep;
+  check("when the provider refuses, the buyer gets a plain answer and the log names the reason, never the buyer or the key", res.status === 502 && r.ok === false && !/tax|lina/i.test(JSON.stringify(r)) && logged.length === 1 && /parameter_missing/.test(logged[0]) && /tax_code/.test(logged[0]) && !/lina|sk_test/.test(logged[0]), logged.join(" | "));
 }
 
 // ---------- the provider's message ----------
@@ -115,6 +148,25 @@ const RENT = { kind: "rent", song_id: "rm-0007", song_title: "A <b>title</b> the
   check("a full refund marks the license as refunded; a part refund changes nothing", n.calls.length === 1 && n.calls[0].url.endsWith("/rpc/record_refund") && JSON.parse(n.calls[0].body).p.provider_ref === "pi_live_1" && n4.calls.length === 0);
   n = net(); res = await send({ type: "something.else", data: { object: {} } }, n);
   check("other messages are accepted and ignored", res.status === 200 && n.calls.length === 0);
+
+  // The provider's own messages, as its test account really sent them on 12 November 2026 (interface version
+  // 2026-08-26.dahlia): a first Premium payment, the end of that subscription, and a full refund. Cut down to the
+  // fields around the ones we read, with neutral ids; the shape is the provider's, not ours.
+  const realPaid = { id: "evt_1", object: "event", api_version: "2026-08-26.dahlia", type: "invoice.paid", data: { object: { id: "in_real_1", object: "invoice", account_country: "NL", amount_paid: 1400, billing_reason: "subscription_create",
+    currency: "eur", customer: "cus_real_1", customer_email: "shape-check@example.com", metadata: {}, status: "paid", period_end: 1794474742, period_start: 1794474742,
+    lines: { object: "list", has_more: false, total_count: 1, data: [{ id: "il_1", object: "line_item", amount: 1400, metadata: { kind: "premium", user_id: uid }, period: { end: 1797066742, start: 1794474742 },
+      parent: { invoice_item_details: null, subscription_item_details: { subscription: "sub_real_1", subscription_item: "si_1" }, type: "subscription_item_details" } }] },
+    parent: { quote_details: null, subscription_details: { metadata: { kind: "premium", user_id: uid }, subscription: "sub_real_1" }, type: "subscription_details" } } } };
+  const realEnded = { id: "evt_2", object: "event", api_version: "2026-08-26.dahlia", type: "customer.subscription.deleted", data: { object: { id: "sub_real_1", object: "subscription", status: "canceled", canceled_at: 1794474762, ended_at: 1794474762,
+    cancellation_details: { comment: null, feedback: null, reason: "cancellation_requested" }, customer: "cus_real_1", latest_invoice: "in_real_1", managed_payments: { enabled: false }, metadata: { kind: "premium", user_id: uid } } } };
+  const realRefund = { id: "evt_3", object: "event", api_version: "2026-08-26.dahlia", type: "charge.refunded", data: { object: { id: "ch_real_1", object: "charge", amount: 1400, amount_captured: 1400, amount_refunded: 1400, captured: true, currency: "eur",
+    customer: "cus_real_1", paid: true, payment_intent: "pi_real_1", refunded: true, status: "succeeded" }, previous_attributes: { amount_refunded: 0, refunded: false } } };
+  n = net(); await send(realPaid, n); const na = net(); await send(realEnded, na); const nr = net(); await send(realRefund, nr);
+  p = n.calls[0] && JSON.parse(n.calls[0].body).p; const pe = na.calls[0] && JSON.parse(na.calls[0].body).p, pr = nr.calls[0] && JSON.parse(nr.calls[0].body).p;
+  check("the provider's real messages (copied from its test account) are read as meant: Premium runs to the end of the paid month, ends when the subscription ends, and a refund is found by its payment", n.calls.length === 1 && n.calls[0].url.endsWith("/rpc/record_premium")
+    && p.user_id === uid && p.mode === "extend" && p.customer === "cus_real_1" && new Date(p.until).getTime() / 1000 === 1797066742 + 2 * 86400 && p.payment_ref === "in_real_1"
+    && na.calls.length === 1 && pe.user_id === uid && pe.mode === "set" && pe.payment_ref === "sub_real_1"
+    && nr.calls.length === 1 && nr.calls[0].url.endsWith("/rpc/record_refund") && pr.provider_ref === "pi_real_1", JSON.stringify([p, pe, pr]));
 }
 console.log(`\n${pass} of ${total} payment server checks passed`);
 process.exit(pass === total ? 0 : 1);
