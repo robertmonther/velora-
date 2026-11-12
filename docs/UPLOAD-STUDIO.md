@@ -144,7 +144,7 @@ What phase 2 still needs, in order:
 
 ```bash
 python3 tests/upload.py      # 50 checks: the whole upload on a phone-size screen, against tests/fake_backend.py
-python3 tests/run.py         # 63 checks: the rest of the site
+python3 tests/run.py         # 66 checks: the rest of the site
 ```
 
 `tests/fake_backend.py` plays the server on this computer with the same functions and rules, so the tests never touch the real project. `tests/upload.py` keeps a screenshot of every step in `tests/shots/upload/`.

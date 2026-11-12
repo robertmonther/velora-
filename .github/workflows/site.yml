@@ -1,0 +1,37 @@
+# Keeps a ready-to-host copy of the site on the branch "site": only the site's own files, with the media folder
+# and the server settings (hosting/.htaccess). The web host (Hostinger: Advanced > Git) is pointed at that branch.
+# Nothing goes online by this workflow alone: the host decides when it takes the branch.
+name: Site build
+on:
+  push:
+    branches: [upload-studio, main]
+    paths-ignore: ["app/**", "docs/**", "tests/**", "supabase/**", "**.md", ".github/workflows/app.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: site-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the site folder
+        run: python3 scripts/build_site.py --media --out "$RUNNER_TEMP/site"
+      - name: Put it on the branch "site"
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          pub="$RUNNER_TEMP/pub"
+          if ! git clone --quiet --branch site --single-branch --depth 1 "$remote" "$pub"; then
+            mkdir -p "$pub" && git -C "$pub" init -q -b site && git -C "$pub" remote add origin "$remote"
+          fi
+          cd "$pub"
+          git rm -rq --ignore-unmatch . || true
+          cp -a "$RUNNER_TEMP/site/." .
+          git add -A
+          if git diff --cached --quiet; then echo "nothing changed"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Site build from ${GITHUB_SHA}"
+          git push -q origin site
