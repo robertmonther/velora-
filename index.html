@@ -19,7 +19,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b7a99'/%3E%3Cstop offset='.5' stop-color='%23e0a9b0'/%3E%3Cstop offset='1' stop-color='%23b0524a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=20261112c">
+<link rel="stylesheet" href="styles.css?v=20261115a">
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
@@ -50,6 +50,7 @@
   <symbol id="i-lock" viewBox="0 0 24 24"><path d="M12 2.5a4.8 4.8 0 0 0-4.8 4.8v2.2H6.5A1.5 1.5 0 0 0 5 11v8.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V11a1.5 1.5 0 0 0-1.5-1.5h-.7V7.3A4.8 4.8 0 0 0 12 2.5Zm-2.8 7V7.3a2.8 2.8 0 0 1 5.6 0v2.2Z"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M15 5.5 8.5 12l6.5 6.5"/></symbol>
   <symbol id="i-image" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4.5 4.5h15v15h-15zM4.5 16l4.5-4.5 4 4 2.5-2.5 4 4"/><circle cx="15.5" cy="8.5" r="1.6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.6" width="7" height="11.8" rx="3.5"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.2 11.2a6.8 6.8 0 0 0 13.6 0M12 18.2v3.2"/></symbol>
   <symbol id="i-video" viewBox="0 0 24 24"><path d="M4 5.5h11a1.5 1.5 0 0 1 1.5 1.5v2.4l3.6-2.3a.6.6 0 0 1 .9.5v8.8a.6.6 0 0 1-.9.5l-3.6-2.3V17a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 17V7A1.5 1.5 0 0 1 4 5.5Z"/></symbol>
 </svg>
 
@@ -61,9 +62,10 @@
   <nav class="topnav" aria-label="Main">
     <a href="#/">Home</a><a href="#/search">Browse</a><button type="button" class="navlink" data-stream>Stream</button><a href="#/radio">Radio</a><a href="#/videos">Videos</a><a href="#/pricing">Pricing</a><a href="#/verify">Verify a license</a>
   </nav>
-  <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" autocomplete="off" placeholder="Search songs, artists, genres"></div>
+  <div class="search"><label for="q" class="sr">Search songs</label><input id="q" type="search" autocomplete="off" placeholder="Search songs, artists, genres"><button type="button" class="search-mic" data-voice aria-label="Search by voice"><svg><use href="#i-mic"/></svg></button></div>
   <div class="top-actions">
     <a class="btn sm upload-btn" href="#/upload" id="uploadBtn"><svg><use href="#i-upload"/></svg><span>Upload</span></a>
+    <button class="icon-btn voice-top-btn" type="button" data-voice aria-label="Voice: say a song, a mood or a command"><svg><use href="#i-mic"/></svg></button>
     <a class="icon-btn search-btn" href="#/search?focus=search" aria-label="Search songs"><svg><use href="#i-search"/></svg></a>
   </div>
 </header>
@@ -103,6 +105,9 @@
   <div class="mini-progress" aria-hidden="true"><i id="miniProg"></i></div>
 </div>
 
+<!-- Voice: the floating microphone. Its shape and place come from config.js (voice.place) or Settings > Voice. -->
+<button class="voice-fab" id="voiceFab" type="button" data-voice aria-label="Voice: say a song, a mood or a command"><svg><use href="#i-mic"/></svg><span>Say a song or a mood</span></button>
+
 <!-- Bottom tab bar on phones, like Spotify -->
 <nav class="tabbar" aria-label="Main">
   <a href="#/" data-tab="/"><svg><use href="#i-home"/></svg><span>Home</span></a>
@@ -135,7 +140,7 @@
       <button class="icon-btn lg" id="npNext" type="button" aria-label="Next"><svg><use href="#i-next"/></svg></button>
       <button class="icon-btn" id="npBest" type="button" aria-label="Jump to the best part" title="Jump to the best part"><svg><use href="#i-spark"/></svg></button>
     </div>
-    <div class="np-extra"><button type="button" class="btn ghost sm" id="npShare"><svg><use href="#i-share"/></svg>Share</button></div>
+    <div class="np-extra"><button type="button" class="btn ghost sm" id="npVoice" data-voice><svg><use href="#i-mic"/></svg>Voice</button><button type="button" class="btn ghost sm" id="npShare"><svg><use href="#i-share"/></svg>Share</button></div>
     <div class="np-sections" id="npSections" aria-label="Song map"></div>
     <div id="npCards"></div>
   </div>
@@ -155,9 +160,11 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <noscript><p style="padding:24px;text-align:center">Velora needs JavaScript to play music. Please turn it on and reload.</p></noscript>
 <audio id="audio" preload="metadata"></audio>
-<script src="config.js?v=20261112c"></script>
-<script src="data/catalogue.js?v=20261112c"></script>
-<script src="backend.js?v=20261112c"></script>
-<script src="app.js?v=20261112c"></script>
+<script src="config.js?v=20261115a"></script>
+<script src="data/catalogue.js?v=20261115a"></script>
+<script src="backend.js?v=20261115a"></script>
+<script src="data/voice-words.js?v=20261115a"></script>
+<script src="voice.js?v=20261115a"></script>
+<script src="app.js?v=20261115a"></script>
 </body>
 </html>
