@@ -4,7 +4,7 @@ For a programmer, an investor or another AI reading the project for the first ti
 
 ## 1. Shape
 
-A static site: plain HTML, CSS and JavaScript, no framework, no build step. Four scripts load in order: `config.js` (settings), `data/catalogue.js` (the bundled songs), `backend.js` (server calls, tiny until someone signs in), `app.js` (everything else). The upload pages (`studio.js`, `studio-audio.js`, `studio.css`, `data/taxonomy.js`) and the account library load only when someone opens them. Addresses are hash routes (`#/song/rm-0006`), so any static host works.
+A static site: plain HTML, CSS and JavaScript, no framework, no build step. Six scripts load in order: `config.js` (settings), `data/catalogue.js` (the bundled songs), `backend.js` (server calls, tiny until someone signs in), `data/voice-words.js` and `voice.js` (the microphone: `VOICE.md`), `app.js` (everything else). The upload pages (`studio.js`, `studio-audio.js`, `studio.css`, `data/taxonomy.js`) and the account library load only when someone opens them. Addresses are hash routes (`#/song/rm-0006`), so any static host works.
 
 Bundled media (songs, covers, videos) loads from the GitHub repo through the jsDelivr CDN, pinned to one commit (`mediaRev`), and from the local folder on localhost.
 
@@ -53,6 +53,7 @@ Later, for one true stream that also feeds YouTube and car apps: a small server 
 - **Accounts:** email and password (10 characters or more on the site). The owner's account is created once with a setup code; the server keeps only that code's fingerprint. Everyone else gets a listener account. The browser only ever holds the public key. `supabase/schema.sql` turns on row-level security on every table: a person can read only their own rows, and nothing is written from the browser directly; every change goes through a function that checks who is calling. Money and rights (licenses, Premium) are written only with the server's own key, after the payment provider's signed message.
 - **Ownership records** cannot be updated or deleted, and each carries the fingerprint of the one before it.
 - **Explicit songs:** no age question (Robert's decision). The code for one is kept behind `ageGate`.
+- **Voice:** the browser's or the phone's own speech service turns the voice into text; the site only sees the text and keeps nothing (`VOICE.md`). The server's `Permissions-Policy` allows the microphone for the site's own pages only; camera and location stay off.
 - **Headers:** a page cannot send HSTS or "nobody may frame this site" for itself. `hosting/.htaccess` (our own hosting) and `vercel.json` send them; the githack test link does not have them. Anything shown in the browser can be copied; real rights are enforced on the server.
 - The security review of 12 Nov 2026 and what is still open: `SECURITY.md`. Before launch: the Strix run (Robert's rule), and `robots.txt` lets search engines in.
 

@@ -33,4 +33,14 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice (the microphone button): the phone asks the person the first time. The app itself records nothing;
+         the phone's speech service turns the voice into text. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Voice: lets the app see the phone's speech service (needed since Android 11). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>

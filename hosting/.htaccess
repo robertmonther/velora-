@@ -25,7 +25,8 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
   Header always set X-Frame-Options "DENY"
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # The microphone is allowed for the site's own pages only (the voice button); camera and location stay off.
+  Header always set Permissions-Policy "camera=(), microphone=(self), geolocation=()"
   Header always set Strict-Transport-Security "max-age=31536000"
 
   # Pages, styles and scripts: the browser asks each time whether they changed (a new ?v= number also forces it)

@@ -18,6 +18,7 @@ Robert Monther's song library: full-song listening like Spotify, a non-stop radi
 | `backend.js` | Accounts, server calls and the shop calls (Supabase). The account library loads only when someone signs in or uploads |
 | `studio.js`, `studio-audio.js`, `encoder-worker.js`, `studio.css` | The upload pages and their sound tools. Loaded only when someone opens them. See `docs/UPLOAD-STUDIO.md` |
 | `legal.js` | The six legal pages (drafts), loaded when one is opened. See `docs/LEGAL.md` |
+| `voice.js`, `data/voice-words.js` | Voice: tap a microphone and say a song, a mood or a command, in English or Arabic. The second file is the dictionary (the one site file with Arabic text). See `docs/VOICE.md` |
 | `data/catalogue.js` / `.json` | The bundled songs: genres, moods, collections, artists, lyrics with times, song parts, covers |
 | `data/taxonomy.js` | The genre, sub-genre, mood and language lists of the upload form |
 | `media/` | Bundled songs (`audio/`), covers (`covers/`), artist pictures (`artists/`), vertical videos (`shorts/`) |
@@ -29,10 +30,11 @@ Robert Monther's song library: full-song listening like Spotify, a non-stop radi
 | `tests/run.py` | Automated walk-through of the site on a phone-size screen (66 checks) |
 | `tests/upload.py`, `tests/accounts.py`, `tests/payments.py`, `tests/fake_backend.py` | The whole upload (50 checks), accounts (19) and payments (27), against a stand-in server and a stand-in payment page on this computer |
 | `tests/payments_server.mjs`, `tests/app_mode.py` | The two payment functions' own code (32 checks, with the provider's real message shapes); the site as it runs inside the phone app (9 checks) |
+| `tests/voice.mjs`, `tests/voice.py` | Voice: what a sentence means, in English and Arabic (48 checks, no browser), and the microphone from the tap to the music, with stand-ins for the speech services (28 checks) |
 | `app/` | The phone app: Android and iOS projects (Capacitor), icon, store pictures and draft store texts. See `app/README.md` |
 | `hosting/`, `scripts/build_site.py` | The server settings for our own hosting and the script that builds the folder to host. See `docs/GO-LIVE.md` |
 | `.github/workflows/` | Free builds on GitHub: the Android test file (`app.yml`) and the ready-to-host copy of the site on the branch `site` (`site.yml`) |
-| `docs/` | `GO-LIVE.md` (what is left, in order), `ARCHITECTURE.md`, `UPLOAD-STUDIO.md`, `PAYMENTS.md`, `LEGAL.md`, `SECURITY.md`, `ADDING-SONGS.md`, `upload-flow/` (pictures) |
+| `docs/` | `GO-LIVE.md` (what is left, in order), `ARCHITECTURE.md`, `UPLOAD-STUDIO.md`, `PAYMENTS.md`, `LEGAL.md`, `SECURITY.md`, `VOICE.md`, `ADDING-SONGS.md`, `upload-flow/` (pictures) |
 
 ## Run it
 
@@ -44,6 +46,8 @@ python3 tests/accounts.py           # accounts
 python3 tests/payments.py           # payments, with a stand-in payment page
 node --experimental-strip-types tests/payments_server.mjs   # the payment functions
 python3 tests/app_mode.py           # the site inside the phone app
+node tests/voice.mjs                # voice: what the sentences mean
+python3 tests/voice.py              # voice: the microphone in the page and in the app
 ```
 
 ## Pages
@@ -53,7 +57,8 @@ python3 tests/app_mode.py           # the site inside the phone app
 ## What it does
 
 - **Listening like Spotify:** tap a song and its full screen opens in the cover's colours, with synced lyrics (tap a line to jump), song parts, video, credits, the artist, license buttons and similar songs. Mini player, lock-screen controls, bottom tab bar on phones. Explicit songs carry an "E" badge.
-- **English only.** Every word on screen is English (Robert's rule for all his apps).
+- **English only.** Every word on screen is English (Robert's rule for all his apps). The microphone also understands Arabic; the words it listens for are the only Arabic in the site's files.
+- **Voice:** tap a microphone and say a song, a mood ("something romantic", "classy music"), an artist, or a command ("next", "play the radio"), in English or Arabic. Free: the browser's or the phone's own speech service does the hearing. `docs/VOICE.md`.
 - **Explicit songs like Spotify:** an "E" mark, no age question. One switch in Settings hides them on a device. (The age question is still in the code behind `ageGate` in `config.js`, switched off by Robert's decision.)
 - **Accounts for everyone:** create an account, confirm by email (link or code), sign in, change name and password, forgotten password, delete the account. New accounts are listeners; only the owner uploads.
 - **Uploading (owner's account):** eight short steps modelled on LANDR's release form; lyrics synced by tapping along; optional mastering; an ownership record with fingerprints; the song is live at once. `docs/UPLOAD-STUDIO.md` has every detail.

@@ -1,6 +1,6 @@
 # The phone app (Android and iPhone)
 
-Status on 12 November 2026: **a test app, not a store release.** The website is wrapped with Capacitor 8, so the app
+Status on 15 November 2026: **a test app, not a store release.** The website is wrapped with Capacitor 8, so the app
 is the same pages in a native shell. Nothing was uploaded to Google Play or the App Store, and no developer account
 exists yet.
 
@@ -24,10 +24,16 @@ exists yet.
   the app with the stores' own billing is a question for later.
 - Songs load from the web (`config.js`: `mediaFrom`, `siteUrl`).
 - Share uses the phone's share sheet. Links point to `siteUrl`; while that is empty, only the song's name is shared.
+- **Voice** uses the phone's own speech service instead of the browser's (a web page inside an app has none). The
+  plugin is `@capgo/capacitor-speech-recognition` (version pinned in `package.json`; MPL-2.0 licence, unchanged). The
+  phone asks for the microphone the first time the mic is tapped. Android: `RECORD_AUDIO` and the `<queries>` entry in
+  `AndroidManifest.xml`. iPhone: the two usage texts in `Info.plist`. The site calls it through the app's bridge
+  (`voice.js`, "hearNative"); see `docs/VOICE.md`.
 - No preview banner. The page keeps clear of the status bar and the home indicator.
 - iPhone: music keeps playing with the screen locked (background audio is switched on).
 
-Checked in a phone-size browser with the app's bridge played by a stand-in: `python3 tests/app_mode.py` (9 checks).
+Checked in a phone-size browser with the app's bridge played by a stand-in: `python3 tests/app_mode.py` (9 checks),
+and the voice part in `python3 tests/voice.py`.
 **Not checked on a real phone.** That is the first thing to do with the test file.
 
 ## Building
@@ -58,5 +64,8 @@ Checked in a phone-size browser with the app's bridge played by a stand-in: `pyt
    release; the "hide explicit songs" switch exists.
 8. **Privacy forms.** Google's Data safety form and Apple's privacy labels must match the privacy page: email, name,
    password (accounts); uploads (the owner); nothing for listeners. Account deletion is inside the app already;
-   Google also wants a web address where deletion can be asked for.
+   Google also wants a web address where deletion can be asked for. Since 15 November 2026 the app also asks for the
+   microphone (voice requests): say so in both forms. Velora itself collects no audio; the phone's speech service
+   (Google's or Apple's) turns the voice into text. To check, when the forms are filled in, how each store wants
+   that declared.
 9. **Store pictures and texts:** `store/pictures/` and `store/LISTING.md` are drafts with the working name.

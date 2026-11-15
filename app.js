@@ -2,7 +2,7 @@
    Order of this file: helpers, categories, search, colours, toast, ads, player, Now Playing,
    radio, license demo, page building blocks, pages, clicks, router.
    Settings live in config.js; the bundled songs in data/catalogue.js; accounts and uploaded songs in backend.js;
-   the upload pages in studio.js (loaded only when someone opens Upload). */
+   the upload pages in studio.js (loaded only when someone opens Upload); the microphone in voice.js. */
 (function(){
 "use strict";
 const CFG = window.VELORA_CONFIG || {};
@@ -957,7 +957,7 @@ let searchQ = "";
 function searchView(params){
   if(params.get("q")!==null) searchQ=params.get("q").slice(0,80);
   main.innerHTML=`<h1 class="pagetitle">Search</h1>
-  <div class="sbox">${icon("search")}<label for="libq" class="sr">Search songs</label><input id="libq" type="search" autocomplete="off" maxlength="80" enterkeyhint="search" placeholder="Songs, artists, genres, moods, lyrics" value="${esc(searchQ)}"></div>
+  <div class="sbox">${icon("search")}<label for="libq" class="sr">Search songs</label><input id="libq" type="search" autocomplete="off" maxlength="80" enterkeyhint="search" placeholder="Songs, artists, genres, moods, lyrics" value="${esc(searchQ)}"><button type="button" class="sbox-mic" data-voice aria-label="Search by voice">${icon("mic")}</button></div>
   <div id="sres" aria-live="polite"></div>`;
   const lq=$("#libq"); lq.addEventListener("input",e=>{ searchQ=e.target.value; $("#q").value=searchQ; drawSearch(); });
   drawSearch();
@@ -1231,10 +1231,11 @@ function settingsView(){
   <div class="panel"><h3>Account</h3>${!Backend.enabled?`<p class="muted small" style="margin:0">Accounts open soon. Listening needs no account.</p>`
     :u?`<p class="small">Signed in as ${esc(u.email)}.</p><div class="row"><a class="btn sm" href="#/account">Open my account</a><button type="button" class="btn ghost sm" id="setOut">Sign out</button></div>`
     :`<p class="small">You are not signed in. Listening needs no account.</p><a class="btn sm" href="#/account">Sign in</a>`}</div>
+  ${Voice ? Voice.settingsHTML() : ""}
   ${privacyPanel()}
   <div class="panel"><h3>About</h3><p class="small" style="margin:0">Velora${DEMO?", test version":""}. Lyrics, concepts and song design by ${esc(CREATOR)}; music made with Suno (AI-assisted).${VER?` Build ${esc(VER)}.`:""}</p>
    <p class="muted small" style="margin:8px 0 0">Open-source parts: MP3 files are made in your browser with lamejs 1.2.1, which uses the LAME encoder (<a href="https://lame.sourceforge.io" target="_blank" rel="noopener noreferrer">lame.sourceforge.io</a>), under the LGPL licence; accounts use supabase-js (MIT). Both are in the site's vendor folder, unchanged.</p></div>`;
-  wireWipe();
+  wireWipe(); if(Voice) Voice.wireSettings(()=>route(true));
   const h=$("#ageHide"); if(h) h.onclick=()=>{ setAge("minor"); if(current && isAdult(current)) audio.pause(); toast("Adult songs are hidden on this device."); route(true); };
   const x=$("#exToggle"); if(x) x.onclick=()=>{
     if(hideExplicit()){ try{ localStorage.removeItem("velora_explicit"); }catch(e){} toast("Explicit songs are back."); }
@@ -1311,6 +1312,16 @@ function studioView(path, params){
   studioP.then(()=>{ if(/^#\/(upload|studio)/.test(location.hash)) window.VeloraStudio.open(path, params, studioCtx); })
     .catch(()=>{ main.innerHTML=`<h1 class="pagetitle">Upload</h1><p class="muted">The upload page did not load. Check your connection.</p><button type="button" class="btn primary" id="stRetry">Try again</button>`; const b=$("#stRetry"); if(b) b.onclick=()=>studioView(path, params); });
 }
+
+// ---------- Voice (voice.js): the microphone asks for a song, a mood or a command ----------
+// voice.js understands the words and shows its sheet; this file lends it the player.
+const Voice = window.VeloraVoice || null;
+if(Voice) Voice.init({ CFG, NATIVE, store, esc, icon, toast, openModal, closeM, audio,
+  songs:()=>S, cats:()=>CATS, artists:()=>ARTISTS.filter(a=>songsBy(a).length), songsBy, playable, suggestions, shuffle:shuffled, row:srowMeta,
+  current:()=>current, mode:()=>mode, adOn:()=>!!adState, by:s=>(artistOf(s)||{name:s.genre}).name,
+  playSong:s=>{ const go=()=>playFrom([s,...suggestions(s,8)], s, s.genre, 0, openNP); if(playable(s)) go(); else askAge(go); },
+  playList:(list,label)=>playList(list,label,false), shuffleAll:()=>playList(S,"All songs",true),
+  startRadio, next, prev, bestPart, openNP });
 
 // Footer channels: only real addresses are shown.
 (function(){ const list=(CFG.channels||[]).filter(c=>c && /^https:\/\//.test(c.url||"")), box=$("#channels"); if(!box) return;

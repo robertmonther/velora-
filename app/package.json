@@ -12,7 +12,8 @@
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
     "@capacitor/ios": "^8.6.0",
-    "@capacitor/share": "^8.0.3"
+    "@capacitor/share": "^8.0.3",
+    "@capgo/capacitor-speech-recognition": "8.5.1"
   },
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",

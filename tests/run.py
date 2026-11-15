@@ -277,9 +277,9 @@ async def main():
             for dirpath, dirs, files in os.walk(ROOT):
                 dirs[:] = [d for d in dirs if d not in (".git", "media", "tests", "node_modules", "vendor")]
                 for f in files:
-                    if f.endswith((".js", ".html", ".css", ".json", ".md", ".sql")):
+                    if f.endswith((".js", ".html", ".css", ".json", ".md", ".sql")) and f != "voice-words.js":      # the words people SAY to the microphone
                         if re.search(r"[\u0600-\u06FF]", open(os.path.join(dirpath, f), encoding="utf-8").read()): arabic.append(f)
-            check("English only: no Arabic text in the site files", not arabic, str(arabic))
+            check("English only: no Arabic text in the site files (the voice dictionary aside)", not arabic, str(arabic))
 
             # 9. Desktop
             dk = await new_page(b, 1366, 860, mobile=False)

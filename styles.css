@@ -555,3 +555,80 @@ html.native .demo-banner,html.native #shSave{display:none}
 html.nosales [data-lic],html.nosales [data-sub],html.nosales #miniLicense,html.nosales #miniLicIcon,html.nosales #npLicense,html.nosales #npLicTop,
 html.nosales a[href="#/pricing"],html.nosales .tiers{display:none !important}
 @media (max-width:900px){html.nosales .tabbar{grid-template-columns:repeat(4,1fr)}}
+
+/* ---------- Voice (15 Nov 2026): the microphone buttons and the listening sheet (voice.js) ---------- */
+[data-voice]{display:none}
+html.voice-on .search-mic,html.voice-on .sbox-mic{display:inline-grid}
+html.voice-on #npVoice{display:inline-flex}
+/* in the two search fields */
+.search{position:relative}
+html.voice-on .search input{padding-right:42px}
+.search-mic{position:absolute;right:4px;top:50%;translate:0 -50%;width:34px;height:34px;border-radius:50%;border:0;background:transparent;color:var(--muted);place-items:center;cursor:pointer;padding:0}
+.search-mic:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.search-mic svg{width:20px;height:20px}
+.sbox-mic{width:40px;height:40px;margin-right:-8px;border-radius:50%;border:0;background:transparent;color:#121214;place-items:center;cursor:pointer;padding:0;flex:none}
+.sbox-mic:hover{background:rgba(0,0,0,.08)}
+.np-extra{gap:8px}
+/* the floating microphone: a round button ("fab") or a wide one ("pill") */
+.voice-fab{position:fixed;z-index:42;right:16px;bottom:calc(var(--mini-h) + var(--tab-h) + 16px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;border:2px solid transparent;
+  background:linear-gradient(var(--pink),var(--pink)) padding-box,conic-gradient(from 210deg,var(--blue),var(--pink),var(--red),var(--blue)) border-box;color:#1b1114;
+  place-items:center;cursor:pointer;padding:0;font:600 14px var(--font);box-shadow:0 10px 28px rgba(0,0,0,.5);transition:scale .18s cubic-bezier(.3,1.4,.5,1),filter .18s ease-out}
+.voice-fab svg{width:26px;height:26px}
+.voice-fab span{display:none}
+.voice-fab:hover{filter:brightness(1.07)}
+.voice-fab:active{scale:.92}
+html.voice-p-fab .voice-fab{display:grid;animation:voiceIn .5s cubic-bezier(.3,1.5,.5,1) .35s both}
+html.voice-p-pill .voice-fab{display:inline-flex;align-items:center;gap:10px;width:auto;height:48px;border-radius:999px;padding:0 18px 0 6px;left:50%;right:auto;translate:-50% 0;white-space:nowrap;color:var(--text);
+  background:linear-gradient(rgba(30,30,37,.96),rgba(30,30,37,.96)) padding-box,conic-gradient(from 210deg,var(--blue),var(--pink),var(--red),var(--blue)) border-box;animation:voiceIn .5s cubic-bezier(.3,1.5,.5,1) .35s both}
+html.voice-p-pill .voice-fab span{display:inline}
+html.voice-p-pill .voice-fab svg{width:36px;height:36px;padding:8px;border-radius:50%;background:var(--pink);color:#1b1114}
+@keyframes voiceIn{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.07)}100%{opacity:1;transform:scale(1)}}
+body.np-open .voice-fab,body.in-studio .voice-fab{display:none !important}
+html.voice-p-top .voice-top-btn{display:inline-grid}
+@media (min-width:901px){
+ html.voice-on .voice-top-btn{display:none}          /* on a wide screen the search field has the microphone */
+ .voice-fab{right:24px;bottom:calc(var(--mini-h) + 30px)}
+ html.voice-p-pill .voice-fab{left:auto;right:24px;translate:none}
+}
+@media (max-width:900px){
+ body:has(input:focus,textarea:focus) .voice-fab{display:none !important}      /* the keyboard is open */
+ html.voice-p-fab body:not(.np-open) .toast,html.voice-p-pill body:not(.np-open) .toast{bottom:calc(var(--mini-h) + var(--tab-h) + 86px + env(safe-area-inset-bottom))}
+}
+/* the listening sheet (inside the site's own window) */
+.vx{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.vx-langs{align-self:stretch;display:flex;justify-content:flex-start;gap:6px;margin:-8px 44px 2px -6px}   /* on the left: the X is on the right */
+.vx-langs .chip{padding:6px 12px}
+.vx-mic{position:relative;width:96px;height:96px;margin:14px 0 8px;border-radius:50%;border:2px solid transparent;display:grid;place-items:center;cursor:pointer;padding:0;color:#1b1114;
+  background:linear-gradient(var(--pink),var(--pink)) padding-box,conic-gradient(from 210deg,var(--blue),var(--pink),var(--red),var(--blue)) border-box;transition:scale .2s cubic-bezier(.3,1.4,.5,1),opacity .2s ease-out,filter .2s ease-out}
+.vx-mic svg{width:40px;height:40px;position:relative}
+.vx-mic:active{scale:.94}
+.vx-mic i{position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--pink);opacity:0;pointer-events:none}
+.vx-mic.on i{animation:vxRing 1.8s cubic-bezier(.2,.6,.3,1) infinite}
+.vx-mic.on i+i{animation-delay:.6s;border-color:var(--blue2)}
+.vx-mic.on svg{animation:vxBob 1.3s ease-in-out infinite}
+.vx-mic.wait{opacity:.7}
+.vx-mic:disabled{filter:grayscale(1);opacity:.45;cursor:default}
+@keyframes vxRing{0%{transform:scale(1);opacity:.75}100%{transform:scale(1.75);opacity:0}}
+@keyframes vxBob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.07)}}
+.vx-state{margin:4px 0 0;font:700 19px/1.35 var(--font);max-width:440px}
+.vx-heard{margin:2px 0 0;min-height:26px;font:500 17px/1.4 var(--font);color:var(--cream);overflow-wrap:anywhere}
+.vx-res{width:100%;text-align:start;margin-top:6px}
+.vx-res:empty{display:none}
+.vx-res p{margin:10px 0 6px;text-align:center}
+.vx-res .chips{justify-content:center;margin:0}
+.vx-res .srow-t{text-align:start}
+.vx-tips{width:100%;margin-top:10px}
+.vx-tips[hidden]{display:none}
+.vx-tips .chips{justify-content:center;margin:8px 0 0}
+.vx-type{display:flex;gap:8px;width:100%;margin-top:16px}
+.vx-type input{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:10px 16px;font:500 16px var(--font)}
+.vset{margin-top:12px}
+.vset .chips{margin:8px 0 0}
+/* motion: the mic pops in and settles; offered songs and moods rise one after the other (never all at once, never linear) */
+.vx-mic{animation:vxPop .45s cubic-bezier(.3,1.5,.5,1) both}
+@keyframes vxPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.vx-res>*{animation:vxUp .34s cubic-bezier(.2,.7,.3,1) both}
+.vx-res>*:nth-child(2){animation-delay:.05s}
+.vx-res>*:nth-child(3){animation-delay:.1s}
+.vx-res>*:nth-child(4){animation-delay:.15s}
+@keyframes vxUp{0%{transform:translateY(8px);opacity:0}100%{transform:translateY(0);opacity:1}}

@@ -61,6 +61,10 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Velora uses the microphone only while the voice window is open, so you can ask for a song or a mood by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Your voice request is turned into text to find the song or mood you asked for. Velora does not keep it.</string>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>

@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url)), root = join(here, ".."), out = join(here, "www");
-const FILES = ["index.html", "styles.css", "studio.css", "config.js", "app.js", "backend.js", "studio.js", "studio-audio.js", "encoder-worker.js", "legal.js", "manifest.json"];
+const FILES = ["index.html", "styles.css", "studio.css", "config.js", "app.js", "backend.js", "voice.js", "studio.js", "studio-audio.js", "encoder-worker.js", "legal.js", "manifest.json"];
 const FOLDERS = ["data", "vendor", "assets"];
 
 rmSync(out, { recursive: true, force: true });

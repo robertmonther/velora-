@@ -9,7 +9,7 @@ Left out on purpose: tests, docs, the database files, the phone app, scripts, no
 The GitHub workflow .github/workflows/site.yml runs this with --media and keeps the result on the branch "site"."""
 import argparse, os, re, shutil, sys, zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FILES = ["index.html", "styles.css", "studio.css", "config.js", "app.js", "backend.js", "studio.js", "studio-audio.js", "encoder-worker.js", "legal.js", "manifest.json"]
+FILES = ["index.html", "styles.css", "studio.css", "config.js", "app.js", "backend.js", "voice.js", "studio.js", "studio-audio.js", "encoder-worker.js", "legal.js", "manifest.json"]
 FOLDERS = ["data", "vendor", "assets"]
 
 def main():
