@@ -103,16 +103,20 @@ note("On the home screen the phone sees: " + " / ".join(texts(xml))[:900])
 note("A native title bar above the page (the bug Robert found on 15 Nov) is " + ("THERE" if re.search(r'resource-id="android:id/action_bar(_container)?"', xml) else "not there"))
 web = re.search(r'resource-id="app\.velora\.test:id/webview"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml) or re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*resource-id="app\.velora\.test:id/webview"', xml)
 note("The page fills: " + (str(tuple(map(int, web.groups()))) if web else "?") + " of " + sh("wm size"))
-if "Voice: say a song" not in xml:                     # the page describes itself to the phone only once asked: ask again
+if not find(xml, r"^(Search|Search songs)$"):          # the page describes itself to the phone only once asked: ask again
     time.sleep(2.5); xml = screen()
 
-# 2. The microphone: the phone's own question, then the listening sheet
-mic = find(xml, r"^Voice: say a song")
+# 2. The microphone in the search field (since 15 Nov there is no floating one on Home, Robert's choice):
+#    open Search, tap the microphone, then the phone's own question and the listening sheet
+go = find(xml, r"^(Search|Search songs)$")
+if go: tap(go); time.sleep(3)
+else: note("the way to Search was not found by its label")
+xml = screen(); mic = find(xml, r"^Search by voice$")
 if not mic:
-    w, h = map(int, re.search(r"(\d+)x(\d+)", sh("wm size")).groups()); d = int(re.search(r"(\d+)", sh("wm density")).group(1)) / 160
-    mic = (int(w - 45 * d), int(h - (48 + 64 + 16 + 29) * d)); note("mic button not found by its label; tapping where it should be: " + str(mic))
-else: note("mic button found at " + str(mic))
-tap(mic); time.sleep(3); shot("2-mic-tapped")
+    time.sleep(2.5); xml = screen(); mic = find(xml, r"^Search by voice$")
+if mic: note("the search field's microphone found at " + str(mic)); tap(mic)
+else: note("the search field's microphone was NOT found by its label")
+time.sleep(3); shot("2-mic-tapped")
 xml = screen(); note("After tapping the mic: " + " / ".join(texts(xml))[:700])
 allow = find(xml, r"^(While using the app|Only this time|Allow)$")
 if allow:

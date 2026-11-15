@@ -38,7 +38,7 @@ and the voice part in `python3 tests/voice.py`.
 
 **A look on a real Android, after every build.** GitHub opens the test file on an Android emulator (Android 14 and
 16), first puts the build before on it and installs the new one on top (the way a phone that already has the app
-gets it), then taps the microphone, answers the phone's own "allow the microphone?" question and takes pictures
+gets it), then opens Search, taps the microphone in the search field, answers the phone's own "allow the microphone?" question and takes pictures
 (`ci/look.py`, job "android-look" in `../.github/workflows/app.yml`). The pictures and notes are attached to the
 pre-release "android-test" (`look-a34-...`, `look-a36-...`). An emulator is a real Android, but not every phone:
 a maker's own skin (Xiaomi, Samsung) and a newer system WebView can still differ. The emulators' WebView is older

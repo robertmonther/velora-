@@ -145,8 +145,8 @@ All lines must say PASS.
 
 `#/` Home · `#/search` Search · `#/genre/<id>` Genre, mood or collection · `#/song/<id>` Song page · `#/artist/<id>`
 Artist page · `#/radio` Radio · `#/stream` Stream · `#/videos` Music videos and shorts · `#/pricing` Premium (the
-three ways to use the music) · `#/verify` Verify a license · `#/upload` Upload a song · `#/my-songs` · `#/account` ·
-`#/settings` · `#/legal/<page>`
+three ways to use the music) · `#/verify` Verify a license · `#/thanks` After paying · `#/upload` Upload a song · `#/studio` My songs (the owner's
+songs) · `#/account` Account · `#/settings` Settings · `#/legal/<page>` The legal pages
 
 ## Working on it (Claude and Grok take turns)
 
