@@ -1,5 +1,6 @@
 # Builds the phone app from the app/ folder, for free, on GitHub's own machines.
 #  - Android: a test file (APK) that installs on any Android phone. It is attached to the pre-release "android-test".
+#  - Android, a look: the test file is opened on an Android emulator and pictures are taken (job "android-look").
 #  - iPhone: only checks that the Xcode project builds (for the simulator). A file that installs on a real iPhone
 #    needs Apple's paid developer account and its signing keys, which this repo does not have.
 # Runs when something in app/ changes (or this file). To get a fresh build after site changes: edit app/BUILD.
@@ -42,6 +43,43 @@ jobs:
           gh release create android-test "$RUNNER_TEMP/velora-android-test.apk" --prerelease --target "$GITHUB_SHA" \
             --title "Android test build (for testing, not for the public)" \
             --notes "A test version of the app, built from commit $GITHUB_SHA. It is not signed for the Play Store. On an Android phone: download the .apk file, open it, and allow the install."
+  # A look at the test file on a real Android (an emulator on GitHub's machine): it opens the app, taps the
+  # microphone, answers the phone's own question, and takes pictures. The pictures are attached to the pre-release
+  # "android-test" (look-a34-..., look-a36-...). Script: app/ci/look.py. Nobody here has an Android phone to hand.
+  android-look:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: velora-android-test, path: apk }
+      - name: Let the emulator use this machine's hardware
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: python3 app/ci/look.py look apk/velora-android-test.apk look-a${{ matrix.api }}-
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "velora-android-look-a${{ matrix.api }}", path: look, retention-days: 30 }
+      - name: Put the pictures next to the test file
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload android-test look/* --clobber --repo "$GITHUB_REPOSITORY"
   ios:
     runs-on: macos-15
     timeout-minutes: 40
