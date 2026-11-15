@@ -39,7 +39,10 @@ jobs:
       - name: Check that it is signed with the repo's test key (the same key every time)
         run: |
           signer="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
-          got="$("$signer" verify --print-certs "$RUNNER_TEMP/velora-android-test.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          echo "tool: $signer"
+          "$signer" verify --print-certs "$RUNNER_TEMP/velora-android-test.apk" > "$RUNNER_TEMP/signature.txt" 2>&1 || true
+          cat "$RUNNER_TEMP/signature.txt"
+          got="$(grep -i -m 1 'SHA-256 digest' "$RUNNER_TEMP/signature.txt" | sed 's/.*: *//' | tr -d ' \r\n')"
           want="$(tr -d ' \n' < android/test-signing/SHA256)"
           echo "signed with: $got"; echo "expected:    $want"
           test -n "$got" && test "$got" = "$want"
