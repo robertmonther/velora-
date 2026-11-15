@@ -29,7 +29,7 @@ Robert Monther's song library: full-song listening like Spotify, a non-stop radi
 | `vendor/` | Self-hosted, unchanged libraries: `supabase.js` (MIT), `lame.min.js` (lamejs, LGPL-3.0) |
 | `tests/run.py` | Automated walk-through of the site on a phone-size screen (66 checks) |
 | `tests/upload.py`, `tests/accounts.py`, `tests/payments.py`, `tests/fake_backend.py` | The whole upload (50 checks), accounts (19) and payments (27), against a stand-in server and a stand-in payment page on this computer |
-| `tests/payments_server.mjs`, `tests/app_mode.py` | The two payment functions' own code (32 checks, with the provider's real message shapes); the site as it runs inside the phone app, and the Android shell's start order (10 checks) |
+| `tests/payments_server.mjs`, `tests/app_mode.py` | The two payment functions' own code (32 checks, with the provider's real message shapes); the site as it runs inside the phone app, the Android shell's start order and its test key (11 checks) |
 | `tests/voice.mjs`, `tests/voice.py` | Voice: what a sentence means, in English and Arabic (48 checks, no browser), and the microphone from the tap to the music, with stand-ins for the speech services (28 checks) |
 | `app/` | The phone app: Android and iOS projects (Capacitor), icon, store pictures and draft store texts. See `app/README.md` |
 | `hosting/`, `scripts/build_site.py` | The server settings for our own hosting and the script that builds the folder to host. See `docs/GO-LIVE.md` |

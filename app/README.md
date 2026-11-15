@@ -13,7 +13,8 @@ exists yet.
 | `android/`, `ios/` | The two native projects (open in Android Studio or Xcode). |
 | `assets/` | The icon and splash sources. `npm run icons` makes every size from them. |
 | `store/` | Store pictures, the three icon ideas, and the draft store texts (`LISTING.md`). |
-| `BUILD` | Change the number in it and push: GitHub builds a fresh Android test file. |
+| `BUILD` | The number of the test build. Raise it and push: GitHub builds a fresh Android test file, and the phone shows that number as the app's version (`test-5`, `test-6`, ...). |
+| `android/test-signing/` | The test key that signs every Android test build (public on purpose, see its README). |
 | `../.github/workflows/app.yml` | The free build on GitHub's machines. |
 
 ## What is different inside the app
@@ -36,10 +37,14 @@ Checked in a phone-size browser with the app's bridge played by a stand-in: `pyt
 and the voice part in `python3 tests/voice.py`.
 
 **A look on a real Android, after every build.** GitHub opens the test file on an Android emulator (Android 14 and
-16), taps the microphone, answers the phone's own "allow the microphone?" question and takes pictures
+16), first puts the build before on it and installs the new one on top (the way a phone that already has the app
+gets it), then taps the microphone, answers the phone's own "allow the microphone?" question and takes pictures
 (`ci/look.py`, job "android-look" in `../.github/workflows/app.yml`). The pictures and notes are attached to the
 pre-release "android-test" (`look-a34-...`, `look-a36-...`). An emulator is a real Android, but not every phone:
-a maker's own skin (Xiaomi, Samsung) and a newer system WebView can still differ.
+a maker's own skin (Xiaomi, Samsung) and a newer system WebView can still differ. The emulators' WebView is older
+than 140, so there the app pads the page itself; on a phone with WebView 140 or newer the page gets the status-bar
+and gesture-bar areas and makes room with its own CSS (`html.native` in `styles.css`), which was looked at in a
+desktop Chrome with those areas switched on, not on a phone.
 
 **Found on Robert's phone on 15 November 2026 and fixed (build 4):** a stray native title bar above the page, with
 the launch picture stretched inside it. Cause: `MainActivity` touched the window before Capacitor had left the
@@ -47,12 +52,17 @@ launch theme, and on Android 12 and newer that theme has a title bar. Now Capaci
 theme has no title bar; the launch picture is the window's background only; the window behind the page is the
 page's own dark colour, so the strips behind the status and navigation bars are dark on light phones too.
 First try on a real phone: Robert, 15 November 2026 (voice worked; the title-bar fault above was found).
+The fix was confirmed on both emulators the same day: no title bar, the page's own top bar with the name, dark
+strips behind the phone's bars, the round icon on the launch screen.
 
 ## Building
 
 - **Android test file:** every push that changes something in `app/` builds `velora-android-test.apk` and attaches it
   to the pre-release "android-test" on GitHub. It is a debug build: fine for testing, not accepted by the Play Store.
-  Each build is signed with a fresh throw-away key, so remove the old test app before installing a new one.
+  From build 5 (15 November 2026) every test build is signed with the same test key (`android/test-signing/`), so a
+  new build installs over the one before it and the app keeps its sign-in and settings. Builds 1 to 4 each had their
+  own throw-away key: a phone that still has one of those needs the old app removed once. The build stops if the
+  finished file is not signed with that key.
 - **iPhone:** GitHub only checks that the Xcode project builds for the simulator. A file that installs on a real
   iPhone needs an Apple developer account and its signing keys.
 - On a computer: `npm ci`, `npm run sync`, then open `android/` in Android Studio or `ios/App/App.xcodeproj` in Xcode.

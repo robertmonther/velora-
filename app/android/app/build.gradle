@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+// The number of this test build: the number in app/BUILD. It becomes the app's version on the phone, so the phone
+// can tell a newer build from an older one, and "App info" shows which build is installed (test-5, test-6, ...).
+def veloraBuild = file('../../BUILD').exists() ? (file('../../BUILD').text.trim() ?: '1') : '1'
+
 android {
     namespace = "app.velora.test"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,13 +11,24 @@ android {
         applicationId "app.velora.test"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode veloraBuild.toInteger()
+        versionName "test-" + veloraBuild
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        // Test builds only. This key is public on purpose (see ../test-signing/README.md): every test build is
+        // signed the same way, so a new one installs over the one before it. It must never sign a store build.
+        debug {
+            storeFile file('../test-signing/velora-test.keystore')
+            storeType 'pkcs12'
+            storePassword 'android'
+            keyAlias 'velora-test'
+            keyPassword 'android'
         }
     }
     buildTypes {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Opens the Velora test app on the Android emulator that the CI job started, and takes pictures of it.
 
-    python3 app/ci/look.py <folder for the pictures> <the .apk> [prefix for the file names]
+    python3 app/ci/look.py <folder for the pictures> <the .apk> [prefix for the file names] [the build before]
 
 Why: nobody at the keyboard has an Android phone. This is a real Android (not a browser pretending), so it shows
 what a phone shows: the status bar, the launch, the phone's own "allow the microphone?" question.
@@ -12,6 +12,7 @@ import os, re, subprocess, sys, time
 OUT = sys.argv[1] if len(sys.argv) > 1 else "look"
 APK = sys.argv[2] if len(sys.argv) > 2 else "velora-android-test.apk"
 TAG = sys.argv[3] if len(sys.argv) > 3 else ""
+BEFORE = sys.argv[4] if len(sys.argv) > 4 else ""        # the test build before this one, when there is one
 APP = "app.velora.test"
 os.makedirs(OUT, exist_ok=True)
 
@@ -55,14 +56,37 @@ def note(line):
 
 note("Android " + sh("getprop ro.build.version.release") + " (API " + sh("getprop ro.build.version.sdk") + "), " + sh("wm size") + ", " + sh("wm density"))
 note("WebView: " + " | ".join(l.strip() for l in sh("dumpsys webviewupdate").splitlines() if "Current WebView package" in l or "versionName" in l)[:300])
-print(adb("install", "-r", APK).decode("utf-8", "replace"), flush=True)
+def install(path, *flags):
+    r = subprocess.run(["adb", "install", *flags, path], capture_output=True, timeout=240)
+    return (r.stdout + r.stderr).decode("utf-8", "replace").strip().replace("\n", " ")
+def version():
+    m = re.search(r"versionName=(\S+)", sh(f"dumpsys package {APP}"))
+    return m.group(1) if m else "?"
+
+# Does the new build install over the one before it, the way it will on a phone that already has the app?
+if BEFORE and os.path.isfile(BEFORE):
+    sh(f"pm uninstall {APP}")
+    first = install(BEFORE); was = version()
+    over = install(APK, "-r")
+    if "Success" in over:
+        note(f"Update: the build before ({was}) was on the phone; the new build installed over it without removing it (now {version()})")
+    else:
+        why = re.search(r"INSTALL_[A-Z_]+", over)
+        note(f"Update: the new build did NOT install over the build before ({was}): {why.group(0) if why else over[:160]}. On a phone the old app has to be removed first")
+        sh(f"pm uninstall {APP}"); print(install(APK, "-r"), flush=True)
+    if "Success" not in first: note("(the build before did not install at all: " + first[:160] + ")")
+else:
+    note("Update: there is no build before this one to try an update with")
+    print(install(APK, "-r"), flush=True)
+note("The phone says the app is version " + version())
 sh("logcat -c")
 
 # 0. The first moment after the tap on the icon (the launch screen), on a phone in light mode
 sh("cmd uimode night no"); sh(f"am force-stop {APP}"); sh(f"am start -n {APP}/.MainActivity"); time.sleep(0.3); shot("0-launch")
+time.sleep(1.2); shot("0b-launch-a-second-later")
 
 # 1. The home screen, on a phone in light mode (the way most phones are set)
-time.sleep(18); shot("1-home-light")
+time.sleep(17); shot("1-home-light")
 xml = screen(); open(os.path.join(OUT, f"{TAG}screen-home.xml"), "w").write(xml)
 note("On the home screen the phone sees: " + " / ".join(texts(xml))[:900])
 note("A native title bar above the page (the bug Robert found on 15 Nov) is " + ("THERE" if re.search(r'resource-id="android:id/action_bar(_container)?"', xml) else "not there"))

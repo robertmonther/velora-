@@ -3,7 +3,10 @@
 #  - Android, a look: the test file is opened on an Android emulator and pictures are taken (job "android-look").
 #  - iPhone: only checks that the Xcode project builds (for the simulator). A file that installs on a real iPhone
 #    needs Apple's paid developer account and its signing keys, which this repo does not have.
-# Runs when something in app/ changes (or this file). To get a fresh build after site changes: edit app/BUILD.
+# Runs when something in app/ changes (or this file). To get a fresh build after site changes: raise the number in
+# app/BUILD (it is also the build number the phone shows: test-5, test-6, ...).
+# Every Android test build is signed with the same test key (app/android/test-signing), so a new build installs
+# over the one before it. The job checks that, twice: the fingerprint, and a real install on top of the build before.
 name: App test builds
 on:
   push:
@@ -33,16 +36,33 @@ jobs:
         run: chmod +x gradlew && ./gradlew --no-daemon assembleDebug
       - name: Name the file
         run: cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/velora-android-test.apk" && ls -la "$RUNNER_TEMP/velora-android-test.apk"
+      - name: Check that it is signed with the repo's test key (the same key every time)
+        run: |
+          signer="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
+          got="$("$signer" verify --print-certs "$RUNNER_TEMP/velora-android-test.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          want="$(tr -d ' \n' < android/test-signing/SHA256)"
+          echo "signed with: $got"; echo "expected:    $want"
+          test -n "$got" && test "$got" = "$want"
       - uses: actions/upload-artifact@v4
         with: { name: velora-android-test, path: "${{ runner.temp }}/velora-android-test.apk", retention-days: 30 }
+      - name: Keep the build before this one (the emulator job installs the new one on top of it)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/previous"
+          gh release download android-test --pattern velora-android-test.apk --dir "$RUNNER_TEMP/previous" --repo "$GITHUB_REPOSITORY" || echo "no build before this one"
+          ls -la "$RUNNER_TEMP/previous"
+      - uses: actions/upload-artifact@v4
+        with: { name: velora-android-previous, path: "${{ runner.temp }}/previous", retention-days: 7, if-no-files-found: ignore }
       - name: Put it where a phone can download it
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          build="$(tr -d ' \n' < BUILD)"
           gh release delete android-test --yes --cleanup-tag || true
           gh release create android-test "$RUNNER_TEMP/velora-android-test.apk" --prerelease --target "$GITHUB_SHA" \
-            --title "Android test build (for testing, not for the public)" \
-            --notes "A test version of the app, built from commit $GITHUB_SHA. It is not signed for the Play Store. On an Android phone: download the .apk file, open it, and allow the install."
+            --title "Android test build $build (for testing, not for the public)" \
+            --notes "Test build $build of the app, from commit $GITHUB_SHA. It is signed with the test key, not for the Play Store. On an Android phone: download the .apk file, open it, and allow the install. From build 5 on, a new build installs over the one before it; a build older than 5 has to be removed from the phone first."
   # A look at the test file on a real Android (an emulator on GitHub's machine): it opens the app, taps the
   # microphone, answers the phone's own question, and takes pictures. The pictures are attached to the pre-release
   # "android-test" (look-a34-..., look-a36-...). Script: app/ci/look.py. Nobody here has an Android phone to hand.
@@ -58,6 +78,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: velora-android-test, path: apk }
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with: { name: velora-android-previous, path: previous }
       - name: Let the emulator use this machine's hardware
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -71,7 +94,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: python3 app/ci/look.py look apk/velora-android-test.apk look-a${{ matrix.api }}-
+          script: python3 app/ci/look.py look apk/velora-android-test.apk look-a${{ matrix.api }}- previous/velora-android-test.apk
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: "velora-android-look-a${{ matrix.api }}", path: look, retention-days: 30 }

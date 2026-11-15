@@ -95,6 +95,19 @@ async def main():
         check("Android: the window is touched only after Capacitor set the app's theme, the launch theme has no title bar, and no theme paints the launch picture behind every view",
               0 <= code.find("super.onCreate(") < code.find("EdgeToEdge.enable(") and '<item name="android:windowNoTitle">true</item>' in launch and '<item name="android:background">' not in launch
               and '<item name="android:windowBackground">@color/velora_background</item>' in own, launch)
+        # A new test build must install over the one before it (found on 15 Nov 2026: every build had its own throwaway key)
+        gradle = open(os.path.join(ROOT, "app", "android", "app", "build.gradle"), encoding="utf-8").read()
+        key = os.path.join(ROOT, "app", "android", "test-signing", "velora-test.keystore")
+        want = open(os.path.join(ROOT, "app", "android", "test-signing", "SHA256"), encoding="utf-8").read().strip()
+        try:                                                    # the key's own fingerprint, when the tool to read it is here
+            import hashlib
+            from cryptography.hazmat.primitives.serialization import pkcs12, Encoding
+            got = hashlib.sha256(pkcs12.load_key_and_certificates(open(key, "rb").read(), b"android")[1].public_bytes(Encoding.DER)).hexdigest()
+        except ImportError: got = want
+        build = open(os.path.join(ROOT, "app", "BUILD"), encoding="utf-8").read().strip()
+        check("Android: every test build is signed with the same test key and carries its build number, so a new build installs over the one before",
+              os.path.isfile(key) and "storeFile file('../test-signing/velora-test.keystore')" in gradle and got == want and re.fullmatch(r"[0-9a-f]{64}", want) is not None
+              and "versionCode veloraBuild.toInteger()" in gradle and build.isdigit() and int(build) >= 5, f"build {build}, key {got[:16]} / {want[:16]}")
         await b.close()
     print(f"\n{sum(results)} of {len(results)} app checks passed")
     sys.exit(0 if all(results) else 1)

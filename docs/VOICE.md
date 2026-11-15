@@ -1,7 +1,9 @@
 # Voice: ask for a song by voice
 
-Status on 15 November 2026: **built, and checked with stand-ins for the microphone.** Not yet tried with a real voice
-on a real phone: that is Robert's first test. Cost: nothing (no paid speech or AI service).
+Status on 15 November 2026: **built, checked with stand-ins for the microphone, and tried by Robert with his own
+voice in the Android test app the same day: it worked.** On the Android emulators the phone's own "allow the
+microphone?" question and the listening state were seen too. Not tried yet: an iPhone, and the microphone on the
+plain website link. Cost: nothing (no paid speech or AI service).
 
 Tap a microphone and say what you want, in English or in Arabic (Lebanese first):
 
@@ -28,7 +30,8 @@ the closest: Melancholic, Tender, Slowed").
 - In the player (Now Playing), next to Share.
 - A floating button. `config.js` > `voice.place`: `"fab"` a round button bottom right, `"pill"` a wide button bottom
   centre, `"top"` an icon in the top bar, `"off"` none. A visitor can change it for their own device in
-  Settings > Voice. **Robert has not chosen the shape yet** (three pictures were sent on 15 November).
+  Settings > Voice. **Robert's choice on 15 November 2026: the round button ("fab"), for now** (he saw three
+  pictures: round button, wide button, icon in the top bar).
 
 The sheet has a language switch (English, Arabic), examples to tap, and a field to type the same sentence
 (for a noisy place, or a browser that cannot listen). The sheet's own words are English only, like the rest of the site.
