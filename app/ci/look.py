@@ -46,6 +46,16 @@ def tap(p):
     sh(f"input tap {p[0]} {p[1]}")
 def texts(xml):
     return [t for t in re.findall(r'(?:text|content-desc)="([^"]+)"', xml)][:60]
+def settle():
+    """The emulator's own windows can sit on top of the app (its launcher or a system app "isn't responding"):
+    tap Wait until they are gone, and hand back the screen as it is then."""
+    xml = screen()
+    for _ in range(4):
+        wait = find(xml, r"^Wait$") if re.search(r"isn.{1,6}t responding", xml) else None
+        if not wait: break
+        note("(the emulator showed its own \"isn't responding\" window on top; tapped Wait)")
+        tap(wait); time.sleep(2.5); xml = screen()
+    return xml
 def start():
     sh(f"am force-stop {APP}")
     print(sh(f"am start -W -n {APP}/.MainActivity"), flush=True)
@@ -79,6 +89,7 @@ else:
     note("Update: there is no build before this one to try an update with")
     print(install(APK, "-r"), flush=True)
 note("The phone says the app is version " + version())
+time.sleep(6)                                            # installing keeps a small emulator busy for a moment
 sh("logcat -c")
 
 # 0. The first moment after the tap on the icon (the launch screen), on a phone in light mode
@@ -86,7 +97,7 @@ sh("cmd uimode night no"); sh(f"am force-stop {APP}"); sh(f"am start -n {APP}/.M
 time.sleep(1.2); shot("0b-launch-a-second-later")
 
 # 1. The home screen, on a phone in light mode (the way most phones are set)
-time.sleep(17); shot("1-home-light")
+time.sleep(15); settle(); time.sleep(1); shot("1-home-light")
 xml = screen(); open(os.path.join(OUT, f"{TAG}screen-home.xml"), "w").write(xml)
 note("On the home screen the phone sees: " + " / ".join(texts(xml))[:900])
 note("A native title bar above the page (the bug Robert found on 15 Nov) is " + ("THERE" if re.search(r'resource-id="android:id/action_bar(_container)?"', xml) else "not there"))
@@ -112,7 +123,7 @@ xml = screen(); note("A moment later: " + " / ".join(texts(xml))[:700])
 sh("input keyevent 4"); time.sleep(1)
 
 # 3. The same home screen on a phone in dark mode
-sh("cmd uimode night yes"); start(); time.sleep(14); shot("5-home-dark"); sh("cmd uimode night no")
+sh("cmd uimode night yes"); start(); time.sleep(13); settle(); shot("5-home-dark"); sh("cmd uimode night no")
 
 log = adb("logcat", "-d", "-v", "brief").decode("utf-8", "replace")
 keep = [l for l in log.splitlines() if re.search(r"Capacitor|SpeechRecognition|AndroidRuntime|chromium.*(Uncaught|Error)|app\.velora", l)]
