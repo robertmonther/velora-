@@ -1,6 +1,6 @@
 # The upload, step by step (pictures)
 
-Made on 11 Nov 2026 with `tests/upload_gallery.py`, using the song "Live Footage of Me Ruining This" (VOLUPTRA) and the stand-in server.
+Made with `tests/upload_gallery.py` (remade on 15 Nov 2026 with the current design), using the song "Live Footage of Me Ruining This" (VOLUPTRA) and the stand-in server.
 
 **Layout decision (Robert, 11 Nov 2026):** layout A, the 8 short steps shown here, is the one we keep. Layouts B and C at the end are pictures only, kept in case we want to change later.
 

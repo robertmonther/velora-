@@ -10,7 +10,7 @@
 name: App test builds
 on:
   push:
-    branches: [upload-studio, main]
+    branches: [main]
     paths: ["app/**", ".github/workflows/app.yml"]
 permissions:
   contents: write

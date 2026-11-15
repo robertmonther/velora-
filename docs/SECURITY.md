@@ -48,7 +48,6 @@ is the last line of this page.
 | No limit on how often one visitor may call the server (sign-up emails are limited by Supabase; the rest is not). | To watch | After launch; a limit at the host or in front of it if misuse shows |
 | Sign-up says "this email already has an account". It helps honest users and tells a curious person that an address is registered. | Robert decides | Before launch |
 | The build workflows use GitHub's own actions by version name, not by exact fingerprint. | Later | When the repo goes private |
-| The test branch `ci-perm-test` on GitHub is left over from a permission test and can be deleted. | Robert (one tap on GitHub) | Any time |
 | **The Strix run.** | Robert's OK for the cost | Before the real launch |
 
 ## The Strix run, when Robert says go

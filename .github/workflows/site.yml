@@ -4,7 +4,7 @@
 name: Site build
 on:
   push:
-    branches: [upload-studio, main]
+    branches: [main]
     paths-ignore: ["app/**", "docs/**", "tests/**", "supabase/**", "**.md", ".github/workflows/app.yml"]
 permissions:
   contents: write
