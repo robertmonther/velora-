@@ -286,7 +286,7 @@ function createMatcher(opt){
 // 2. The microphone in the page
 // ======================================================================================================
 let X = null, M = null, WORDS = {}, on = false;                 // what app.js lends us, the matcher, the dictionary
-let lang = "en", place = "fab";
+let lang = "en", place = "off";
 let isOpen = false, closing = false, wasPlaying = false, live = null, turn = 0, unlocked = false;
 const LANGS = ["en", "ar"], PLACES = ["fab", "pill", "top", "off"];
 const $ = s => document.querySelector(s);
@@ -296,14 +296,18 @@ const fill = (s, x, y) => String(s || "").replace("{x}", x == null ? "" : x).rep
 const cfg = () => (X && X.CFG && X.CFG.voice) || {};
 // What the browser or phone is asked to listen for. The first code is tried first.
 const codes = l => { const own = cfg().langs && cfg().langs[l]; return (l === "ar" ? [own, "ar-LB", "ar-SA", "ar"] : [own, "en-US", "en-GB", "en"]).filter((c, i, a) => c && a.indexOf(c) === i); };
+// A browser listens in one language at a time. Until the person has chosen (or a request has worked), start with the
+// first of English or Arabic in the phone's or browser's own list of languages.
+const deviceLang = () => { for(const l of [].concat(navigator.languages || [], navigator.language || [])){ if(/^ar\b/i.test(l)) return "ar"; if(/^en\b/i.test(l)) return "en"; } return "en"; };
+const other = () => lang === "ar" ? "en" : "ar";
 
 function init(ctx){
   X = ctx; WORDS = root.VELORA_VOICE_WORDS || {};
   if(cfg().enabled === false || !WORDS.text) return;
   M = createMatcher({ words: WORDS, songs: ctx.songs, cats: ctx.cats, artists: ctx.artists, extra: cfg().words });
   const savedLang = ctx.store.get("velora_voice_lang", ""), savedPlace = ctx.store.get("velora_voice_place", "");
-  lang = LANGS.indexOf(savedLang) >= 0 ? savedLang : /^ar/i.test(navigator.language || "") ? "ar" : "en";
-  place = PLACES.indexOf(savedPlace) >= 0 ? savedPlace : PLACES.indexOf(cfg().place) >= 0 ? cfg().place : "fab";
+  lang = LANGS.indexOf(savedLang) >= 0 ? savedLang : deviceLang();
+  place = PLACES.indexOf(savedPlace) >= 0 ? savedPlace : PLACES.indexOf(cfg().place) >= 0 ? cfg().place : "off";
   on = true; document.documentElement.classList.add("voice-on"); paintPlace();
   document.addEventListener("click", e => { const b = e.target.closest("[data-voice]"); if(b){ e.preventDefault(); open(); } });
   // The sheet lives in the site's own window (#modal). When that closes, for whatever reason, stop listening.
@@ -344,12 +348,14 @@ function setState(s, msg){
   const b = $("#vxMic"), st = $("#vxState"), t = T(); if(!b || !st) return;
   b.classList.toggle("on", s === "listening"); b.classList.toggle("wait", s === "starting" || s === "thinking"); b.disabled = s === "typeonly";
   b.setAttribute("aria-label", s === "listening" ? t.stop : t.tap); b.dataset.state = s;
-  st.textContent = msg !== undefined ? msg : s === "listening" ? t.listening : s === "starting" ? t.starting : s === "thinking" ? t.thinking : t.tap;
+  st.textContent = msg !== undefined ? msg : s === "listening" ? fill(t.listening, langName(lang)) : s === "starting" ? t.starting : s === "thinking" ? t.thinking : t.tap;
 }
 const heard = txt => { const h = $("#vxHeard"); if(h) h.textContent = txt ? "“" + txt + "”" : ""; };
 const results = html => { const r = $("#vxRes"); if(r) r.innerHTML = html || ""; };
 const showTips = yes => { const t = $("#vxTips"); if(t) t.hidden = !yes; };
 const rows = list => list.map(s => `<button type="button" class="srow" data-vpick="${X.esc(s.id)}">${X.row(s)}${X.icon("play", "srow-i")}</button>`).join("");
+// After a miss: listen again in the other language, in one tap (an Arabic sentence heard as English is noise).
+const otherBtn = cls => `<button type="button" class="btn ${cls} vx-other" data-vother>${X.icon("mic")}${X.esc(fill(T().other, langName(other())))}</button>`;
 const moodChips = () => `<div class="chips">${M.moods(6).map(c => `<button type="button" class="chip" data-vsay="${X.esc(c.name)}">${X.esc(c.name)}</button>`).join("")}</div>`;
 
 function open(){
@@ -364,16 +370,19 @@ function open(){
 function wire(){
   const box = $("#vx"); if(!box) return;
   box.addEventListener("click", e => {
-    const l = e.target.closest("[data-vlang]"), s = e.target.closest("[data-vsay]"), p = e.target.closest("[data-vpick]");
-    if(l){ if(l.dataset.vlang !== lang){                          // another language: draw the sheet again, then listen again
-      setLang(l.dataset.vlang); stopEars(); X.openModal(sheet()); wire(); try{ $("#vxMic").focus({ preventScroll: true }); }catch(_){}
-      const my = turn; setState("starting"); setTimeout(() => { if(my === turn && document.getElementById("vx")) listen(); }, 300);   // give the old ear a moment to let go
-    } return; }
+    const l = e.target.closest("[data-vlang]"), o = e.target.closest("[data-vother]"), s = e.target.closest("[data-vsay]"), p = e.target.closest("[data-vpick]");
+    if(l){ if(l.dataset.vlang !== lang) switchLang(l.dataset.vlang); return; }
+    if(o){ switchLang(other()); return; }
     if(s){ say(s.dataset.vsay); return; }
     if(p){ const song = (X.songs() || []).find(x => x.id === p.dataset.vpick); if(song) finish(() => { X.playSong(song); X.toast(fill(T().song, song.title)); }); return; }
     if(e.target.closest("#vxMic")){ const st = $("#vxMic").dataset.state; if(st === "listening" || st === "starting"){ if(live && live.stop) live.stop(); } else listen(); }
   });
   $("#vxForm").addEventListener("submit", e => { e.preventDefault(); const v = $("#vxText").value.trim(); if(v) say(v); });
+}
+// Another language: draw the sheet again in it, then listen again.
+function switchLang(l){
+  setLang(l); stopEars(); X.openModal(sheet()); wire(); try{ $("#vxMic").focus({ preventScroll: true }); }catch(_){}
+  const my = turn; setState("starting"); setTimeout(() => { if(my === turn && document.getElementById("vx")) listen(); }, 300);   // give the old ear a moment to let go
 }
 // The sheet closed by itself (the X, Escape, a tap outside, another page): stop listening, give the music back.
 function closed(){ isOpen = false; stopEars(); if(!closing && wasPlaying && X.current()) X.audio.play().catch(() => {}); closing = false; }
@@ -391,7 +400,7 @@ function listen(){
   const cb = {
     start: () => { if(my === turn) setState("listening"); },
     interim: txt => { if(my === turn) heard(txt); },
-    final: alts => { if(my !== turn) return; live = null; if(alts && alts.length) answer(alts); else fail("silent"); },
+    final: alts => { if(my !== turn) return; live = null; if(alts && alts.length) answer(alts, true); else fail("silent"); },
     error: code => { if(my !== turn) return; live = null; fail(code); }
   };
   live = kind === "web" ? hearWeb(codes(lang), cb, 0) : hearNative(codes(lang), cb);
@@ -469,9 +478,10 @@ function unlock(){
 }
 
 // ---------- From the words to the music ----------
-function say(txt){ stopEars(); heard(txt); setState("thinking"); answer([txt]); }
-function answer(alts){
+function say(txt){ stopEars(); heard(txt); setState("thinking"); answer([txt], false); }
+function answer(alts, spoken){
   const it = M.understand(alts), t = T(), c = X, cur = c.current();
+  if(spoken && it.type !== "none" && it.type !== "choices") setLang(lang);   // this language worked: start with it next time
   heard(it.said || it.heard || alts[0]);
   const isLive = () => c.mode() === "radio" || c.adOn();
   const blockedByAd = () => { if(!c.adOn()) return false; finish(() => { resume(); c.toast(t.ad); }); return true; };
@@ -496,11 +506,11 @@ function answer(alts){
     case "mood": return blockedByAd() || finish(() => {
       c.playList(it.songs, it.label); const name = it.names.join(" + "), n = it.songs.filter(c.playable).length;
       c.toast(it.closest ? fill(t.closest, it.closest.asked, it.closest.got.slice(0, 3).join(", ")) : fill(n === 1 ? t.mixOne : t.mix, name, n)); });
-    case "choices": setState("idle", t.choices); showTips(false); return results(rows(it.songs));
+    case "choices": setState("idle", t.choices); showTips(false); return results(rows(it.songs) + `<div class="vx-again">${otherBtn("ghost sm")}</div>`);
     case "empty": setState("idle", fill(t.empty, it.name)); showTips(false); return results(`<p class="muted small">${c.esc(t.pickMood)}</p>${moodChips()}`);
     default: {
       setState("idle", fill(t.none, it.heard)); heard(""); showTips(false); const near = it.near || [];
-      return results((near.length ? `<p class="muted small">${c.esc(t.closestTitle)}</p>${rows(near)}` : "") + `<p class="muted small">${c.esc(t.pickMood)}</p>${moodChips()}`);
+      return results(`<div class="vx-again">${otherBtn("light")}</div>` + (near.length ? `<p class="muted small">${c.esc(t.closestTitle)}</p>${rows(near)}` : "") + `<p class="muted small">${c.esc(t.pickMood)}</p>${moodChips()}`);
     }
   }
 }

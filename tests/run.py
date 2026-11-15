@@ -64,10 +64,24 @@ async def main():
             await pg.goto(BASE); await pg.wait_for_timeout(1200)
             info = await pg.evaluate("""() => ({tiles: document.querySelectorAll('.tile').length, stations: document.querySelectorAll('.station').length,
                 intro: !!document.querySelector('#intro'), onair: !!document.querySelector('.radio-banner'), title: document.title,
+                rent: (document.querySelector('.feat .rent-chip') || {}).textContent || '', tiers: !!document.querySelector('main .tiers'),
+                fab: getComputedStyle(document.querySelector('#voiceFab')).display !== 'none',
+                upload: getComputedStyle(document.querySelector('#uploadBtn')).backgroundColor, chip: getComputedStyle(document.querySelector('.pill.on')).backgroundColor,
                 inter: document.fonts.check('16px Inter'), wide: document.documentElement.scrollWidth - window.innerWidth,
                 dead: [...document.querySelectorAll('a')].filter(a => a.getAttribute('href') === '#').length})""")
-            check("home shows songs, stations, the radio and the intro", info["tiles"] > 10 and info["stations"] >= 4 and info["intro"] and info["onair"], str(info))
+            check("home shows songs, stations and the radio; the rent price sits next to Today's pick; no intro card, no plan cards, no floating microphone",
+                  info["tiles"] > 10 and info["stations"] >= 4 and info["onair"] and not info["intro"] and info["rent"] == "Rent €9" and not info["tiers"] and not info["fab"], str(info))
+            check("pink is kept for what is chosen: the selected chip is pink, the Upload button a quiet grey", info["chip"] == "rgb(224, 169, 176)" and info["upload"] != info["chip"], str(info))
             check("fonts are loaded from the site", info["inter"])
+            pp = await new_page(b); await pp.goto(BASE + "#/pricing"); await pp.wait_for_selector(".prem"); await pp.wait_for_timeout(400)
+            pr = await pp.evaluate("""() => ({h1: document.querySelector('.prem h1').textContent, cta: document.querySelector('.prem-cta').textContent, sub: !!document.querySelector('.prem-cta[data-sub]'),
+                covers: new Set([...document.querySelectorAll('.prem-grid i')].map(i => i.getAttribute('style'))).size, why: document.querySelectorAll('.prem-why li').length,
+                tiers: document.querySelectorAll('.tiers .tier').length, faq: document.querySelectorAll('.faq details').length,
+                white: getComputedStyle(document.querySelector('.prem-cta')).backgroundColor, wide: document.documentElement.scrollWidth - innerWidth})""")
+            check("the Premium tab leads like Spotify's: a wall of covers, the promise, one white button, why join, then the three ways and the questions",
+                  pr["h1"] == "Full songs you can use in your videos." and pr["cta"].startswith("Start Premium · ") and pr["sub"] and pr["covers"] >= 6 and pr["why"] == 5
+                  and pr["tiers"] == 3 and pr["faq"] >= 4 and pr["white"] == "rgb(255, 255, 255)" and pr["wide"] <= 0 and not pp.problems, str(pr) + str(pp.problems[:3]))
+            await pp.close()
             check("no sideways scrolling on the home page", info["wide"] <= 0, str(info["wide"]))
             check("no dead links", info["dead"] == 0, str(info["dead"]))
             await pg.screenshot(path=f"{SHOTS}/01-home.png"); await pg.screenshot(path=f"{SHOTS}/02-home-full.png", full_page=True)

@@ -918,13 +918,12 @@ function onAirHTML(){
 function home(){
   if(!S.length){ main.innerHTML=`<h1 class="pagetitle">Velora</h1><p class="muted">The songs are on their way.</p>`; return; }
   const today=dayShuffle(S), pick=today.find(s=>!isAdult(s))||today[0], rec=recents(), base=rec[0]||today[1]||pick, kPick=reg(today,"Today's pick");
-  const intro = !SALES || store.get("velora_intro_seen",false) ? "" : `<section class="intro" id="intro"><div><b>Full songs you can use in your videos.</b><span>Listen free. Rent a song from ${esc(PRICES.rent.price)} or buy the rights; every license comes with a certificate.</span></div><div class="intro-actions"><a class="btn sm primary" href="#/pricing">How it works</a><button type="button" class="btn sm ghost" id="introX">Got it</button></div></section>`;
   main.innerHTML = `
-  ${pills(null)}${intro}
+  ${pills(null)}
   <section class="feat">
     <button type="button" class="feat-cover" data-song="${esc(pick.id)}" data-list="${kPick}" style="${coverStyle(pick)}" aria-label="Play ${esc(pick.title)}"></button>
     <div class="feat-t"><div class="muted small">Today's pick</div><h2>${esc(pick.title)}</h2><div class="muted">${badge(pick)}${subOf(pick)} · ${esc(pick.mood)}</div>
-      <div class="feat-actions"><button type="button" class="icon-btn" data-lic="${esc(pick.id)}" aria-label="License ${esc(pick.title)}">${icon("tag")}</button><button type="button" class="round-play" data-song="${esc(pick.id)}" data-list="${kPick}" aria-label="Play ${esc(pick.title)}">${icon("play")}</button></div></div>
+      <div class="feat-actions"><button type="button" class="rent-chip" data-lic="${esc(pick.id)}" aria-label="Rent or buy ${esc(pick.title)}">${icon("tag")}Rent ${esc(PRICES.rent.price)}</button><button type="button" class="round-play" data-song="${esc(pick.id)}" data-list="${kPick}" aria-label="Play ${esc(pick.title)}">${icon("play")}</button></div></div>
   </section>
   <section>${head("Recommended for today")}${hrow(today,"Recommended for today")}</section>
   ${onAirHTML()}
@@ -934,8 +933,7 @@ function home(){
   <section><div class="morelike"><span class="ml-cover" style="${coverStyle(base)}"></span><div><div class="muted small">More like</div><h2>${esc(base.title)}</h2></div></div>${hrow(suggestions(base,8),"More like "+base.title)}</section>
   ${HOME.map(c=>`<section>${head(esc(c.name),plural(songsIn(c).length,"song"),`<a class="showall" href="${catLink(c)}" aria-label="Show all ${esc(c.name)}">Show all</a>`)}${hrow(songsIn(c),c.name)}</section>`).join("")}
   ${S.some(s=>s.video||s.clip)?`<section>${head("Videos","",`<a class="showall" href="#/videos" aria-label="Show all videos">Show all</a>`)}<div class="hrow vrow">${shortTiles()}</div></section>`:""}
-  ${SALES?`<section>${head("Three ways to use the music")}${tiersHTML()}</section>`:""}`;
-  const x=$("#introX"); if(x) x.onclick=()=>{ store.set("velora_intro_seen",true); $("#intro").remove(); };
+`;
 }
 // Vertical shorts and wide (16:9) music videos. Wide videos are ready in the code; add "clip" to a song to show one.
 const vidTile = (s,wide) => `<button type="button" class="vid${wide?" wide":""}" data-video="${esc(s.id)}"${wide?" data-wide":""} style="background:#141418 ${cssUrl((wide?s.clipPoster:s.poster)||s.art||"")} center/cover no-repeat" aria-label="Watch ${esc(s.title)}"><span class="yt">${icon("play")}${wide?"Music video":"Short"}</span><span class="ov"><b>${esc(s.title)}</b><span class="small muted">${subOf(s)}</span></span></button>`;
@@ -1056,7 +1054,20 @@ function videosView(){
   <section>${head("Shorts","Vertical videos of the songs")}
    ${shorts.length?`<div class="videos">${shortTiles()}</div>`:`<p class="muted small">Shorts are coming soon.</p>`}</section>`;
 }
-function pricing(){ main.innerHTML=`<h1 class="pagetitle">Pricing</h1><p class="muted">Three simple ways to use the music.</p>${tiersHTML()}
+// Why Premium, as the license terms say it (legal.js, section 2). Nothing here may promise more than the terms.
+const WHY = [["video","Every song, in the videos you publish"],["tag","A license certificate for every song you use"],["check","What you publish stays licensed, even after you stop"],["radio","Ad-free listening, always"],["spark","Every category and every new release"]];
+function pricing(){
+  const art=S.filter(s=>s.art && !isAdult(s) && !s.explicit), pool=art.length>=6?art:S.filter(s=>s.art).length?S.filter(s=>s.art):S, tiles=pool.length?[...Array(18)].map((_,i)=>pool[i%pool.length]):[];
+  main.innerHTML=`<section class="prem">
+  <div class="prem-art" aria-hidden="true"><div class="prem-grid">${tiles.map(s=>`<i style="${coverStyle(s)}"></i>`).join("")}</div></div>
+  <div class="prem-txt"><div class="prem-label"><span class="logo-dot"></span>Velora Premium</div>
+   <h1>Full songs you can use in your videos.</h1>
+   <p class="prem-sub">Listen free. Rent a song from ${esc(PRICES.rent.price)} or buy the rights; every license comes with a certificate.</p>
+   <button type="button" class="btn light prem-cta" data-sub>Start Premium · ${esc(PRICES.sub.price)} a month</button>
+   <p class="prem-fine">Premium is ${esc(PRICES.sub.price)} a month for the whole library and renews every month. Cancel any time.</p></div>
+ </section>
+ <section class="prem-why"><h2>Why join Premium?</h2><ul>${WHY.map(([i,t])=>`<li>${icon(i)}<span>${t}</span></li>`).join("")}</ul></section>
+ <section>${head("Three ways to use the music")}${tiersHTML()}</section>
  <div class="row-head" style="margin-top:28px"><h2>Questions</h2></div><div class="faq">
  <details open><summary>If I buy a song, is it only mine?</summary><p>No, buying usage rights is non-exclusive. The song stays in the Velora catalogue and others can license it too. If you need it to be yours alone, request Exclusive rights and the song will be removed for new buyers only when you ask.</p></details>
  <details><summary>What does renting cover?</summary><p>One piece of content on one channel, published within the rental time. Once it is published in time it may stay online.${payDemo()?" Example terms.":` The full text is in the <a href="#/license">License terms</a>.`}</p></details>

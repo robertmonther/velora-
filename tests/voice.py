@@ -67,8 +67,8 @@ async def cdn(route):          # inside the app the songs come from the web; her
     if not os.path.isfile(path): return await route.fulfill(status=404, headers=CORS, body="")
     await route.fulfill(status=200, headers={**CORS, "content-type": mimetypes.guess_type(path)[0] or "application/octet-stream", "accept-ranges": "bytes"}, body=open(path, "rb").read())
 
-async def new_page(browser, width=390, height=844, mobile=True, speech=SPEECH, app=False, config=None, store=None):
-    ctx = await browser.new_context(viewport={"width": width, "height": height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1, locale="en-US")
+async def new_page(browser, width=390, height=844, mobile=True, speech=SPEECH, app=False, config=None, store=None, locale="en-US"):
+    ctx = await browser.new_context(viewport={"width": width, "height": height}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1, locale=locale)
     await ctx.add_init_script("try{ localStorage.setItem('velora_age', JSON.stringify('adult')); }catch(e){}")
     for k, v in (store or {}).items(): await ctx.add_init_script(f"try{{ if(!sessionStorage.getItem('seeded_{k}')){{ localStorage.setItem({json.dumps(k)}, {json.dumps(json.dumps(v))}); sessionStorage.setItem('seeded_{k}', '1'); }} }}catch(e){{}}")
     if speech: await ctx.add_init_script(speech)
@@ -105,15 +105,23 @@ async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path=CHROME, args=["--autoplay-policy=no-user-gesture-required"])
 
-        # 1. A phone, on the website
-        pg = await new_page(b); await pg.goto(BASE); await pg.wait_for_selector(".feat"); await pg.wait_for_timeout(900)
+        # 0. The default (Robert, 15 Nov 2026): no floating microphone; the search field and the player keep theirs
+        d0 = await new_page(b); await d0.goto(BASE); await d0.wait_for_selector(".feat"); await d0.wait_for_timeout(700); s0 = await state(d0)
+        await d0.goto(BASE + "#/search"); await d0.wait_for_selector(".sbox-mic"); await d0.wait_for_timeout(400)
+        await tap_mic(d0, ".sbox-mic"); s1 = await state(d0); await say(d0, "play the skeleton key"); s2 = await state(d0)
+        await d0.click("#npVoice"); await d0.wait_for_selector('#vxMic[data-state="listening"]'); s3 = await state(d0); await say(d0, "pause"); s4 = await state(d0)
+        check("by default no microphone floats over the pages; the one in the search field and the one in the player both work",
+              not s0["fab"] and not s0["top"] and s1["sheet"] and s2["title"] == "The Skeleton Key" and s3["sheet"] and s4["paused"] and not s4["sheet"] and not d0.problems, str([s0["cls"], s1["st"], s2["title"], s4["toast"], d0.problems[:3]]))
+
+        # 1. A phone, on the website (the round button, chosen in Settings)
+        pg = await new_page(b, store={"velora_voice_place": "fab"}); await pg.goto(BASE); await pg.wait_for_selector(".feat"); await pg.wait_for_timeout(900)
         songs = await catalogue(pg); cat = lambda title: next(s for s in songs if s["title"] == title)
         s = await state(pg); await pg.screenshot(path=f"{SHOTS}/voice-1-round.png")
         box = await pg.evaluate("() => { const r = document.querySelector('#voiceFab').getBoundingClientRect(), t = document.querySelector('.tabbar').getBoundingClientRect(); return {w: r.width, h: r.height, right: innerWidth - r.right, aboveTabs: t.top - r.bottom}; }")
         check("the round microphone floats bottom right, above the tab bar, big enough for a thumb", s["fab"] and not s["fabText"] and not s["top"] and box["w"] >= 48 and box["h"] >= 48 and 8 <= box["right"] <= 24 and box["aboveTabs"] >= 8, str(box))
         await tap_mic(pg); s = await state(pg); lang = await pg.evaluate("window.__sr.started")
         await pg.screenshot(path=f"{SHOTS}/voice-4-listening.png")
-        check("a tap opens the sheet and listens at once, in English, with examples to say", s["sheet"] and s["st"] == "Listening…" and lang == ["en-US"] and len(s["tips"]) >= 3 and s["tips"][0].startswith("Play "), str(s) + str(lang))
+        check("a tap opens the sheet and listens at once, in English, with examples to say", s["sheet"] and s["st"] == "Listening in English…" and lang == ["en-US"] and len(s["tips"]) >= 3 and s["tips"][0].startswith("Play "), str(s) + str(lang))
         await say(pg, "play the skeleton key"); s = await state(pg)
         check("\"play the skeleton key\": the sheet closes, the song plays and its screen opens", not s["sheet"] and s["np"] and s["title"] == "The Skeleton Key" and not s["paused"] and "The Skeleton Key" in s["toast"], str(s))
 
@@ -132,7 +140,7 @@ async def main():
         await pg.click('#vx [data-vlang="ar"]'); await pg.wait_for_selector('#vx[data-lang="ar"] #vxMic[data-state="listening"]')
         s = await state(pg); lang = await pg.evaluate("window.__sr.started.slice(-1)[0]"); await pg.screenshot(path=f"{SHOTS}/voice-5-arabic.png")
         check("one tap switches to Arabic: it listens for Lebanese Arabic and shows Arabic sentences to say, while the sheet's own words stay English",
-              s["lng"] == "ar" and s["dir"] == "ltr" and lang == "ar-LB" and s["st"] == "Listening…" and len(s["tips"]) >= 3 and all(re.search(r"[\u0600-\u06FF]", t) for t in s["tips"]), str(s) + lang)
+              s["lng"] == "ar" and s["dir"] == "ltr" and lang == "ar-LB" and s["st"] == "Listening in Arabic…" and len(s["tips"]) >= 3 and all(re.search(r"[\u0600-\u06FF]", t) for t in s["tips"]), str(s) + lang)
         await say(pg, "حطلي شي رومانسي"); s = await state(pg)
         check("Arabic \"play me something romantic\": a Romantic row plays", not s["sheet"] and s["np"] and s["frm"] == "Romantic Radio" and "Romantic" in cat(s["title"])["tags"] and not s["paused"] and s["toast"].startswith("Romantic · "), str(s))
         await pg.click("#npVoice"); await pg.wait_for_selector('#vxMic[data-state="listening"]'); s0 = await state(pg); lang = await pg.evaluate("window.__sr.started.slice(-1)[0]")
@@ -145,7 +153,15 @@ async def main():
 
         # Not understood, a choice, a mood chip
         await say(pg, "play blinding lights"); s = await state(pg); await pg.screenshot(path=f"{SHOTS}/voice-6-not-found.png")
-        check("an unknown song: the sheet stays, says so, and offers moods to tap (nothing plays by a guess)", s["sheet"] and "blinding lights" in s["st"] and len(s["chips"]) >= 3 and s["paused"] and s["mic"] == "idle", str(s))
+        other = await pg.evaluate("(document.querySelector('#vxRes [data-vother]') || {}).textContent || ''")
+        check("an unknown song: the sheet stays, says so, offers moods to tap and the other language (nothing plays by a guess)", s["sheet"] and "blinding lights" in s["st"] and len(s["chips"]) >= 3 and s["paused"] and s["mic"] == "idle" and other == "Say it in Arabic", str(s) + other)
+        await pg.click("#vxRes [data-vother]"); await pg.wait_for_selector('#vx[data-lang="ar"] #vxMic[data-state="listening"]'); s1 = await state(pg); lang = await pg.evaluate("window.__sr.started.slice(-1)[0]")
+        await say(pg, "حطلي شي رومانسي"); s2 = await state(pg); kept = await pg.evaluate("localStorage.getItem('velora_voice_lang')")
+        await pg.click("#npVoice"); await pg.wait_for_selector('#vxMic[data-state="listening"]'); s3 = await state(pg); lang2 = await pg.evaluate("window.__sr.started.slice(-1)[0]")
+        check("\"Say it in Arabic\" listens again at once in Arabic; it plays, and the next tap starts in Arabic",
+              s1["st"] == "Listening in Arabic…" and lang == "ar-LB" and not s2["sheet"] and s2["frm"] == "Romantic Radio" and kept == '"ar"' and s3["lng"] == "ar" and lang2 == "ar-LB", str([s1["st"], lang, s2["frm"], kept, s3["lng"], lang2]))
+        await pg.click('#vx [data-vlang="en"]'); await pg.wait_for_selector('#vx[data-lang="en"] #vxMic[data-state="listening"]')
+        await say(pg, "play blinding lights"); s = await state(pg)
         await pg.click("#vxMic"); await pg.wait_for_selector('#vxMic[data-state="listening"]'); await say(pg, "burn"); s = await state(pg)
         check("a doubtful match is offered, not played", s["sheet"] and s["picks"] == ["If We Burn"] and s["st"] == "Did you mean…", str(s))
         await pg.click("#vxRes [data-vpick]"); await pg.wait_for_timeout(700); s = await state(pg)
@@ -186,8 +202,8 @@ async def main():
               and s_top["top"] and not s_top["fab"] and s_again["top"] and not s_again["fab"] and s_open["sheet"] and not s_off["fab"] and not s_off["top"] and not pg2.problems, str([s_pill["cls"], pill, s_top["cls"], s_again["cls"], s_off["cls"], pg2.problems[:3]]))
 
         # 3. A browser that cannot listen
-        pg3 = await new_page(b, speech=NO_SPEECH); await pg3.goto(BASE); await pg3.wait_for_selector(".feat"); await pg3.wait_for_timeout(700)
-        await pg3.click("#voiceFab"); await pg3.wait_for_selector("#vx"); await pg3.wait_for_timeout(300); s = await state(pg3)
+        pg3 = await new_page(b, speech=NO_SPEECH); await pg3.goto(BASE + "#/search"); await pg3.wait_for_selector(".sbox-mic"); await pg3.wait_for_timeout(700)
+        await pg3.click(".sbox-mic"); await pg3.wait_for_selector("#vx"); await pg3.wait_for_timeout(300); s = await state(pg3)
         await pg3.fill("#vxText", "play fashionably late"); await pg3.click("#vxForm button"); await pg3.wait_for_timeout(800); s2 = await state(pg3)
         check("a browser without a speech service says so and takes the same sentence typed", s["sheet"] and "can't listen" in s["st"] and s["mic"] == "typeonly" and s2["title"] == "Fashionably Late" and not s2["paused"] and not pg3.problems, str(s) + str(s2) + str(pg3.problems[:3]))
 
@@ -195,11 +211,11 @@ async def main():
         dk = await new_page(b, 1366, 860, mobile=False); await dk.goto(BASE); await dk.wait_for_selector(".feat"); await dk.wait_for_timeout(800)
         d = await dk.evaluate(f"() => {{ const seen = {SEEN}; return {{ field: seen(document.querySelector('.search-mic')), top: seen(document.querySelector('.voice-top-btn')), fab: seen(document.querySelector('#voiceFab')), over: document.documentElement.scrollWidth - innerWidth }}; }}")
         await tap_mic(dk, ".search-mic"); await say(dk, "play the radio"); s = await state(dk); await dk.screenshot(path=f"{SHOTS}/voice-7-desktop.png")
-        check("on a computer the top search field has the microphone, and it works", d["field"] and not d["top"] and d["fab"] and d["over"] <= 0 and s["radio"] and not s["paused"] and not dk.problems, str(d) + str(s) + str(dk.problems[:3]))
+        check("on a computer the top search field has the microphone, and it works", d["field"] and not d["top"] and not d["fab"] and d["over"] <= 0 and s["radio"] and not s["paused"] and not dk.problems, str(d) + str(s) + str(dk.problems[:3]))
 
         # 5. Inside the phone app
-        ap = await new_page(b, speech="", app=True); await ap.goto(BASE); await ap.wait_for_selector(".feat"); await ap.wait_for_timeout(700)
-        await ap.click("#voiceFab"); await ap.wait_for_selector("#vx"); await ap.wait_for_timeout(900); s = await state(ap)
+        ap = await new_page(b, speech="", app=True); await ap.goto(BASE + "#/search"); await ap.wait_for_selector(".sbox-mic"); await ap.wait_for_timeout(700)
+        await ap.click(".sbox-mic"); await ap.wait_for_selector("#vx"); await ap.wait_for_timeout(900); s = await state(ap)
         calls = await ap.evaluate("window.__native.filter(c => c.plugin === 'SpeechRecognition')")
         start = next((c for c in calls if c["method"] == "start"), None)
         check("inside the app the phone's own speech service is asked: permission first, then listening, then the song plays",
@@ -211,6 +227,14 @@ async def main():
         code = await ap.evaluate("window.__native.filter(c => c.method === 'start').slice(-1)[0].options.language")
         check("inside the app: a refused microphone points to the phone's settings, silence is explained, and Arabic is asked for as Lebanese Arabic",
               s["sheet"] and "phone's settings" in s["st"] and "didn't hear" in s2["st"] and code == "ar-LB" and s3["frm"] == "Romantic Radio" and not s3["paused"] and not ap.problems, str(s) + str(s2) + str(s3) + code + str(ap.problems[:3]))
+
+        # 5b. The first language comes from the phone's own list of languages
+        firsts = []
+        for loc in ("ar-LB", "nl-NL"):
+            lp = await new_page(b, locale=loc); await lp.goto(BASE + "#/search"); await lp.wait_for_selector(".sbox-mic"); await lp.wait_for_timeout(400)
+            await tap_mic(lp, ".sbox-mic"); firsts.append([await lp.evaluate("navigator.languages.join(',')"), await lp.evaluate("window.__sr.started[0]"), (await state(lp))["st"]])
+        check("a phone set to Arabic starts listening in Arabic; a phone set to another language starts in English",
+              firsts[0][1] == "ar-LB" and firsts[0][2] == "Listening in Arabic…" and firsts[1][1] == "en-US" and firsts[1][2] == "Listening in English…", str(firsts))
 
         # 6. Switched off, and the server headers
         off = await new_page(b, config=CFG.replace("voice: { enabled: true", "voice: { enabled: false")); await off.goto(BASE + "#/search"); await off.wait_for_selector(".sbox"); await off.wait_for_timeout(500)

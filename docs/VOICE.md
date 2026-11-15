@@ -28,10 +28,11 @@ the closest: Melancholic, Tender, Slowed").
 
 - In the top search field (computer) and in the Search page's field.
 - In the player (Now Playing), next to Share.
-- A floating button. `config.js` > `voice.place`: `"fab"` a round button bottom right, `"pill"` a wide button bottom
-  centre, `"top"` an icon in the top bar, `"off"` none. A visitor can change it for their own device in
-  Settings > Voice. **Robert's choice on 15 November 2026: the round button ("fab"), for now** (he saw three
-  pictures: round button, wide button, icon in the top bar).
+- A floating button, **off since the evening of 15 November 2026 (Robert)**: it covered the radio's list and the
+  search tiles, and the search field and the player already have a microphone. `config.js` > `voice.place`: `"off"`
+  none, `"fab"` a round button bottom right, `"pill"` a wide button bottom centre, `"top"` an icon in the top bar.
+  A visitor can still switch it on for their own device in Settings > Voice. (That morning he had picked the round
+  button "for now", after three pictures.)
 
 The sheet has a language switch (English, Arabic), examples to tap, and a field to type the same sentence
 (for a noisy place, or a browser that cannot listen). The sheet's own words are English only, like the rest of the site.
@@ -44,7 +45,14 @@ The music pauses while it listens, and comes back if the sheet is closed without
   there the sheet says so and offers typing. The speech service needs an internet connection.
 - **Inside the phone app:** a web page inside an app has no speech service, so the app uses the phone's own through
   the plugin `@capgo/capacitor-speech-recognition` (`app/README.md`). The phone asks for the microphone once.
-- One language per request (the switch in the sheet; remembered on the device). The codes asked for are in
+- One language per request: a browser's speech service, and the phone's, listen in one language at a time, so an
+  Arabic sentence heard as English comes out as noise (Robert found this on 15 November 2026). So:
+  - the first time, Velora starts with the first of English or Arabic in the phone's own list of languages
+    (a phone set to Arabic starts in Arabic; any other phone in English);
+  - the sheet says which language it is listening in ("Listening in English…") and has the switch at the top;
+  - after a miss it offers the other language as one button ("Say it in Arabic"), which listens again at once;
+  - the language of a request that worked is remembered on the device, so the next tap starts in it.
+  Arabic hears English titles too (written in Arabic letters, found by sound). The codes asked for are in
   `config.js` > `voice.langs` (`en-US`, `ar-LB`); if a phone does not know one, the next is tried.
 - One tap per request. A website cannot listen for a wake word.
 
@@ -74,7 +82,7 @@ site. The privacy page says so (`legal.js`). The server allows the microphone fo
 | `data/voice-words.js` | The dictionary: commands, moods, small words, in English and Arabic; the sheet's texts. **The one site file with Arabic text** |
 | `config.js` > `voice` | On or off, the floating button, the language codes, the owner's own words |
 | `tests/voice.mjs` | 48 checks of the understanding, on the real catalogue, no browser |
-| `tests/voice.py` | 28 checks in a phone-size browser, on a computer screen and inside the app, with stand-ins for the speech services |
+| `tests/voice.py` | 31 checks in a phone-size browser, on a computer screen and inside the app, with stand-ins for the speech services |
 
 ## Adding words
 

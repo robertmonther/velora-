@@ -254,7 +254,7 @@
     text: {
       langs: { en: "English", ar: "Arabic" },
       title: "Voice", langLabel: "The language you speak", tap: "Tap the mic and speak", stop: "Stop listening",
-      starting: "One moment…", listening: "Listening…", thinking: "One moment…", tryLabel: "Try saying",
+      starting: "One moment…", listening: "Listening in {x}…", thinking: "One moment…", tryLabel: "Try saying",
       typeLabel: "Type instead of speaking", type: "Or type it: a song, a mood, “next”…", go: "Go",
       blocked: "The microphone is blocked for this site. Allow it in your browser's site settings, then tap the mic again.",
       blockedApp: "The microphone is off for Velora. Allow it in the phone's settings (Apps, Velora, Permissions), then tap the mic again.",
@@ -263,7 +263,7 @@
       unsupported: "This browser can't listen. Type what you would say below, or open Velora in Chrome, Edge or Safari.",
       unavailable: "This phone has no speech service switched on. Type what you would say below.",
       failed: "That didn't work. Tap the mic and try again.",
-      none: "I didn't find “{x}”.", pickMood: "Pick a mood, or tap the mic and try again:", choices: "Did you mean…", closestTitle: "Closest songs:",
+      none: "I didn't find “{x}”.", other: "Say it in {x}", pickMood: "Pick a mood, or tap the mic and try again:", choices: "Did you mean…", closestTitle: "Closest songs:",
       empty: "There are no {x} songs in the library yet.",
       paused: "Paused", playing: "Playing", next: "Next song", prev: "Previous song", restart: "From the start", radio: "Velora Radio",
       shuffle: "Shuffling all songs", volume: "Volume {x}%", volumePhone: "Use the phone's volume buttons.",

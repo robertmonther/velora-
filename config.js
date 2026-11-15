@@ -62,15 +62,18 @@ window.VELORA_CONFIG = {
 
   /* Voice: the microphone. People tap it and say a song, a mood or a command ("next", "play the radio"),
      in English or in Arabic. enabled: false takes every microphone off the site.
-     place: the floating microphone button. "fab" = a round button, bottom right; "pill" = a wide button, bottom centre;
-            "top" = a small icon in the top bar; "off" = none. A visitor can change it for their own device in Settings.
+     place: the floating microphone button. "off" = none (Robert's choice, 15 Nov 2026: it covered the pages, and the
+            search field and the player already have a microphone); "fab" = a round button, bottom right; "pill" = a wide
+            button, bottom centre; "top" = a small icon in the top bar. A visitor can change it for their own device in Settings.
             The search field and the player always keep their own microphone.
      langs: what the browser or phone is asked to listen for (Arabic: "ar-LB" is Lebanese; "ar-SA", "ar-EG" also exist).
+            A browser listens in one language at a time. The first time, Velora picks English or Arabic from the phone's
+            own list of languages; after a miss it offers the other one in one tap; the language that worked is remembered.
      words: your own words. say = what people say, separated by commas; play = the categories it plays;
             clean: true leaves out explicit lyrics; name = what the player shows. Example:
             { say: "sunday morning, lazy sunday", play: ["Tender", "Dreamy"], clean: true, name: "Sunday morning" }
      The built-in dictionary (commands, moods, Arabic) is in data/voice-words.js. */
-  voice: { enabled: true, place: "fab", langs: { en: "en-US", ar: "ar-LB" }, words: [] },
+  voice: { enabled: true, place: "off", langs: { en: "en-US", ar: "ar-LB" }, words: [] },
 
   /* Channels shown in the footer. Only the ones with a real https address appear. */
   channels: [
