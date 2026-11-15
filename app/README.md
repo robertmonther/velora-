@@ -32,9 +32,21 @@ exists yet.
 - No preview banner. The page keeps clear of the status bar and the home indicator.
 - iPhone: music keeps playing with the screen locked (background audio is switched on).
 
-Checked in a phone-size browser with the app's bridge played by a stand-in: `python3 tests/app_mode.py` (9 checks),
+Checked in a phone-size browser with the app's bridge played by a stand-in: `python3 tests/app_mode.py` (10 checks),
 and the voice part in `python3 tests/voice.py`.
-**Not checked on a real phone.** That is the first thing to do with the test file.
+
+**A look on a real Android, after every build.** GitHub opens the test file on an Android emulator (Android 14 and
+16), taps the microphone, answers the phone's own "allow the microphone?" question and takes pictures
+(`ci/look.py`, job "android-look" in `../.github/workflows/app.yml`). The pictures and notes are attached to the
+pre-release "android-test" (`look-a34-...`, `look-a36-...`). An emulator is a real Android, but not every phone:
+a maker's own skin (Xiaomi, Samsung) and a newer system WebView can still differ.
+
+**Found on Robert's phone on 15 November 2026 and fixed (build 4):** a stray native title bar above the page, with
+the launch picture stretched inside it. Cause: `MainActivity` touched the window before Capacitor had left the
+launch theme, and on Android 12 and newer that theme has a title bar. Now Capacitor starts first; the launch
+theme has no title bar; the launch picture is the window's background only; the window behind the page is the
+page's own dark colour, so the strips behind the status and navigation bars are dark on light phones too.
+First try on a real phone: Robert, 15 November 2026 (voice worked; the title-bar fault above was found).
 
 ## Building
 

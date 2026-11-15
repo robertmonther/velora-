@@ -87,6 +87,14 @@ async def main():
         await pg2.goto(BASE + "#/song/" + song); await pg2.wait_for_selector("[data-share]"); await pg2.click("[data-share]"); await pg2.wait_for_selector("#shGo")
         await pg2.click("#shGo"); await pg2.wait_for_timeout(300); sh = await pg2.evaluate("window.__shared")
         check("once the site has an address, shared links point to the website", len(sh) == 1 and sh[0]["options"].get("url") == f"https://music.example/#/song/{song}" and await pg2.evaluate("!!document.querySelector('#shCopy')"), str(sh))
+        # The Android shell around the pages (found on Robert's phone, 15 Nov 2026: a stray title bar with the launch picture stretched in it)
+        java = open(os.path.join(ROOT, "app", "android", "app", "src", "main", "java", "app", "velora", "test", "MainActivity.java"), encoding="utf-8").read()
+        code = "\n".join(l for l in java.split("\n") if not l.strip().startswith("//"))
+        styles = open(os.path.join(ROOT, "app", "android", "app", "src", "main", "res", "values", "styles.xml"), encoding="utf-8").read()
+        launch = re.search(r'<style name="AppTheme.NoActionBarLaunch".*?</style>', styles, re.S)[0]; own = re.search(r'<style name="AppTheme.NoActionBar" .*?</style>', styles, re.S)[0]
+        check("Android: the window is touched only after Capacitor set the app's theme, the launch theme has no title bar, and no theme paints the launch picture behind every view",
+              0 <= code.find("super.onCreate(") < code.find("EdgeToEdge.enable(") and '<item name="android:windowNoTitle">true</item>' in launch and '<item name="android:background">' not in launch
+              and '<item name="android:windowBackground">@color/velora_background</item>' in own, launch)
         await b.close()
     print(f"\n{sum(results)} of {len(results)} app checks passed")
     sys.exit(0 if all(results) else 1)

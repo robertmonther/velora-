@@ -58,11 +58,18 @@ note("WebView: " + " | ".join(l.strip() for l in sh("dumpsys webviewupdate").spl
 print(adb("install", "-r", APK).decode("utf-8", "replace"), flush=True)
 sh("logcat -c")
 
+# 0. The first moment after the tap on the icon (the launch screen), on a phone in light mode
+sh("cmd uimode night no"); sh(f"am force-stop {APP}"); sh(f"am start -n {APP}/.MainActivity"); time.sleep(0.3); shot("0-launch")
+
 # 1. The home screen, on a phone in light mode (the way most phones are set)
-sh("cmd uimode night no"); start(); time.sleep(18); shot("1-home-light")
+time.sleep(18); shot("1-home-light")
 xml = screen(); open(os.path.join(OUT, f"{TAG}screen-home.xml"), "w").write(xml)
 note("On the home screen the phone sees: " + " / ".join(texts(xml))[:900])
-note("A native title bar (the bug of 15 Nov) is " + ("THERE" if re.search(r'resource-id="android:id/action_bar', xml) or re.search(r'class="android.widget.TextView"[^>]*text="Velora"', xml) or re.search(r'text="Velora"[^>]*class="android.widget.TextView"', xml) else "not there"))
+note("A native title bar above the page (the bug Robert found on 15 Nov) is " + ("THERE" if re.search(r'resource-id="android:id/action_bar(_container)?"', xml) else "not there"))
+web = re.search(r'resource-id="app\.velora\.test:id/webview"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml) or re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*resource-id="app\.velora\.test:id/webview"', xml)
+note("The page fills: " + (str(tuple(map(int, web.groups()))) if web else "?") + " of " + sh("wm size"))
+if "Voice: say a song" not in xml:                     # the page describes itself to the phone only once asked: ask again
+    time.sleep(2.5); xml = screen()
 
 # 2. The microphone: the phone's own question, then the listening sheet
 mic = find(xml, r"^Voice: say a song")

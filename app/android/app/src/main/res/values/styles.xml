@@ -9,14 +9,25 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <!-- The app's own theme: Capacitor switches to it as soon as the app starts. The window behind the page has
+         the page's own dark colour, so the strips behind the status bar and the navigation bar are never light,
+         whatever the phone's own light or dark setting. -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <item name="android:windowBackground">@color/velora_background</item>
     </style>
 
-
+    <!-- The launch theme: the first moment, before the page is there. Dark like the app, on light phones too.
+         No title bar on any Android version. The launch picture is the WINDOW's background only: written as
+         "android:background" it becomes the background of every view built under this theme (the stretched
+         disc of 15 Nov 2026). -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/velora_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
     </style>
 </resources>
