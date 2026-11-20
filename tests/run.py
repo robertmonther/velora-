@@ -305,6 +305,28 @@ async def main():
             await dk.keyboard.press("Escape"); await dk.wait_for_timeout(500)
             s2 = await state(dk)
             check("desktop: layout fits, player opens and Escape closes it", over <= 0 and s["np"] and not s2["np"] and not dk.problems, str(dk.problems[:3]))
+
+            # 10. Tablets (20 Nov 2026): iPad and Android tablets, held sideways and upright
+            wide = []
+            for w, h in [(1024, 1366), (1180, 820), (1239, 800)]:
+                tb = await new_page(b, w, h)
+                await tb.goto(BASE); await tb.wait_for_timeout(700)
+                m = await tb.evaluate("""() => ({ header: Math.round(document.querySelector('.topbar').getBoundingClientRect().height),
+                    field: getComputedStyle(document.querySelector('.topbar .search')).display,
+                    icon: getComputedStyle(document.querySelector('.topbar .search-btn')).display,
+                    over: document.documentElement.scrollWidth - innerWidth })""")
+                wide.append((w, m)); await tb.context.close()
+            check("tablets held sideways: the header stays on one line, the search field becomes the search icon, nothing sticks out",
+                  all(m["header"] < 90 and m["field"] == "none" and m["icon"] != "none" and m["over"] <= 0 for _, m in wide), str(wide))
+            up = []
+            for w, h in [(768, 1024), (820, 1180)]:
+                tb = await new_page(b, w, h)
+                await tb.goto(BASE + "#/song/rm-0006"); await tb.wait_for_selector(".song-cover"); await tb.wait_for_timeout(500)
+                m = await tb.evaluate("""() => { const c = document.querySelector('.song-cover').getBoundingClientRect(), t = document.querySelector('.split h1, .split .pagetitle, .split h2').getBoundingClientRect();
+                    return { cover: Math.round(c.width), beside: c.right <= t.left, over: document.documentElement.scrollWidth - innerWidth }; }""")
+                up.append((w, m)); await tb.context.close()
+            check("tablets held upright: the song page puts its cover (at most 280 px) beside the details",
+                  all(m["cover"] <= 280 and m["beside"] and m["over"] <= 0 for _, m in up), str(up))
             await b.close()
     finally:
         server.terminate()

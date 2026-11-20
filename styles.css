@@ -662,3 +662,20 @@ main section.prem-why{background:var(--bg2);border-radius:16px;margin-top:32px}
 /* The voice sheet after a miss: say it again in the other language, in one tap. */
 .vx-again{display:flex;justify-content:center;margin:2px 0 14px}
 .vx-again .btn svg{width:18px;height:18px}
+
+/* ---------- 20 Nov 2026: iPad and Android tablets ---------- */
+/* Held sideways (901 to 1239 px wide) the desktop header did not fit on one line and the Upload button fell onto a
+   line of its own. Here the search field becomes the search icon, as on phones (the Search page has the field and its
+   microphone), and "Verify a license" stays in the menu and the footer. */
+@media (min-width:901px) and (max-width:1239px){
+  .topbar{flex-wrap:nowrap;gap:10px}
+  .topbar .search{display:none}
+  .topbar .search-btn{display:inline-grid}
+  .topnav{flex-wrap:nowrap}
+  .topnav a[href="#/verify"]{display:none}
+}
+/* Held upright (600 to 900 px wide) tablets use the phone layout; the song page puts its cover beside the details
+   instead of filling the whole screen with it. */
+@media (min-width:600px) and (max-width:900px){
+  .split{grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:24px;align-items:start}
+}

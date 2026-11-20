@@ -75,6 +75,9 @@ getting the phone app ready for Google Play and the App Store (order of work bel
 - The same pages in a native shell for Android and iPhone (Capacitor 8), without the shop (store rules). Voice uses
   the phone's own speech service. Every Android test build is opened on Android 14 and 16 emulators on GitHub before
   it reaches a phone. `app/README.md`.
+- One layout for every screen: phones, tablets (iPad and Android, upright or sideways) and computers. Upright tablets
+  use the phone layout with the song cover beside its details; sideways tablets get the computer layout with a
+  one-line header.
 
 **Trust**
 - English only on screen (Robert's rule for all his apps; the voice dictionary is the one file with Arabic).
@@ -122,14 +125,14 @@ The website itself goes live by `docs/GO-LIVE.md` (hosting, the name and domain,
 | `app/` | The phone app: Android and iOS projects, icon, store pictures, draft store texts, the emulator check (`ci/look.py`) and the public test-signing key |
 | `hosting/`, `scripts/build_site.py` | Server settings for our own hosting and the script that builds the folder to host |
 | `.github/workflows/` | Free builds on GitHub for every push to `main`: the Android test file with its emulator pictures (`app.yml`) and the ready-to-host copy on the branch `site` (`site.yml`) |
-| `tests/` | The checks (286 in all, below) and the stand-in servers they use |
+| `tests/` | The checks (288 in all, below) and the stand-in servers they use |
 | `docs/` | `GO-LIVE.md` (what is left for the website, in order), `ARCHITECTURE.md`, `UPLOAD-STUDIO.md`, `PAYMENTS.md`, `LEGAL.md` (the lawyer's questions), `SECURITY.md`, `VOICE.md`, `ADDING-SONGS.md`, `upload-flow/` (pictures of the upload) |
 
 ## Run it
 
 ```bash
 python3 tests/server.py . 4173      # then open http://localhost:4173
-python3 tests/run.py                # the site on a phone-size screen: 68 checks (needs playwright, pillow, Chrome)
+python3 tests/run.py                # the site on phone, tablet and desktop sizes: 70 checks (needs playwright, pillow, Chrome)
 python3 tests/upload.py             # the upload: 50 (also needs ffmpeg)
 python3 tests/accounts.py           # accounts: 19
 python3 tests/payments.py           # payments, with a stand-in payment page: 27
